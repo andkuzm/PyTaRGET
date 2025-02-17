@@ -1,8 +1,8 @@
-import subprocess
-import shlex
 import re
-import os
+import shlex
+import subprocess
 from subprocess import TimeoutExpired
+
 
 # Reuse or adapt the TestVerdict class from your original code.
 class TestVerdict:
