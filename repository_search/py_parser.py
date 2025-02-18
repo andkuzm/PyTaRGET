@@ -15,6 +15,8 @@ class TestVerdict:
     TEST_NOT_EXECUTED = "test_not_executed"
     UNEXPECTED_FAILURE = "unexpected_failure"
     UNKNOWN = "unknown"
+    # Special verdict for unconventional test output
+    UNCONVENTIONAL = "unconventional"
 
     def __init__(self, status, error_lines, log=None):
         self.status = status
@@ -79,13 +81,19 @@ def parse_invalid_execution_py(log):
     # Additional patterns can be added as needed.
     return TestVerdict(TestVerdict.UNKNOWN, None, log)
 
-def compile_and_run_test_python(project_path, test_rel_path, test_method, log_path, save_logs=True, timeout=15*60):
+
+def compile_and_run_test_python(project_path, test_rel_path, test_method, log_path, save_logs=True, timeout=15 * 60):
     """
     Run a single Python test using pytest.
     - project_path: Path object to the project root.
-    - test_rel_path: Relative path to the test file.
+    - test_rel_path: Relative repository_path to the test file.
     - test_method: Name of the test method (e.g., 'test_example').
     - log_path: Path object where log file will be stored.
+
+    Returns a TestVerdict:
+      - SUCCESS if the test passes.
+      - FAILURE (or SYNTAX_ERR) if the test fails with a conventional, parsable result.
+      - UNCONVENTIONAL if the output doesn't match any known pattern.
     """
     test_file = project_path / test_rel_path
     if not test_file.exists():
@@ -96,7 +104,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     nodeid = f"{test_file}::{test_method}"
     cmd = ["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid]
 
-    # Optionally, set up environment variables or virtualenv if needed.
+    # Run the command and capture output.
     returncode, log = run_cmd(cmd, timeout=timeout)
 
     # Save log if needed.
@@ -105,17 +113,23 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
         log_path.mkdir(parents=True, exist_ok=True)
         log_file.write_text(log)
 
+    # If the test passed, return success.
     if returncode == 0:
         return parse_successful_execution_py(log)
     if returncode == 124:
         return TestVerdict(TestVerdict.TIMEOUT, None, log)
-    # Check for syntax error or test failure.
-    # Try to parse for failure first.
+
+    # Try to parse a conventional failure.
     failure = parse_test_failure_py(log, test_file.stem, test_method)
     if failure is not None:
         return failure
-    # Fallback to invalid execution parsing.
-    return parse_invalid_execution_py(log)
+
+    # Fallback: parse invalid execution.
+    invalid = parse_invalid_execution_py(log)
+    if invalid.status == TestVerdict.UNKNOWN:
+        # Mark as "unconventional" if the output doesn't match known patterns.
+        return TestVerdict(TestVerdict.UNCONVENTIONAL, None, log)
+    return invalid
 
 # Example usage:
 if __name__ == "__main__":
