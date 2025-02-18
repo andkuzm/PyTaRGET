@@ -2,6 +2,12 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/test/MITMf" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/test/OpenVoice" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/test/d2l-en" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/test/fourth_task" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/test/mitmproxy" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/test/mitogen" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/test/semantic-segmentation-pytorch" vcs="Git" />
   </component>
 </project>

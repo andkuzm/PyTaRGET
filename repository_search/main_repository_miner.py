@@ -1,6 +1,7 @@
 import csv
 import os
 import shutil
+import stat
 from pathlib import Path
 
 import repository_actions
@@ -72,7 +73,7 @@ class Main:
         # Optional: Clean up temporary directories or worktrees
         def handle_remove_readonly(func, path, exc_info):
             # Change the permissions and then call the removal function again
-            os.chmod(path, os.stat.S_IWRITE)
+            os.chmod(path, stat.S_IWRITE)
             func(path)
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
