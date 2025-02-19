@@ -80,6 +80,7 @@ class RepositoryActions:
         looking for .py files that contain test-related keywords such as
         "import pytest", "from unittest", or function definitions that start with "def test_".
         """
+        print("checking if tests exist")
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         # test_patterns = [r"import\s+pytest", r"from\s+unittest", r"def\s+test_", r"def\s+testing_", r"def\s+tests_"]
         # test_patterns = [r"def\s+test_", r"import\s+pytest", r"from\s+unittest"]
@@ -94,9 +95,11 @@ class RepositoryActions:
                         for line in content:
                             # Ensure line is not commented out
                             if any(re.search(pattern, line) for pattern in test_patterns):
+                                print(f"Test file found: {file_path}")
                                 return True
                     except Exception as e:
                         continue
+        print("tests not found")
         return False
 
     def has_broken_to_repaired_test(self):
@@ -106,75 +109,83 @@ class RepositoryActions:
             test_methods = self.find_test_methods(path_to_file)
             for rel_path, test_method in test_methods:
                 out = compile_and_run_test_python(Path(self.repository_path) / self.repository_name.split("/")[-1], rel_path, test_method, Path(self.repository_name).parent)
-                if out.status == TestVerdict.UNKNOWN:
-                    continue
                 if out.status == TestVerdict.SUCCESS:
                     working_test_methods.add((rel_path, test_method))
                 elif (rel_path, test_method) in working_test_methods:
                     if self.check_if_test_changed(rel_path, test_method):
+                        print("broken to repaired test found")
                         return True
                     else:
+                        print("broken to repaired test not found, continuing")
                         continue
         while not self.move_to_earlier_commit().__eq__("Error"):
+            print("has broken to repaired test loop")
+            print("currently working test methods: "+working_test_methods.__str__())
             for path_to_file in test_files:
                 test_methods = self.find_test_methods(path_to_file)
                 for rel_path, test_method in test_methods:
                     out = compile_and_run_test_python(Path(self.repository_path) / self.repository_name.split("/")[-1], rel_path, test_method, Path(self.repository_name).parent)
-                    if out.status == TestVerdict.UNKNOWN:
-                        continue
                     if out.status == TestVerdict.SUCCESS:
                         working_test_methods.add((rel_path, test_method))
                     elif (rel_path, test_method) in working_test_methods:
                         if self.check_if_test_changed(rel_path, test_method):
+                            print("broken to repaired test found")
                             return True
                         else:
+                            print("broken to repaired test found, continuing")
                             continue
+        print("broken to repaired tests are not found")
         return False
 
 
     def extract_broken_to_repaired_list(self):
+        self.move_to_later_commit()
+        print("extracting broken to repaired tests list")
         failing_tests = set() #rel_path, method_name, failing_hash, fixed_hash
         test_files = self.list_test_files()
         working_test_methods = set()
         for path_to_file in test_files:
             test_methods = self.find_test_methods(path_to_file)
             for rel_path, test_method in test_methods:
-                out = compile_and_run_test_python(Path(self.repository_path) / self.repository_name.split("/")[-1],
-                                                  rel_path, test_method, Path(self.repository_name).parent)
-                if out.status == TestVerdict.UNKNOWN:
-                    continue
+                out = compile_and_run_test_python(Path(self.repository_path) / self.repository_name.split("/")[-1], rel_path, test_method, Path(self.repository_name).parent)
                 if out.status == TestVerdict.SUCCESS:
                     working_test_methods.add((rel_path, test_method))
                 elif (rel_path, test_method) in working_test_methods:
                     if self.check_if_test_changed(rel_path, test_method):
                         failing_tests.add(Broken_to_repaired(self.current_hash, self.previous_hash, test_method, rel_path))
                         working_test_methods.remove((rel_path, test_method))
+                        print("broken test found")
                         continue
                     else:
+                        print("broken test not found, continuing")
                         continue
                 else:
                     if (rel_path, test_method) in working_test_methods:
                         working_test_methods.remove((rel_path, test_method))
+                        print("working test not found, continuing")
         while not self.move_to_earlier_commit().__eq__("Error"):
+            print("extracting broken to repaired tests list outer loop")
             for path_to_file in test_files:
+                print("extracting broken to repaired tests list inner loop")
                 test_methods = self.find_test_methods(path_to_file)
                 for rel_path, test_method in test_methods:
-                    out = compile_and_run_test_python(Path(self.repository_path) / self.repository_name.split("/")[-1],
-                                                      rel_path, test_method, Path(self.repository_name).parent)
-                    if out.status == TestVerdict.UNKNOWN:
-                        continue
+                    out = compile_and_run_test_python(Path(self.repository_path) / self.repository_name.split("/")[-1], rel_path, test_method, Path(self.repository_name).parent)
                     if out.status == TestVerdict.SUCCESS:
                         working_test_methods.add((rel_path, test_method))
                     elif (rel_path, test_method) in working_test_methods:
                         if self.check_if_test_changed(rel_path, test_method):
                             failing_tests.add(Broken_to_repaired(self.current_hash, self.previous_hash, test_method, rel_path))
                             working_test_methods.remove((rel_path, test_method))
+                            print("broken test found")
                             continue
                         else:
+                            print("broken test not found, continuing")
                             continue
                     else:
                         if (rel_path, test_method) in working_test_methods:
                             working_test_methods.remove((rel_path, test_method))
+                            print("working test not found, continuing")
+        print("broken to repair tests list extraction attempt finished")
         return failing_tests
 
     def extract_and_annotate_code(self, broken_to_repaired_instance):
@@ -194,6 +205,7 @@ class RepositoryActions:
           A tuple (annotated_source_code, annotated_test_code) or raises an error if checkout fails.
         """
         # Determine repository directory (assuming repository is cloned under repository_path/repo_folder)
+        print("attempting to extract code")
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
 
         # Checkout to the broken commit
@@ -254,6 +266,7 @@ class RepositoryActions:
             str: A single annotated string containing all the information.
         """
         # Generate a unified diff between broken_test and repaired_test.
+        print("attempting to annotate code")
         broken_lines = broken_test.splitlines()
         repaired_lines = repaired_test.splitlines()
         diff_lines = list(
@@ -362,6 +375,7 @@ class RepositoryActions:
         Returns:
           list: A list of lists, each containing [test_rel_path, test_method].
         """
+        print("fnding test methods")
         print(self.repository_path +"/"+ self.repository_name.split("/")[-1]+"/"+test_rel_path)
         base_dir = Path(self.repository_path) / self.repository_name.split("/")[-1] / test_rel_path
         try:
@@ -411,6 +425,8 @@ class RepositoryActions:
         Returns:
             float: A similarity ratio between 0 and 1.
         """
+
+        print("checking changeset similarity")
         dump1 = ast.dump(ast1, annotate_fields=False)
         dump2 = ast.dump(ast2, annotate_fields=False)
         return SequenceMatcher(None, dump1, dump2).ratio()
@@ -427,6 +443,7 @@ class RepositoryActions:
             set: A set of line numbers executed, or an empty set if no coverage data is found.
         """
         # Derive the source file's relative path.
+        print("attempting to extract coverage data")
         source_rel_path = rel_path.replace("tests", "src", 1)
         source_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / source_rel_path
 
@@ -463,6 +480,8 @@ class RepositoryActions:
         Returns:
           bool: True if the test changed and the covered source code is at least 95% similar between commits.
         """
+
+        print("checking changeset similarity")
         # Save current commit hash.
         current_commit = self.current_hash
 
@@ -513,6 +532,8 @@ class RepositoryActions:
         Returns:
             str: The extracted method code as a string, or an empty string if not found.
         """
+
+        print("extracting method code")
         test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
 
         if not test_file_path.exists():
@@ -598,12 +619,15 @@ class RepositoryActions:
         Returns:
             bool: True if the ASTs are equivalent, False if they have structural differences.
         """
+
+        print("checking changeset similarity")
         if ast1 is None or ast2 is None:
             return False  # One of the ASTs is missing, meaning the method changed
 
         return ast.dump(ast1, annotate_fields=False) == ast.dump(ast2, annotate_fields=False)
 
     def list_test_files(self):
+        print("attempting to get a list of test files")
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         files_paths = []
         # test_patterns = [r"import\s+pytest", r"from\s+unittest", r"def\s+test_", r"def\s+testing_", r"def\s+tests_"]

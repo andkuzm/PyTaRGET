@@ -42,6 +42,14 @@ class Main:
         else:
             print("Repository does not contain tests.")
 
+        def handle_remove_readonly(func, path, exc_info):
+            # Change the permissions and then call the removal function again
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+
+        dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
+        shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
+
     def save_case(self, repository_name, annotated_code):
         """
         Saves the annotated code along with the repository name and a timestamp
@@ -70,11 +78,4 @@ class Main:
 
         print(f"Saved annotated case for repository '{repository_name}' to {output_file}")
 
-        # Optional: Clean up temporary directories or worktrees
-        def handle_remove_readonly(func, path, exc_info):
-            # Change the permissions and then call the removal function again
-            os.chmod(path, stat.S_IWRITE)
-            func(path)
-        dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
-        shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
 
