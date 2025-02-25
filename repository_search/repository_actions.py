@@ -58,6 +58,7 @@ class RepositoryActions:
             raise Exception("Repository clone failed")
         else:
             self.set_full_permissions()
+            self.install_dependencies()
             print("Repository cloned successfully.")
 
         # Update current_hash with the latest commit hash from the cloned repository
@@ -365,38 +366,38 @@ class RepositoryActions:
         """
         Inspects a Python file at the given test_rel_path and returns a list of test methods.
         Each element in the returned list is a list: [test_rel_path, test_method],
-        where test_rel_path is the file repository_path relative to base_dir, and test_method is the name
+        where test_rel_path is the file repository_path relative to full_test_path, and test_method is the name
         of the test function. For methods in a class, the name is returned in the form "ClassName.method_name".
 
         Parameters:
           test_rel_path (str or Path): The repository_path to the Python source file.
-          base_dir (str or Path): The base directory to which the relative repository_path should be computed.
+          full_test_path (str or Path): The base directory to which the relative repository_path should be computed.
 
         Returns:
           list: A list of lists, each containing [test_rel_path, test_method].
         """
         print("fnding test methods")
-        print(self.repository_path +"/"+ self.repository_name.split("/")[-1]+"/"+test_rel_path)
-        base_dir = Path(self.repository_path) / self.repository_name.split("/")[-1] / test_rel_path
+        # print(self.repository_path +"/"+ self.repository_name.split("/")[-1]+"/"+test_rel_path.)
+        full_test_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / test_rel_path
         try:
-            source = base_dir.read_text(encoding="utf-8")
+            source = full_test_path.read_text(encoding="utf-8")
         except Exception as e:
-            print(f"Error reading {base_dir}: {e}")
+            print(f"Error reading {full_test_path}: {e}")
             return []
 
         try:
             tree = ast.parse(source)
         except Exception as e:
-            print(f"Error parsing {base_dir}: {e}")
+            print(f"Error parsing {full_test_path}: {e}")
             return []
 
-        # Compute the relative repository_path from base_dir
+        # Compute the relative repository_path from full_test_path
 
         test_methods = []
 
         # Collect module-level test functions (e.g., def test_example(): ...)
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
                 # We add the method with the relative file repository_path.
                 test_methods.append([test_rel_path, node.name])
 
@@ -431,45 +432,53 @@ class RepositoryActions:
         dump2 = ast.dump(ast2, annotate_fields=False)
         return SequenceMatcher(None, dump1, dump2).ratio()
 
-    def extract_covered_source_coverage(self, rel_path, test_method): #TODO possibly should check files more throughly
+    def extract_covered_source_coverage(self, rel_path, test_method):
         """
-        Uses coverage.py to run the specified test and returns the set of line numbers
-        executed in the relevant source file.
+        Uses coverage.py to run the specified test and returns a dictionary mapping file paths
+        (as strings) to the set of line numbers executed in those files during the test run.
 
-        We assume that the relevant source file is at a path derived by replacing
-        the 'tests' directory with 'src' in the relative path.
+        This method dynamically measures coverage across the entire repository (not just a single source file).
+
+        Parameters:
+            rel_path (str): Relative path (from repository root) to the test file.
+            test_method (str): Name of the test method (e.g., 'test_example').
 
         Returns:
-            set: A set of line numbers executed, or an empty set if no coverage data is found.
+            dict: A dictionary where keys are file paths and values are sets of executed line numbers.
+                  If no coverage data is found, returns an empty dictionary.
         """
-        # Derive the source file's relative path.
-        print("attempting to extract coverage data")
-        source_rel_path = rel_path.replace("tests", "src", 1)
-        source_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / source_rel_path
+        print("Attempting to extract dynamic coverage data for the entire repository...")
 
-        if not source_file_path.exists():
-            print(f"Warning: Covered source file {source_file_path} not found.")
-            return set()
+        # Determine the repository directory
+        repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+        if not repo_dir.exists():
+            print(f"Warning: Repository directory {repo_dir} not found.")
+            return {}
 
-        # Initialize coverage measurement on the source file.
-        cov = coverage.Coverage(source=[str(source_file_path)])
+        # Initialize coverage measurement over the entire repository
+        cov = coverage.Coverage(source=[str(repo_dir)])
         cov.start()
 
-        # Run the test using pytest.
-        test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
-        nodeid = f"{test_file_path}::{test_method}"
-        # We use the same run_cmd helper (you must ensure it is available).
-        returncode, log = run_cmd(["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid], timeout=15 * 60)
+        # Build the pytest nodeid for the test (file and test method)
+        test_file_path = repo_dir / rel_path
+        nodeid = f"{test_file_path.as_posix()}::{test_method}"
+
+        # Run the test using the same run_cmd helper (assumed to be available)
+        returncode, log = run_cmd(["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid],
+                                  timeout=15 * 60)
 
         cov.stop()
         cov.save()
 
-        # Retrieve the executed lines for the source file.
+        # Retrieve coverage data: create a dict mapping file paths to sets of executed lines.
         data = cov.get_data()
-        executed_lines = data.lines(str(source_file_path))
-        if executed_lines is None:
-            return set()
-        return set(executed_lines)
+        coverage_dict = {}
+        for filename in data.measured_files():
+            executed_lines = data.lines(filename)
+            if executed_lines:
+                coverage_dict[filename] = set(executed_lines)
+
+        return coverage_dict
 
     def check_if_test_changed(self, rel_path, test_method):
         """
@@ -645,7 +654,7 @@ class RepositoryActions:
                                 files_paths.append(file_path)
                     except Exception as e:
                         continue
-        return []
+        return files_paths
 
     def set_full_permissions(self):
         """
@@ -661,6 +670,51 @@ class RepositoryActions:
             for f in files:
                 file_path = os.path.join(root, f)
                 os.chmod(file_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+
+    def install_dependencies(self):
+        """
+        Attempts to install the required dependencies for a repository.
+
+        It first checks for a requirements.txt file in the repository root.
+        If found, it runs:
+            pip install -r requirements.txt
+
+        Additionally, if a setup.py file is present, it installs the package via:
+            pip install .
+
+        Parameters:
+            repo_dir (str or Path): The path to the cloned repository.
+        """
+        repo_path = Path(self.repository_path) / self.repository_name.split("/")[-1]
+
+        # Check for requirements.txt and install dependencies
+        req_file = repo_path / "requirements.txt"
+        if req_file.exists():
+            print(f"Installing dependencies from {req_file}")
+            try:
+                subprocess.run(
+                    ["pip", "install", "-r", str(req_file)],
+                    check=True
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"Error installing requirements from {req_file}: {e}")
+        else:
+            print("No requirements.txt found.")
+
+        # Optionally, check for setup.py and install the package if needed
+        setup_file = repo_path / "setup.py"
+        if setup_file.exists():
+            print("Found setup.py; installing package...")
+            try:
+                subprocess.run(
+                    ["pip", "install", "."],
+                    cwd=str(repo_path),
+                    check=True
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"Error installing package via setup.py: {e}")
+        else:
+            print("No setup.py found.")
 
 # test = RepositoryActions("andkuzm/fourth_task", "C:\\Users\\kandr\\PycharmProjects\\PyTaRGET\\test")
 # test.clone_repository_last()

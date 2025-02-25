@@ -101,7 +101,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
 
     # Build a pytest command.
     # Pytest uses the nodeid format: <file>::<test_method>
-    nodeid = f"{test_file}::{test_method}"
+    nodeid = f"{test_file.as_posix()}::{test_method}"
     cmd = ["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid]
 
     # Run the command and capture output.
@@ -119,6 +119,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
         print("test passed")
         return parse_successful_execution_py(log)
     print("test failed")
+    print(log)
     if returncode == 124:
         return TestVerdict(TestVerdict.TIMEOUT, None, log)
 

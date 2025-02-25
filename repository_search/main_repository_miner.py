@@ -24,7 +24,7 @@ class Main:
         repository.clone_repository_last()
 
         # Step 2: Check if the repository contains tests
-        repository_path = Path(self.repository_path) / self.repository_name.split("/")[-1]
+        # repository_path = Path(self.repository_path) / self.repository_name.split("/")[-1]
         if repository.has_tests():
             # Step 3: Check if there are broken-to-repaired test cases in the repo
             if repository.has_broken_to_repaired_test():

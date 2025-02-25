@@ -72,5 +72,5 @@ class GitHubSearch:
                 time.sleep(1)  # be respectful of rate limits
 
         print("Finished processing repositories.")
-searcher = GitHubSearch(github_token="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", repository_path="C:\\Users\\kandr\\PycharmProjects\\PyTaRGET\\test")
+searcher = GitHubSearch(github_token="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", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos")
 searcher.find_and_process_repositories()
