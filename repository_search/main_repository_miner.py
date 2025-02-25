@@ -7,7 +7,7 @@ from pathlib import Path
 import repository_actions
 
 class Main:
-    def __init__(self, repository_name, repository_path):
+    def __init__(self, repository_name, repository_path, out_path):
         self.repository_name = repository_name
         self.repository_path = repository_path
 
@@ -36,7 +36,7 @@ class Main:
                     # Execute the test on the buggy version to verify failure and then extract the failing test and related source code
                     annotated_code = repository.extract_and_annotate_code(repaired_test)
                     # Save the processed data into the database, along with metadata like commit hashes and timestamps
-                    self.save_case(self.repository_name, annotated_code)
+                    self.save_case(self.repository_name, annotated_code, repaired_test.broken, repaired_test.repaired)
             else:
                 print("No broken-to-repaired test cases found.")
         else:
@@ -50,15 +50,17 @@ class Main:
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
 
-    def save_case(self, repository_name, annotated_code):
+    def save_case(self, repository_name, annotated_code, broken_hash, repaired_hash):
         """
-        Saves the annotated code along with the repository name and a timestamp
-        into a CSV file. The CSV uses a pipe ('|') as the delimiter to avoid
-        issues with commas in the annotated code.
+        Saves the annotated code along with the repository name, timestamp,
+        broken commit hash, and repaired commit hash into a CSV file.
+        The CSV uses a pipe ('|') as the delimiter to avoid issues with commas in the annotated code.
 
         Parameters:
             repository_name (str): Name of the repository from which the code is taken.
             annotated_code (str): The fully annotated code string.
+            broken_hash (str): The commit hash where the test was broken.
+            repaired_hash (str): The commit hash where the test was fixed.
         """
         # Define the output file path; adjust the path as needed.
         output_file = Path(self.repository_path) / "annotated_cases.csv"
@@ -69,12 +71,10 @@ class Main:
         # Open the file in append mode with UTF-8 encoding.
         with output_file.open("a", newline='', encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile, delimiter='|')
-
             # If the file does not exist, write a header row.
             if not file_exists:
-                writer.writerow(["repository_name", "timestamp", "annotated_code"])
-
-            writer.writerow([repository_name, annotated_code])
+                writer.writerow(["repository_name", "annotated_code", "broken_hash", "repaired_hash"])
+            writer.writerow([repository_name, annotated_code, broken_hash, repaired_hash])
 
         print(f"Saved annotated case for repository '{repository_name}' to {output_file}")
 

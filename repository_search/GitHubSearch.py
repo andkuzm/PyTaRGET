@@ -6,9 +6,10 @@ import main_repository_miner
 
 class GitHubSearch:
 
-    def __init__(self, github_token, repository_path):
+    def __init__(self, github_token, repository_path, out_path):
         self.repository_path = repository_path
         self.github_token = github_token
+        self.out_path = out_path
         self.processed_file = Path("processed_repositories.txt")
 
     def find_and_process_repositories(self):
@@ -59,7 +60,7 @@ class GitHubSearch:
                         continue
                     processed_repos.add(full_name)
                     print(f"Processing repository: {full_name}")
-                    processor = main_repository_miner.Main(full_name, self.repository_path)
+                    processor = main_repository_miner.Main(full_name, self.repository_path, self.out_path)
                     processor.process_repository()
                     with self.processed_file.open("a", encoding="utf-8") as f:
                         f.write(full_name + "\n")
@@ -72,5 +73,5 @@ class GitHubSearch:
                 time.sleep(1)  # be respectful of rate limits
 
         print("Finished processing repositories.")
-searcher = GitHubSearch(github_token="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", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos")
+searcher = GitHubSearch(github_token="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", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos", out_path="C:\\Users\\kandr\\Desktop")
 searcher.find_and_process_repositories()
