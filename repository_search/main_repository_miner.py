@@ -2,6 +2,8 @@ import csv
 import os
 import shutil
 import stat
+import subprocess
+import sys
 from pathlib import Path
 
 import repository_actions
@@ -49,6 +51,8 @@ class Main:
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
+        cmd = [sys.executable, "-m", "pip", "uninstall", "-y", self.repository_name.split("/")[-1]]
+        result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
 
     def save_case(self, repository_name, annotated_code, broken_hash, repaired_hash):
         """

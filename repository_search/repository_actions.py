@@ -4,6 +4,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 from difflib import SequenceMatcher
 from pathlib import Path
 import re
@@ -42,28 +43,25 @@ class RepositoryActions:
 
         if os.path.exists(dest_dir):
             print(f"Repository already exists at {dest_dir}. Removing it...")
+
             # If the destination already exists, remove it for a fresh clone
             def handle_remove_readonly(func, path, exc_info):
                 # Change the permissions and then call the removal function again
                 os.chmod(path, stat.S_IWRITE)
                 func(path)
+
             shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
 
         print(f"Cloning repository from {repo_url} to {dest_dir}...")
         cmd = ["git", "clone", repo_url, dest_dir]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
 
-        if result.returncode != 0:
-            print("Error cloning repository:", result.stderr)
-            raise Exception("Repository clone failed")
-        else:
-            self.set_full_permissions()
-            self.install_dependencies()
-            print("Repository cloned successfully.")
+        cmd = [sys.executable, "-m", "pip", "install", "-e", "."]
+        result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
 
         # Update current_hash with the latest commit hash from the cloned repository
         hash_cmd = ["git", "rev-parse", "HEAD"]
-        hash_result = subprocess.run(hash_cmd, cwd=dest_dir, capture_output=True, text=True)
+        hash_result = subprocess.run(hash_cmd, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if hash_result.returncode == 0:
             latest_hash = hash_result.stdout.strip()
             self.set_current_hash(latest_hash)
@@ -211,7 +209,7 @@ class RepositoryActions:
 
         # Checkout to the broken commit
         cmd_checkout = ["git", "checkout", broken_to_repaired_instance.broken]
-        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True)
+        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
             return "Error"
 
@@ -226,7 +224,7 @@ class RepositoryActions:
 
         # Checkout to the repaired commit
         cmd_checkout = ["git", "checkout", broken_to_repaired_instance.repaired]
-        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True)
+        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
             return "Error"
 
@@ -317,7 +315,7 @@ class RepositoryActions:
 
         # Get the parent commit hash (HEAD^)
         cmd_parent = ["git", "rev-parse", "HEAD^"]
-        proc_parent = subprocess.run(cmd_parent, cwd=dest_dir, capture_output=True, text=True)
+        proc_parent = subprocess.run(cmd_parent, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_parent.returncode != 0:
             return "Error"
 
@@ -326,7 +324,7 @@ class RepositoryActions:
 
         # Checkout the parent commit
         cmd_checkout = ["git", "checkout", parent_hash]
-        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True)
+        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
             return "Error"
 
@@ -350,7 +348,7 @@ class RepositoryActions:
 
         # Get the parent commit hash (HEAD^)
         cmd_checkout = ["git", "checkout", self.previous_hash]
-        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True)
+        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
             print("Error checking out child commit:", proc_checkout.stderr)
             return "Error"
@@ -465,7 +463,7 @@ class RepositoryActions:
 
         # Run the test using the same run_cmd helper (assumed to be available)
         returncode, log = run_cmd(["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid],
-                                  timeout=15 * 60)
+                                  timeout=15 * 60, cwd=str(Path(self.repository_path) / self.repository_name.split("/")[-1]), env=os.environ)
 
         cov.stop()
         cov.save()
@@ -694,7 +692,7 @@ class RepositoryActions:
             try:
                 subprocess.run(
                     ["pip", "install", "-r", str(req_file)],
-                    check=True
+                    check=True, env=os.environ
                 )
             except subprocess.CalledProcessError as e:
                 print(f"Error installing requirements from {req_file}: {e}")
@@ -709,7 +707,7 @@ class RepositoryActions:
                 subprocess.run(
                     ["pip", "install", "."],
                     cwd=str(repo_path),
-                    check=True
+                    check=True, env=os.environ
                 )
             except subprocess.CalledProcessError as e:
                 print(f"Error installing package via setup.py: {e}")

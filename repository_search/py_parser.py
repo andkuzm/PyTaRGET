@@ -1,3 +1,4 @@
+import os
 import re
 import shlex
 import subprocess
@@ -41,11 +42,11 @@ class TestVerdict:
     def __str__(self):
         return f"TestVerdict(status={self.status})"
 
-def run_cmd(cmd, timeout, env=None):
+def run_cmd(cmd, timeout, cwd, env=os.environ):
     """Run a command using subprocess and return returncode and output."""
     try:
         # Use shlex.join if available (Python 3.8+), otherwise " ".join(cmd) works if there are no special characters.
-        proc = subprocess.Popen(shlex.split(" ".join(cmd)), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        proc = subprocess.Popen(shlex.split(" ".join(cmd)), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=cwd)
         stdout, stderr = proc.communicate(timeout=timeout)
         # Combine stdout and stderr for complete output
         output = stdout.decode("utf-8", errors="ignore") + "\n" + stderr.decode("utf-8", errors="ignore")
@@ -102,10 +103,10 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     # Build a pytest command.
     # Pytest uses the nodeid format: <file>::<test_method>
     nodeid = f"{test_file.as_posix()}::{test_method}"
-    cmd = ["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid]
+    cmd = ["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid ]
 
     # Run the command and capture output.
-    returncode, log = run_cmd(cmd, timeout=timeout)
+    returncode, log = run_cmd(cmd, timeout=timeout, cwd=project_path, env=os.environ)
 
     # Save log if needed.
     log_file = log_path / "test.log"
