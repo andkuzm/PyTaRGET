@@ -56,8 +56,23 @@ class RepositoryActions:
         cmd = ["git", "clone", repo_url, dest_dir]
         result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
 
+        sys.path = [p for p in sys.path if self.repository_path not in p]
+
+        # Prepare the three paths to add.
+        repo_root = str(Path(self.repository_path).resolve())
+        repo_folder = str((Path(self.repository_path) / self.repository_name.split("/")[-1]).resolve())
+        nested_repo = str((Path(self.repository_path) / self.repository_name.split("/")[-1] /
+                           self.repository_name.split("/")[-1]).resolve())
+
+        # Add the paths to sys.path.
+        for p in [repo_root, repo_folder, nested_repo]:
+            if p not in sys.path:
+                sys.path.insert(0, p)
+                print(f"Added repository path to sys.path: {p}")
+
+
         cmd = [sys.executable, "-m", "pip", "install", "-e", "."]
-        result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
+        print(subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir))
 
         # Update current_hash with the latest commit hash from the cloned repository
         hash_cmd = ["git", "rev-parse", "HEAD"]
