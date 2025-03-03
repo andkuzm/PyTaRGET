@@ -72,7 +72,9 @@ Key Methods:
         Extract the test method’s code (using extract_method_code() and extract_method_ast()) and dynamic coverage data (via extract_covered_source_coverage()).
         Generate a unified diff between the broken and repaired test code.
         Annotate the diff and code using special markers:
-            TESTCONTEXT: Contains the broken test (wrapped in [<BREAKAGE>]... [</BREAKAGE>]), the repaired test (wrapped in [<REPAIREDTEST>]... [</REPAIREDTEST>]), and the diff (annotated with [<HUNK>], [<DEL>], [<ADD>]).
+            TESTCONTEXT: Contains the broken test (wrapped in [<BREAKAGE>]... [</BREAKAGE>]),
+                the repaired test (wrapped in [<REPAIREDTEST>]... [</REPAIREDTEST>]),
+                and the diff (annotated with [<HUNK>], [<DEL>], [<ADD>]).
             REPAIRCONTEXT: Contains the related source code (wrapped in [<HUNK>]... [</HUNK>]).
         Returns the annotated string.
 
