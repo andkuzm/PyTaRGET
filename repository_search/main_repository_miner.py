@@ -12,6 +12,7 @@ class Main:
     def __init__(self, repository_name, repository_path, out_path):
         self.repository_name = repository_name
         self.repository_path = repository_path
+        self.out_path = out_path
 
     def get_repository_name(self):
         return self.repository_name
@@ -67,7 +68,7 @@ class Main:
             repaired_hash (str): The commit hash where the test was fixed.
         """
         # Define the output file path; adjust the path as needed.
-        output_file = Path(self.repository_path) / "annotated_cases.csv"
+        output_file = Path(self.out_path) / "annotated_cases.csv" #TODO check if out path correct
 
         # Determine if the file already exists
         file_exists = output_file.exists()
