@@ -34,7 +34,7 @@ class GitHubSearch:
 
         # Define the search queries. GitHub supports "license:none" to find repositories with no license.
         # For public non-commercial licenses, you might search for a known license identifier (e.g., "cc-by-nc").
-        queries = ["license:none language:python", "mit language:python", "apache-2.0 language:python", "gpl-3.0 language:python"]
+        queries = ["mit language:python", "apache-2.0 language:python", "gpl-3.0 language:python"] #TODO look some more about non-licensed repos
         base_url = "https://api.github.com/search/repositories"
 
         for query in queries:
@@ -74,5 +74,5 @@ class GitHubSearch:
                 time.sleep(1)  # be respectful of rate limits
 
         print("Finished processing repositories.")
-searcher = GitHubSearch(github_token=, repository_path=, out_path=)
+searcher = GitHubSearch(github_token="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", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos", out_path="C:\\Users\\kandr\\Desktop")
 searcher.find_and_process_repositories()
