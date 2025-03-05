@@ -20,6 +20,7 @@ class RepositoryActions:
         self.repository_path = repository_path
         self.current_hash = current_hash
         self.previous_hash = previous_hash
+        self.visited_commits = set()
 
     def get_repository_name(self):
         return self.repository_name
@@ -56,20 +57,6 @@ class RepositoryActions:
         cmd = ["git", "clone", repo_url, dest_dir]
         result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
 
-        sys.path = [p for p in sys.path if self.repository_path not in p]
-
-        # Prepare the three paths to add.
-        repo_root = str(Path(self.repository_path).resolve())
-        repo_folder = str((Path(self.repository_path) / self.repository_name.split("/")[-1]).resolve())
-        nested_repo = str((Path(self.repository_path) / self.repository_name.split("/")[-1] /
-                           self.repository_name.split("/")[-1]).resolve())
-
-        # Add the paths to sys.path.
-        for p in [repo_root, repo_folder, nested_repo]:
-            if p not in sys.path:
-                sys.path.insert(0, p)
-                print(f"Added repository path to sys.path: {p}")
-
 
         cmd = [sys.executable, "-m", "pip", "install", "-e", "."]
         print(subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir))
@@ -80,6 +67,7 @@ class RepositoryActions:
         if hash_result.returncode == 0:
             latest_hash = hash_result.stdout.strip()
             self.set_current_hash(latest_hash)
+            self.visited_commits.add(latest_hash)
             print(f"Current commit hash set to: {self.current_hash}")
         else:
             print("Error obtaining latest commit hash:", hash_result.stderr)
@@ -323,18 +311,29 @@ class RepositoryActions:
     def move_to_earlier_commit(self):
         """
         Moves the repository checkout to the parent commit of the current HEAD.
-        Updates the current_hash accordingly.
+        Before moving, saves the current commit as previous_hash.
+        Raises an exception if a cycle is detected.
         """
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         print(f"Current repository directory: {dest_dir}")
+
+        # Save the current commit as the child commit (for later reversal)
+        self.previous_hash = self.current_hash
 
         # Get the parent commit hash (HEAD^)
         cmd_parent = ["git", "rev-parse", "HEAD^"]
         proc_parent = subprocess.run(cmd_parent, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_parent.returncode != 0:
             return "Error"
-
         parent_hash = proc_parent.stdout.strip()
+
+        # Check for a cycle:
+        if parent_hash == self.current_hash:
+            raise Exception("Cycle detected: parent commit is the same as current commit.")
+        if parent_hash in self.visited_commits:
+            raise Exception("Cycle detected: commit has already been visited.")
+        self.visited_commits.add(parent_hash)
+
         print(f"Parent commit hash: {parent_hash}")
 
         # Checkout the parent commit
@@ -342,8 +341,6 @@ class RepositoryActions:
         proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
             return "Error"
-
-        # Update the current hash to the parent commit
         self.current_hash = parent_hash
         self.set_full_permissions()
         print(f"Repository is now at commit: {self.current_hash}")
@@ -351,26 +348,20 @@ class RepositoryActions:
 
     def move_to_later_commit(self):
         """
-        Moves the repository checkout to the child commit of the current HEAD.
-        Updates the current_hash accordingly.
+        Moves the repository checkout back to the child commit.
         """
-
         if self.previous_hash is None:
-            print("either attempting to reverse second time, or first commit")
+            print("Either attempting to reverse second time, or first commit")
             return "Error"
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         print(f"Current repository directory: {dest_dir}")
-
-        # Get the parent commit hash (HEAD^)
         cmd_checkout = ["git", "checkout", self.previous_hash]
         proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
             print("Error checking out child commit:", proc_checkout.stderr)
             return "Error"
-
-        # Update the current hash to the child commit
         self.current_hash = self.previous_hash
-        self.previous_hash = None
+        self.previous_hash = None  # Clear previous hash after moving back.
         self.set_full_permissions()
         print(f"Repository is now at commit: {self.current_hash}")
         return self.current_hash
