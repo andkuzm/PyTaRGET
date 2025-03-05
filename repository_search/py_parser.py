@@ -119,6 +119,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     # If the test passed, return success.
     if returncode == 0:
         print("test passed")
+        print(log)
         return parse_successful_execution_py(log)
 
     # At this point, returncode != 0.
@@ -127,6 +128,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     if not any(indicator in log for indicator in error_indicators):
         # If no error markers are present, assume it's just warnings.
         print("Only warnings detected; treating test as passed.")
+        print(log)
         return parse_successful_execution_py(log)
 
     print("test failed")
