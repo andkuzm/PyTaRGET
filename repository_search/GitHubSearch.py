@@ -34,7 +34,7 @@ class GitHubSearch:
 
         # Define the search queries. GitHub supports "license:none" to find repositories with no license.
         # For public non-commercial licenses, you might search for a known license identifier (e.g., "cc-by-nc").
-        queries = ["mit language:python stars:>50", "apache-2.0 language:python stars:>50", "license:Unlicense language:python stars:>50"] #TODO look some more about non-licensed repos
+        queries = ["license:mit language:python stars:>50 size:<1000", "license:apache-2.0 language:python stars:>50 size:<10000", "license:Unlicense language:python stars:>50 size:<10000"] #TODO look some more about non-licensed repos
         base_url = "https://api.github.com/search/repositories"
 
         for query in queries:

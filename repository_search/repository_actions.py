@@ -20,6 +20,7 @@ class RepositoryActions:
         self.current_hash = current_hash
         self.previous_hash = previous_hash
         self.visited_commits = set()
+        self.commit_counter = 0
 
     def get_repository_name(self):
         return self.repository_name
@@ -100,54 +101,110 @@ class RepositoryActions:
 
     def find_repaired_test_cases(self):
         """
-        Implements the new approach over a single parent-child pair:
-          1. Checkout the parent commit and record passing tests (with their source).
-          2. Checkout back to the child commit and record passing tests.
-          3. For tests passing in both commits, override the child’s test file with the parent’s test code.
-             If the parent’s test now fails on the child’s source, record the case.
+        Revised approach at test-method level:
+          1. Assume the repository is currently at the child commit.
+          2. Checkout the parent commit and extract the source code for all test methods.
+          3. Switch back to the child commit and similarly extract the source for all test methods.
+          4. For each test method present in both commits, if the parent's and child's code differ,
+             then:
+               a. Verify that the test passes in the parent commit.
+               b. Verify that the test passes in the child commit.
+               c. Run the parent's test code on the child's source using run_test_with_overridden_test_code.
+               d. If the override test fails, record it as a repaired test case.
         Returns:
           A set of Broken_to_repaired objects representing detected repaired test cases.
         """
         repaired_cases = set()
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
 
-        # Move to parent commit.
+        # Save child commit hash (assume we're initially at the child commit)
+        child_commit = self.current_hash
+
+        # Step 1: Checkout parent commit and extract test methods' code.
         parent_commit = self.move_to_earlier_commit()
         if parent_commit == "Error":
             return repaired_cases
 
-        print(f"At parent commit: {parent_commit}")
-        parent_passed = {}
+        parent_methods = {}
         for file in self.list_test_files():
             rel_path = str(file.relative_to(repo_dir))
             test_methods = self.find_test_methods(rel_path)
-            for (rp, test_method) in test_methods:
-                out = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
-                if out.status == TestVerdict.SUCCESS:
-                    parent_passed[(rel_path, test_method)] = self.extract_method_code(rel_path, test_method)
+            for (_, test_method) in test_methods:
+                code = self.extract_method_code(rel_path, test_method)
+                if code:
+                    parent_methods[(rel_path, test_method)] = code
 
-        # Move back to child commit.
+        # Step 2: Switch back to child commit and extract test methods' code.
         if self.move_to_later_commit() == "Error":
             return repaired_cases
 
-        print(f"At child commit: {self.current_hash}")
-        child_passed = {}
+        child_methods = {}
         for file in self.list_test_files():
             rel_path = str(file.relative_to(repo_dir))
             test_methods = self.find_test_methods(rel_path)
-            for (rp, test_method) in test_methods:
-                out = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
-                if out.status == TestVerdict.SUCCESS:
-                    child_passed[(rel_path, test_method)] = self.extract_method_code(rel_path, test_method)
+            for (_, test_method) in test_methods:
+                code = self.extract_method_code(rel_path, test_method)
+                if code:
+                    child_methods[(rel_path, test_method)] = code
 
-        # For tests that passed in both commits, run parent's test code against child's source.
-        for key, parent_code in parent_passed.items():
-            if key in child_passed:
-                result = self.run_test_with_overridden_test_code(key[0], key[1], parent_code)
-                if result.status != TestVerdict.SUCCESS:
-                    print(f"Repaired test detected: {key}")
-                    repaired_case = Broken_to_repaired(parent_commit, self.current_hash, key[1], key[0])
-                    repaired_cases.add(repaired_case)
+        # Step 3: Identify test methods that have changed.
+
+        # def is_test_method_changed(parent_code, child_code): #TODO verify
+        #     # Normalize the code by stripping trailing whitespace from each line.
+        #     parent_lines = [line.rstrip() for line in parent_code.splitlines()]
+        #     child_lines = [line.rstrip() for line in child_code.splitlines()]
+        #     diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
+        #     # If diff is not empty, there's at least one hunk change.
+        #     return len(diff) > 0
+        #
+        # changed_tests = set()
+        # for key in parent_methods:
+        #     if key in child_methods:
+        #         if is_test_method_changed(parent_methods[key], child_methods[key]):
+        #             changed_tests.add(key)
+        #         else:
+        #             print(f"Test {key} unchanged; skipping.")
+        #     else:
+        #         print(f"Test {key} not found in child commit; skipping.")
+
+        changed_tests = set()
+        for key in parent_methods:
+            if key in child_methods:
+                if parent_methods[key].strip() != child_methods[key].strip():
+                    changed_tests.add(key)
+                else:
+                    print(f"Test {key} unchanged; skipping.")
+            else:
+                print(f"Test {key} not found in child commit; skipping.")
+
+        # Step 4: For each changed test method, verify it passes in both commits and then run the override.
+        for key in changed_tests:
+            rel_path, test_method = key
+
+            # Verify in parent commit.
+            if self.move_to_earlier_commit() == "Error":
+                continue
+            parent_result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
+            if parent_result.status != TestVerdict.SUCCESS:
+                print(f"Test {key} does not pass in parent commit; skipping.")
+                if self.move_to_later_commit() == "Error":
+                    continue
+                continue
+
+            # Switch to child commit.
+            if self.move_to_later_commit() == "Error":
+                continue
+            child_result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
+            if child_result.status != TestVerdict.SUCCESS:
+                print(f"Test {key} does not pass in child commit; skipping.")
+                continue
+
+            # Run the override: inject parent's test code into child's source.
+            result = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
+            if result.status != TestVerdict.SUCCESS:
+                print(f"Repaired test detected: {key}")
+                repaired_case = Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path)
+                repaired_cases.add(repaired_case)
 
         return repaired_cases
 
@@ -212,6 +269,10 @@ class RepositoryActions:
         Before moving, saves the current commit as previous_hash.
         Raises an exception if a cycle is detected.
         """
+        if self.commit_counter >= 300:
+            print("Commit counter limit reached. Stopping further processing of commits in this repository.")
+            return "Error"
+
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         print(f"Current repository directory: {dest_dir}")
 
@@ -240,8 +301,9 @@ class RepositoryActions:
         if proc_checkout.returncode != 0:
             return "Error"
         self.current_hash = parent_hash
+        self.commit_counter += 1  # Increment commit counter for every successful commit move.
         self.set_full_permissions()
-        print(f"Repository is now at commit: {self.current_hash}")
+        print(f"Repository is now at commit: {self.current_hash}, processed commits: {self.commit_counter}")
         return parent_hash
 
     def move_to_later_commit(self):
