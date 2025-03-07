@@ -332,7 +332,7 @@ class RepositoryActions:
         # self.visited_commits.add(parent_hash)
 
         print(f"Parent commit hash: {parent_hash}")
-
+        print("moving to parent commit")
         # Checkout the parent commit
         cmd_checkout = ["git", "checkout", parent_hash]
         proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
@@ -353,6 +353,7 @@ class RepositoryActions:
             return "Error"
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         print(f"Current repository directory: {dest_dir}")
+        print("moving to child commit")
         cmd_checkout = ["git", "checkout", self.previous_hash]
         proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
