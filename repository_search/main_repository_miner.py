@@ -51,3 +51,6 @@ class Main:
             writer.writerow([repository_name, annotated_code, broken_hash, repaired_hash])
 
         print(f"Saved annotated case for repository '{repository_name}' to {output_file}")
+# Main("cool-RR/PySnooper", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos", out_path="C:\\Users\\kandr\\Desktop").process_repository()
+# ra = repository_actions.RepositoryActions("cool-RR/PySnooper", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos")
+# print(ra.extract_covered_source_coverage('tests\\test_mini_toolbox.py', 'test_output_capturer_doesnt_swallow_exceptions'))

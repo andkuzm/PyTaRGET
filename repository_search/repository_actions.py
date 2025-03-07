@@ -101,110 +101,111 @@ class RepositoryActions:
 
     def find_repaired_test_cases(self):
         """
-        Revised approach at test-method level:
-          1. Assume the repository is currently at the child commit.
-          2. Checkout the parent commit and extract the source code for all test methods.
-          3. Switch back to the child commit and similarly extract the source for all test methods.
-          4. For each test method present in both commits, if the parent's and child's code differ,
-             then:
-               a. Verify that the test passes in the parent commit.
-               b. Verify that the test passes in the child commit.
-               c. Run the parent's test code on the child's source using run_test_with_overridden_test_code.
-               d. If the override test fails, record it as a repaired test case.
+        Revised approach iterating over commit pairs:
+          The method iterates over commit pairs (child and its immediate parent) until it reaches
+          the beginning of the commit history or a stop condition from move_to_earlier_commit.
+          For each pair:
+             1. In the parent commit, extract test methods' source code.
+             2. Switch back to the child commit and extract test methods' source code.
+             3. For each test method present in both commits, if the parent's and child's code differ
+                (determined at hunk-level using difflib), then:
+                 a. Verify the test passes in the parent commit.
+                 b. Verify the test passes in the child commit.
+                 c. Run the parent's test code on the child's source using run_test_with_overridden_test_code.
+                 d. If the override test fails, record it as a repaired test case.
+          After processing the pair, update the current commit to the parent commit for the next iteration.
         Returns:
           A set of Broken_to_repaired objects representing detected repaired test cases.
         """
         repaired_cases = set()
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
 
-        # Save child commit hash (assume we're initially at the child commit)
-        child_commit = self.current_hash
+        while True:
+            # Save current commit as child commit for this pair.
+            child_commit = self.current_hash
 
-        # Step 1: Checkout parent commit and extract test methods' code.
-        parent_commit = self.move_to_earlier_commit()
-        if parent_commit == "Error":
-            return repaired_cases
+            # Attempt to move to the parent commit.
+            parent_commit = self.move_to_earlier_commit()
+            if parent_commit == "Error":
+                print("No further commits or stop condition reached. Ending iteration.")
+                break
 
-        parent_methods = {}
-        for file in self.list_test_files():
-            rel_path = str(file.relative_to(repo_dir))
-            test_methods = self.find_test_methods(rel_path)
-            for (_, test_method) in test_methods:
-                code = self.extract_method_code(rel_path, test_method)
-                if code:
-                    parent_methods[(rel_path, test_method)] = code
+            print(f"Processing commit pair: Parent: {parent_commit} | Child: {child_commit}")
 
-        # Step 2: Switch back to child commit and extract test methods' code.
-        if self.move_to_later_commit() == "Error":
-            return repaired_cases
+            # --- Extract test methods in the parent commit ---
+            parent_methods = {}
+            for file in self.list_test_files():
+                rel_path = str(file.relative_to(repo_dir))
+                test_methods = self.find_test_methods(rel_path)
+                for (_, test_method) in test_methods:
+                    code = self.extract_method_code(rel_path, test_method)
+                    if code:
+                        parent_methods[(rel_path, test_method)] = code
 
-        child_methods = {}
-        for file in self.list_test_files():
-            rel_path = str(file.relative_to(repo_dir))
-            test_methods = self.find_test_methods(rel_path)
-            for (_, test_method) in test_methods:
-                code = self.extract_method_code(rel_path, test_method)
-                if code:
-                    child_methods[(rel_path, test_method)] = code
-
-        # Step 3: Identify test methods that have changed.
-
-        # def is_test_method_changed(parent_code, child_code): #TODO verify
-        #     # Normalize the code by stripping trailing whitespace from each line.
-        #     parent_lines = [line.rstrip() for line in parent_code.splitlines()]
-        #     child_lines = [line.rstrip() for line in child_code.splitlines()]
-        #     diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
-        #     # If diff is not empty, there's at least one hunk change.
-        #     return len(diff) > 0
-        #
-        # changed_tests = set()
-        # for key in parent_methods:
-        #     if key in child_methods:
-        #         if is_test_method_changed(parent_methods[key], child_methods[key]):
-        #             changed_tests.add(key)
-        #         else:
-        #             print(f"Test {key} unchanged; skipping.")
-        #     else:
-        #         print(f"Test {key} not found in child commit; skipping.")
-
-        changed_tests = set()
-        for key in parent_methods:
-            if key in child_methods:
-                if parent_methods[key].strip() != child_methods[key].strip():
-                    changed_tests.add(key)
-                else:
-                    print(f"Test {key} unchanged; skipping.")
-            else:
-                print(f"Test {key} not found in child commit; skipping.")
-
-        # Step 4: For each changed test method, verify it passes in both commits and then run the override.
-        for key in changed_tests:
-            rel_path, test_method = key
-
-            # Verify in parent commit.
-            if self.move_to_earlier_commit() == "Error":
-                continue
-            parent_result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
-            if parent_result.status != TestVerdict.SUCCESS:
-                print(f"Test {key} does not pass in parent commit; skipping.")
-                if self.move_to_later_commit() == "Error":
-                    continue
-                continue
-
-            # Switch to child commit.
+            # --- Switch back to the child commit and extract test methods ---
             if self.move_to_later_commit() == "Error":
-                continue
-            child_result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
-            if child_result.status != TestVerdict.SUCCESS:
-                print(f"Test {key} does not pass in child commit; skipping.")
-                continue
+                print("Error moving back to child commit.")
+                break
 
-            # Run the override: inject parent's test code into child's source.
-            result = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
-            if result.status != TestVerdict.SUCCESS:
-                print(f"Repaired test detected: {key}")
-                repaired_case = Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path)
-                repaired_cases.add(repaired_case)
+            child_methods = {}
+            for file in self.list_test_files():
+                rel_path = str(file.relative_to(repo_dir))
+                test_methods = self.find_test_methods(rel_path)
+                for (_, test_method) in test_methods:
+                    code = self.extract_method_code(rel_path, test_method)
+                    if code:
+                        child_methods[(rel_path, test_method)] = code
+
+            # --- Identify test methods that have changed ---
+            changed_tests = set()
+            for key in parent_methods:
+                if key in child_methods:
+                    if self.is_test_method_changed(parent_methods[key], child_methods[key]):
+                        changed_tests.add(key)
+                    else:
+                        print(f"Test {key} unchanged; skipping.")
+                else:
+                    print(f"Test {key} not found in child commit; skipping.")
+
+            # --- For each changed test, verify test results and run override ---
+            for key in changed_tests:
+                rel_path, test_method = key
+
+                # Verify the test passes in the parent commit.
+                if self.move_to_earlier_commit() == "Error":
+                    print("Error moving to parent commit for verification.")
+                    continue
+                parent_result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
+                if parent_result.status != TestVerdict.SUCCESS:
+                    print(f"Test {key} does not pass in parent commit; skipping.")
+                    if self.move_to_later_commit() == "Error":
+                        continue
+                    continue
+
+                # Switch back to the child commit.
+                if self.move_to_later_commit() == "Error":
+                    print("Error moving back to child commit for verification.")
+                    continue
+                child_result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
+                if child_result.status != TestVerdict.SUCCESS:
+                    print(f"Test {key} does not pass in child commit; skipping.")
+                    continue
+
+                # Run the override: inject parent's test code into child's source.
+                result = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
+                if result.status != TestVerdict.SUCCESS:
+                    print(f"Repaired test detected: {key}")
+                    repaired_case = Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path)
+                    repaired_cases.add(repaired_case)
+
+            # --- Update current commit to parent's commit for the next iteration ---
+            checkout_cmd = ["git", "checkout", parent_commit]
+            proc = subprocess.run(checkout_cmd, cwd=str(repo_dir), capture_output=True, text=True, env=os.environ)
+            if proc.returncode != 0:
+                print(f"Error checking out parent commit {parent_commit}. Ending iteration.")
+                break
+            self.current_hash = parent_commit
+            print(f"Updated current commit to {self.current_hash} for next iteration.")
 
         return repaired_cases
 
@@ -269,6 +270,7 @@ class RepositoryActions:
         Before moving, saves the current commit as previous_hash.
         Raises an exception if a cycle is detected.
         """
+        print(str(self.commit_counter)+"th commit")
         if self.commit_counter >= 300:
             print("Commit counter limit reached. Stopping further processing of commits in this repository.")
             return "Error"
@@ -287,11 +289,11 @@ class RepositoryActions:
         parent_hash = proc_parent.stdout.strip()
 
         # Check for a cycle:
-        if parent_hash == self.current_hash:
-            raise Exception("Cycle detected: parent commit is the same as current commit.")
-        if parent_hash in self.visited_commits:
-            raise Exception("Cycle detected: commit has already been visited.")
-        self.visited_commits.add(parent_hash)
+        # if parent_hash == self.current_hash:
+        #     raise Exception("Cycle detected: parent commit is the same as current commit.")
+        # if parent_hash in self.visited_commits:
+        #     raise Exception("Cycle detected: commit has already been visited.")
+        # self.visited_commits.add(parent_hash)
 
         print(f"Parent commit hash: {parent_hash}")
 
@@ -363,26 +365,42 @@ class RepositoryActions:
         return SequenceMatcher(None, dump1, dump2).ratio()
 
     def extract_covered_source_coverage(self, rel_path, test_method):
-        print("Extracting dynamic coverage data")
+        """
+        Extracts the source code lines that were executed when running the specified test.
+        It runs the test with coverage, gathers the executed line numbers for each measured file,
+        reads the corresponding files, and returns a concatenated string of those executed lines.
+        """
+        print("Extracting dynamic covered source code")
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         if not repo_dir.exists():
             print(f"Warning: Repository directory {repo_dir} not found.")
-            return {}
+            return ""
+        # Initialize coverage for the repository.
         cov = coverage.Coverage(source=[str(repo_dir)])
         cov.start()
         test_file_path = repo_dir / rel_path
         nodeid = f"{test_file_path.as_posix()}::{test_method}"
-        returncode, log = run_cmd(["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid],
-                                  timeout=15 * 60, cwd=str(repo_dir), env=os.environ)
+        returncode, log = run_cmd(
+            ["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid], #, "--collect-only"
+            timeout=15 * 60, cwd=str(repo_dir), env=os.environ
+        )
         cov.stop()
         cov.save()
         data = cov.get_data()
-        coverage_dict = {}
+        covered_source = ""
+        # Iterate over all files measured by coverage.
         for filename in data.measured_files():
             executed_lines = data.lines(filename)
             if executed_lines:
-                coverage_dict[filename] = set(executed_lines)
-        return coverage_dict
+                try:
+                    with open(filename, encoding="utf-8") as f:
+                        source_lines = f.readlines()
+                    # Line numbers in coverage are 1-indexed.
+                    executed_source = "".join(source_lines[i - 1] for i in sorted(executed_lines))
+                    covered_source += f"\n# File: {filename}\n{executed_source}\n"
+                except Exception as e:
+                    print(f"Error reading file {filename}: {e}")
+        return covered_source
 
     def extract_method_code(self, rel_path, test_method):
         print("Extracting method code")
@@ -440,6 +458,13 @@ class RepositoryActions:
         if ast1 is None or ast2 is None:
             return False
         return ast.dump(ast1, annotate_fields=False) == ast.dump(ast2, annotate_fields=False)
+
+    def is_test_method_changed(self, parent_code, child_code):
+        # Normalize each line by stripping trailing whitespace.
+        parent_lines = [line.rstrip() for line in parent_code.splitlines()]
+        child_lines = [line.rstrip() for line in child_code.splitlines()]
+        diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
+        return len(diff) > 0
 
     def list_test_files(self):
         print("Listing test files")

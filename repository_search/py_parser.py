@@ -112,9 +112,9 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     # Save log if needed.
     log_file = log_path / "test.log"
     print("compiling and running")
-    if save_logs:
-        log_path.mkdir(parents=True, exist_ok=True)
-        log_file.write_text(log)
+    # if save_logs:
+    #     log_path.mkdir(parents=True, exist_ok=True)
+    #     log_file.write_text(log)
 
     # If the test passed, return success.
     if returncode == 0:
