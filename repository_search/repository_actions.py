@@ -137,6 +137,7 @@ class RepositoryActions:
             for file in self.list_test_files():
                 rel_path = str(file.relative_to(repo_dir))
                 test_methods = self.find_test_methods(rel_path)
+                print("test methods: "+str(test_methods))
                 for (_, test_method) in test_methods:
                     code = self.extract_method_code(rel_path, test_method)
                     if code:
@@ -246,6 +247,7 @@ class RepositoryActions:
         print("Annotating code")
         broken_lines = broken_test.splitlines()
         repaired_lines = repaired_test.splitlines()
+        print(broken_lines, repaired_lines, "broken and repaired lines in annotated code")
         diff_lines = list(
             difflib.unified_diff(broken_lines, repaired_lines, fromfile="Broken Test", tofile="Repaired Test",
                                  lineterm=""))
