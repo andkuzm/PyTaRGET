@@ -42,7 +42,7 @@ class TestVerdict:
     def __str__(self):
         return f"TestVerdict(status={self.status})"
 
-def run_cmd(cmd, timeout, cwd, env=os.environ):
+def run_cmd(cmd, timeout, cwd, env):
     """Run a command using subprocess and return returncode and output."""
     try:
         # Use shlex.join if available (Python 3.8+), otherwise " ".join(cmd) works if there are no special characters.

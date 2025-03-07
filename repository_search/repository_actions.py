@@ -366,40 +366,76 @@ class RepositoryActions:
 
     def extract_covered_source_coverage(self, rel_path, test_method):
         """
-        Extracts the source code lines that were executed when running the specified test.
-        It runs the test with coverage, gathers the executed line numbers for each measured file,
-        reads the corresponding files, and returns a concatenated string of those executed lines.
+        Extracts the source code lines executed during the specified test.
+        It runs the test with coverage, collects the executed line numbers,
+        reads the corresponding files, and returns a concatenated string of
+        the executed lines.
         """
+        from pathlib import Path
+        import os
+        import coverage
+
         print("Extracting dynamic covered source code")
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         if not repo_dir.exists():
             print(f"Warning: Repository directory {repo_dir} not found.")
             return ""
+
+        # Ensure a .coveragerc file exists in the repo directory.
+        coveragerc_path = repo_dir / ".coveragerc"
+        if not coveragerc_path.exists():
+            print(f"Creating {coveragerc_path} with default configuration.")
+            coveragerc_content = (
+                "[run]\n"
+                "parallel = True\n"
+                "branch = True\n"
+                "concurrency = thread\n"
+            )
+            with open(coveragerc_path, "w", encoding="utf-8") as f:
+                f.write(coveragerc_content)
+
         # Initialize coverage for the repository.
         cov = coverage.Coverage(source=[str(repo_dir)])
         cov.start()
+
         test_file_path = repo_dir / rel_path
         nodeid = f"{test_file_path.as_posix()}::{test_method}"
+
+        # Set up the environment for subprocesses.
+        env = os.environ.copy()
+        env["COVERAGE_PROCESS_START"] = str(coveragerc_path)
+
+        # Run the test via pytest.
         returncode, log = run_cmd(
-            ["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid], #, "--collect-only"
-            timeout=15 * 60, cwd=str(repo_dir), env=os.environ
+            ["python", "-m", "coverage", "run", "-m", "pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid],
+            timeout=15 * 60, cwd=str(repo_dir), env=env
         )
+
+        # Stop coverage and save data.
         cov.stop()
         cov.save()
+        # Combine data from subprocesses (creates a single .coverage data file).
+        cov.combine()
+        cov.save()
+        print(cov.get_data())
         data = cov.get_data()
         covered_source = ""
         # Iterate over all files measured by coverage.
         for filename in data.measured_files():
+            print(filename)
             executed_lines = data.lines(filename)
+            print(executed_lines)
             if executed_lines:
                 try:
                     with open(filename, encoding="utf-8") as f:
                         source_lines = f.readlines()
                     # Line numbers in coverage are 1-indexed.
                     executed_source = "".join(source_lines[i - 1] for i in sorted(executed_lines))
-                    covered_source += f"\n# File: {filename}\n{executed_source}\n"
+                    print(executed_source)
+                    covered_source += f"{executed_source}\n"
                 except Exception as e:
                     print(f"Error reading file {filename}: {e}")
+        print(covered_source)
         return covered_source
 
     def extract_method_code(self, rel_path, test_method):
