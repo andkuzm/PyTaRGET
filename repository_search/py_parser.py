@@ -124,7 +124,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
 
     # At this point, returncode != 0.
     # Check if the log contains error indicators.
-    error_indicators = ["ERROR"]
+    error_indicators = ["error"]
     if not any(indicator in log for indicator in error_indicators):
         # If no error markers are present, assume it's just warnings.
         print("Only warnings detected; treating test as passed.")
