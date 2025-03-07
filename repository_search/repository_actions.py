@@ -214,55 +214,91 @@ class RepositoryActions:
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
 
         # Checkout to the parent's commit (broken test).
-        cmd_checkout = ["git", "checkout", broken_to_repaired_instance.broken]
-        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
-        if proc_checkout.returncode != 0:
+        if not self.checkout_commit(broken_to_repaired_instance.broken, dest_dir):
             return "Error"
         self.current_hash = broken_to_repaired_instance.broken
         self.set_full_permissions()
         print(f"Repository at broken commit: {self.current_hash}")
-        broken_test = self.extract_method_code(broken_to_repaired_instance.rel_path, broken_to_repaired_instance.test_name)
+        broken_test = self.extract_method_code(broken_to_repaired_instance.rel_path,
+                                               broken_to_repaired_instance.test_name)
 
         # Checkout to the child's commit (repaired test).
-        cmd_checkout = ["git", "checkout", broken_to_repaired_instance.repaired]
-        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
-        if proc_checkout.returncode != 0:
+        if not self.checkout_commit(broken_to_repaired_instance.repaired, dest_dir):
             return "Error"
         self.current_hash = broken_to_repaired_instance.repaired
         self.set_full_permissions()
         print(f"Repository at repaired commit: {self.current_hash}")
-        repaired_test = self.extract_method_code(broken_to_repaired_instance.rel_path, broken_to_repaired_instance.test_name)
-        source_code = self.extract_covered_source_coverage(broken_to_repaired_instance.rel_path, broken_to_repaired_instance.test_name)
-        annotated_code = self.annotate_code(repaired_test, broken_test, source_code)
+        repaired_test = self.extract_method_code(broken_to_repaired_instance.rel_path,
+                                                 broken_to_repaired_instance.test_name)
+
+        # Extract and annotate the source coverage
+        source_code = self.extract_covered_source_coverage(
+            broken_to_repaired_instance.rel_path,
+            broken_to_repaired_instance.test_name,
+            broken_to_repaired_instance.broken,
+            broken_to_repaired_instance.repaired
+        )
+
+        annotated_code = self.annotate_code(broken_test, repaired_test, source_code)
         return annotated_code
 
-    def annotate_code(self, repaired_test, broken_test, source_code):
+    def annotate_code(self, broken_test, repaired_test, source_code):
         print("Annotating code")
         broken_lines = broken_test.splitlines()
         repaired_lines = repaired_test.splitlines()
-        diff_lines = list(difflib.unified_diff(broken_lines, repaired_lines, fromfile="Broken Test", tofile="Repaired Test", lineterm=""))
-        annotated_diff = ""
+        diff_lines = list(
+            difflib.unified_diff(broken_lines, repaired_lines, fromfile="Broken Test", tofile="Repaired Test",
+                                 lineterm=""))
+
+        unchanged_before = []
+        breakage_lines = []
+        unchanged_after = []
+        repaired_lines_only = []
+        in_change_block = False
+        change_done = False
+
         for line in diff_lines:
             if line.startswith('@@'):
-                annotated_diff += f"\n[<HUNK>]{line}[</HUNK>]\n"
-            elif line.startswith('-'):
-                annotated_diff += f"[<DEL>]{line}[</DEL>]\n"
-            elif line.startswith('+'):
-                annotated_diff += f"[<ADD>]{line}[</ADD>]\n"
+                if in_change_block:
+                    change_done = True
+                in_change_block = True
+            elif in_change_block and not change_done:
+                if line.startswith('-'):
+                    breakage_lines.append(line[1:])
+                elif line.startswith('+'):
+                    repaired_lines_only.append(line[1:])
+                else:
+                    unchanged_after.append(line)
+            elif not in_change_block:
+                unchanged_before.append(line)
             else:
-                annotated_diff += line + "\n"
+                unchanged_after.append(line)
 
         annotated_string = (
-            "[<TESTCONTEXT>]\n"
-            "[<BREAKAGE>]\n" + broken_test + "\n[</BREAKAGE>]\n"
-            "[<REPAIREDTEST>]\n" + repaired_test + "\n[</REPAIREDTEST>]\n"
-            "[<TESTDIFF>]\n" + annotated_diff + "\n[</TESTDIFF>]\n"
-            "[</TESTCONTEXT>]\n\n"
-            "[<REPAIRCONTEXT>]\n"
-            "[<HUNK>]\n" + source_code + "\n[</HUNK>]\n"
-            "[</REPAIRCONTEXT>]\n"
+                "[<TESTCONTEXT>]" + "\n"
+                + "\n".join(unchanged_before) + "\n"
+                + "[<BREAKAGE>]" + "\n"
+                + "\n".join(breakage_lines) + "\n"
+                + "[</BREAKAGE>]" + "\n"
+                + "\n".join(unchanged_after) + "\n"
+                + "[</TESTCONTEXT>]" + "\n\n"
+                + "[<REPAIREDTEST>]" + "\n"
+                + "\n".join(repaired_lines_only) + "\n"
+                + "[</REPAIREDTEST>]" + "\n\n"
+                + "[<REPAIRCONTEXT>]" + "\n"
+                + source_code + "\n"
+                + "[</REPAIRCONTEXT>]"
         )
         return annotated_string
+
+
+    def checkout_commit(self, commit_hash, dest_dir):
+        cmd_checkout = ["git", "checkout", commit_hash]
+        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
+        if proc_checkout.returncode != 0:
+            print(f"Error checking out commit {commit_hash}: {proc_checkout.stderr}")
+            return False
+        return True
 
     def move_to_earlier_commit(self):
         """
@@ -364,75 +400,110 @@ class RepositoryActions:
         dump2 = ast.dump(ast2, annotate_fields=False)
         return SequenceMatcher(None, dump1, dump2).ratio()
 
-    def extract_covered_source_coverage(self, rel_path, test_method):
-        """
-        Extracts the source code lines executed during the specified test.
-        It runs the test with coverage in a subprocess (using parallel mode),
-        combines the data, loads it, and then returns a concatenated string
-        of the executed lines.
-        """
-        print("Extracting dynamic covered source code")
+    def extract_covered_source_coverage(self, rel_path, test_method, broken_hash, repaired_hash):
+        print("Extracting dynamic covered source code for both versions")
+
+        broken_source = self.get_covered_source(rel_path, test_method, broken_hash)
+        repaired_source = self.get_covered_source(rel_path, test_method, repaired_hash)
+
+        broken_methods = self.split_into_methods(broken_source)
+        repaired_methods = self.split_into_methods(repaired_source)
+
+        result = []
+
+        all_method_names = set(broken_methods.keys()).union(repaired_methods.keys())
+
+        for method_name in all_method_names:
+            broken_code = broken_methods.get(method_name, '')
+            repaired_code = repaired_methods.get(method_name, '')
+
+            diff = list(difflib.unified_diff(broken_code.splitlines(), repaired_code.splitlines(), lineterm=""))
+            formatted_hunk = self.format_inline_diff(method_name, diff)
+
+            if formatted_hunk:
+                result.append(formatted_hunk)
+
+        return "\n\n".join(result)
+
+    def split_into_methods(self, source_code):
+        methods = {}
+        current_method = None
+        current_lines = []
+
+        for line in source_code.splitlines():
+            if re.match(r'^\s*(def|class|public|private|protected)\s+\w+', line):
+                if current_method:
+                    methods[current_method] = "\n".join(current_lines)
+                current_method = line.strip()
+                current_lines = [line]
+            else:
+                if current_method:
+                    current_lines.append(line)
+
+        if current_method:
+            methods[current_method] = "\n".join(current_lines)
+
+        return methods
+
+    def format_inline_diff(self, method_name, diff):
+        hunk_lines = ["[<HUNK>]"]
+        inside_method = False
+
+        for line in diff:
+            if line.startswith('@@'):
+                inside_method = True
+            elif inside_method:
+                if line.startswith('+'):
+                    hunk_lines.append(f"[<ADD>]{line[1:]}[</ADD>")
+                elif line.startswith('-'):
+                    hunk_lines.append(f"[<DEL>]{line[1:]}[</DEL>")
+                else:
+                    hunk_lines.append(line)
+
+        hunk_lines.append("[</HUNK>]")
+
+        return "\n".join(hunk_lines) if len(hunk_lines) > 2 else ""
+
+    def get_covered_source(self, rel_path, test_method, commit_hash):
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
-        if not repo_dir.exists():
-            print(f"Warning: Repository directory {repo_dir} not found.")
+
+        proc = subprocess.run([
+            "git", "checkout", commit_hash
+        ], cwd=str(repo_dir), capture_output=True, text=True, env=os.environ)
+
+        if proc.returncode != 0:
+            print(f"Git checkout failed: {proc.stderr}")
             return ""
-
-        # Ensure a .coveragerc file exists in the repo directory.
-        coveragerc_path = repo_dir / ".coveragerc"
-        if not coveragerc_path.exists():
-            print(f"Creating {coveragerc_path} with default configuration.")
-            coveragerc_content = (
-                "[run]\n"
-                "parallel = True\n"
-                "branch = True\n"
-                "concurrency = thread\n"
-            )
-            with open(coveragerc_path, "w", encoding="utf-8") as f:
-                f.write(coveragerc_content)
-
-        # Set up the environment for subprocesses.
-        env = os.environ.copy()
-        env["COVERAGE_PROCESS_START"] = str(coveragerc_path)
 
         test_file_path = repo_dir / rel_path
         nodeid = f"{test_file_path.as_posix()}::{test_method}"
 
-        # Run the test via subprocess using coverage in parallel mode.
         cmd = [
             "python", "-m", "coverage", "run", "--parallel-mode", "-m", "pytest",
             "--maxfail=1", "--disable-warnings", "--quiet", nodeid
         ]
-        returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(repo_dir), env=env)
-        print("pytest/coverage run returned:", returncode)
-        print("Log output:", log)
+        returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(repo_dir), env=os.environ)
 
-        # Combine coverage data from subprocesses.
         combine_cmd = ["python", "-m", "coverage", "combine"]
-        combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(repo_dir), env=env)
-        print("Coverage combine returned:", combine_return)
-        print("Coverage combine log:", combine_log)
+        combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(repo_dir), env=os.environ)
 
-        # Now load the combined coverage data.
         cov_data_file = repo_dir / ".coverage"
         cov = coverage.Coverage(data_file=str(cov_data_file))
         cov.load()
         data = cov.get_data()
+
         covered_source = ""
-        # Iterate over all files measured by coverage.
         for filename in data.measured_files():
             executed_lines = data.lines(filename)
-            print("Measured file:", filename)
-            print("Executed lines:", executed_lines)
             if executed_lines:
                 try:
                     with open(filename, encoding="utf-8") as f:
                         source_lines = f.readlines()
-                    # Lines in coverage are 1-indexed.
                     executed_source = "".join(source_lines[i - 1] for i in sorted(executed_lines))
                     covered_source += f"{executed_source}\n"
                 except Exception as e:
                     print(f"Error reading file {filename}: {e}")
-        print("Final covered source:\n", covered_source)
+
         return covered_source
 
     def extract_method_code(self, rel_path, test_method):
@@ -492,12 +563,44 @@ class RepositoryActions:
             return False
         return ast.dump(ast1, annotate_fields=False) == ast.dump(ast2, annotate_fields=False)
 
+    # def is_test_method_changed(self, parent_code, child_code):
+    #     # Normalize each line by stripping trailing whitespace.
+    #     parent_lines = [line.rstrip() for line in parent_code.splitlines()]
+    #     child_lines = [line.rstrip() for line in child_code.splitlines()]
+    #     diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
+    #     return len(diff) > 0
+
     def is_test_method_changed(self, parent_code, child_code):
         # Normalize each line by stripping trailing whitespace.
         parent_lines = [line.rstrip() for line in parent_code.splitlines()]
         child_lines = [line.rstrip() for line in child_code.splitlines()]
+
+        # Get the diff between the parent and child code.
         diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
-        return len(diff) > 0
+
+        # Flag to track if we are in a contiguous block of changes
+        in_change_block = False
+        last_change_line = None
+
+        for line in diff:
+            if line.startswith('+') or line.startswith('-'):
+                if in_change_block:
+                    # If we're already in a change block, continue (adjacent changes)
+                    pass
+                else:
+                    if last_change_line is not None and line[0] != last_change_line[0]:
+                        # If we are switching between addition and removal (non-adjacent change)
+                        return False
+                    # Start a new change block
+                    in_change_block = True
+                last_change_line = line
+            else:
+                # Non-change line; end of the current block
+                if in_change_block:
+                    in_change_block = False
+                    last_change_line = None
+
+        return True
 
     def list_test_files(self):
         print("Listing test files")
