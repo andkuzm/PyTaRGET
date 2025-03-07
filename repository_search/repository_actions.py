@@ -332,7 +332,7 @@ class RepositoryActions:
         # self.visited_commits.add(parent_hash)
 
         print(f"Parent commit hash: {parent_hash}")
-
+        print("moving to parent commit")
         # Checkout the parent commit
         cmd_checkout = ["git", "checkout", parent_hash]
         proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
@@ -353,6 +353,7 @@ class RepositoryActions:
             return "Error"
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         print(f"Current repository directory: {dest_dir}")
+        print("moving to child commit")
         cmd_checkout = ["git", "checkout", self.previous_hash]
         proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
@@ -600,44 +601,44 @@ class RepositoryActions:
             return False
         return ast.dump(ast1, annotate_fields=False) == ast.dump(ast2, annotate_fields=False)
 
-    def is_test_method_changed(self, parent_code, child_code):
-        # Normalize each line by stripping trailing whitespace.
-        parent_lines = [line.rstrip() for line in parent_code.splitlines()]
-        child_lines = [line.rstrip() for line in child_code.splitlines()]
-        diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
-        return len(diff) > 0
-
     # def is_test_method_changed(self, parent_code, child_code):
     #     # Normalize each line by stripping trailing whitespace.
     #     parent_lines = [line.rstrip() for line in parent_code.splitlines()]
     #     child_lines = [line.rstrip() for line in child_code.splitlines()]
-    #
-    #     # Get the diff between the parent and child code.
     #     diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
-    #
-    #     # Flag to track if we are in a contiguous block of changes
-    #     in_change_block = False
-    #     last_change_line = None
-    #
-    #     for line in diff:
-    #         if line.startswith('+') or line.startswith('-'):
-    #             if in_change_block:
-    #                 # If we're already in a change block, continue (adjacent changes)
-    #                 pass
-    #             else:
-    #                 if last_change_line is not None and line[0] != last_change_line[0]:
-    #                     # If we are switching between addition and removal (non-adjacent change)
-    #                     return False
-    #                 # Start a new change block
-    #                 in_change_block = True
-    #             last_change_line = line
-    #         else:
-    #             # Non-change line; end of the current block
-    #             if in_change_block:
-    #                 in_change_block = False
-    #                 last_change_line = None
-    #
-    #     return True
+    #     return len(diff) > 0
+
+    def is_test_method_changed(self, parent_code, child_code):
+        # Normalize each line by stripping trailing whitespace.
+        parent_lines = [line.rstrip() for line in parent_code.splitlines()]
+        child_lines = [line.rstrip() for line in child_code.splitlines()]
+
+        # Get the diff between the parent and child code.
+        diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
+
+        # Flag to track if we are in a contiguous block of changes
+        in_change_block = False
+        last_change_line = None
+
+        for line in diff:
+            if line.startswith('+') or line.startswith('-'):
+                if in_change_block:
+                    # If we're already in a change block, continue (adjacent changes)
+                    pass
+                else:
+                    if last_change_line is not None and line[0] != last_change_line[0]:
+                        # If we are switching between addition and removal (non-adjacent change)
+                        return False
+                    # Start a new change block
+                    in_change_block = True
+                last_change_line = line
+            else:
+                # Non-change line; end of the current block
+                if in_change_block:
+                    in_change_block = False
+                    last_change_line = None
+
+        return True
 
     def list_test_files(self):
         print("Listing test files")
