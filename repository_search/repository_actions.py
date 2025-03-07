@@ -367,14 +367,10 @@ class RepositoryActions:
     def extract_covered_source_coverage(self, rel_path, test_method):
         """
         Extracts the source code lines executed during the specified test.
-        It runs the test with coverage, collects the executed line numbers,
-        reads the corresponding files, and returns a concatenated string of
-        the executed lines.
+        It runs the test with coverage in a subprocess (using parallel mode),
+        combines the data, loads it, and then returns a concatenated string
+        of the executed lines.
         """
-        from pathlib import Path
-        import os
-        import coverage
-
         print("Extracting dynamic covered source code")
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         if not repo_dir.exists():
@@ -394,48 +390,49 @@ class RepositoryActions:
             with open(coveragerc_path, "w", encoding="utf-8") as f:
                 f.write(coveragerc_content)
 
-        # Initialize coverage for the repository.
-        cov = coverage.Coverage(source=[str(repo_dir)])
-        cov.start()
-
-        test_file_path = repo_dir / rel_path
-        nodeid = f"{test_file_path.as_posix()}::{test_method}"
-
         # Set up the environment for subprocesses.
         env = os.environ.copy()
         env["COVERAGE_PROCESS_START"] = str(coveragerc_path)
 
-        # Run the test via pytest.
-        returncode, log = run_cmd(
-            ["python", "-m", "coverage", "run", "-m", "pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid],
-            timeout=15 * 60, cwd=str(repo_dir), env=env
-        )
+        test_file_path = repo_dir / rel_path
+        nodeid = f"{test_file_path.as_posix()}::{test_method}"
 
-        # Stop coverage and save data.
-        cov.stop()
-        cov.save()
-        # Combine data from subprocesses (creates a single .coverage data file).
-        cov.combine()
-        cov.save()
-        print(cov.get_data())
+        # Run the test via subprocess using coverage in parallel mode.
+        cmd = [
+            "python", "-m", "coverage", "run", "--parallel-mode", "-m", "pytest",
+            "--maxfail=1", "--disable-warnings", "--quiet", nodeid
+        ]
+        returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(repo_dir), env=env)
+        print("pytest/coverage run returned:", returncode)
+        print("Log output:", log)
+
+        # Combine coverage data from subprocesses.
+        combine_cmd = ["python", "-m", "coverage", "combine"]
+        combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(repo_dir), env=env)
+        print("Coverage combine returned:", combine_return)
+        print("Coverage combine log:", combine_log)
+
+        # Now load the combined coverage data.
+        cov_data_file = repo_dir / ".coverage"
+        cov = coverage.Coverage(data_file=str(cov_data_file))
+        cov.load()
         data = cov.get_data()
         covered_source = ""
         # Iterate over all files measured by coverage.
         for filename in data.measured_files():
-            print(filename)
             executed_lines = data.lines(filename)
-            print(executed_lines)
+            print("Measured file:", filename)
+            print("Executed lines:", executed_lines)
             if executed_lines:
                 try:
                     with open(filename, encoding="utf-8") as f:
                         source_lines = f.readlines()
-                    # Line numbers in coverage are 1-indexed.
+                    # Lines in coverage are 1-indexed.
                     executed_source = "".join(source_lines[i - 1] for i in sorted(executed_lines))
-                    print(executed_source)
                     covered_source += f"{executed_source}\n"
                 except Exception as e:
                     print(f"Error reading file {filename}: {e}")
-        print(covered_source)
+        print("Final covered source:\n", covered_source)
         return covered_source
 
     def extract_method_code(self, rel_path, test_method):
