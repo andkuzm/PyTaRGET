@@ -403,87 +403,125 @@ class RepositoryActions:
     def extract_covered_source_coverage(self, rel_path, test_method, broken_hash, repaired_hash):
         print("Extracting dynamic covered source code for both versions")
 
+        # Extract covered source for both versions.
         broken_source = self.get_covered_source(rel_path, test_method, broken_hash)
         repaired_source = self.get_covered_source(rel_path, test_method, repaired_hash)
 
-        broken_methods = self.split_into_methods(broken_source)
-        repaired_methods = self.split_into_methods(repaired_source)
+        # Split each source into classes (and their methods)
+        broken_classes = self.split_into_classes(broken_source)
+        repaired_classes = self.split_into_classes(repaired_source)
 
         result = []
-
-        all_method_names = set(broken_methods.keys()).union(repaired_methods.keys())
-
-        for method_name in all_method_names:
-            broken_code = broken_methods.get(method_name, '')
-            repaired_code = repaired_methods.get(method_name, '')
-
-            diff = list(difflib.unified_diff(broken_code.splitlines(), repaired_code.splitlines(), lineterm=""))
-            formatted_hunk = self.format_inline_diff(method_name, diff)
-
-            if formatted_hunk:
-                result.append(formatted_hunk)
-
+        # Gather all class names (including 'Global' if any code is outside classes)
+        all_class_names = set(broken_classes.keys()).union(repaired_classes.keys())
+        for class_name in sorted(all_class_names):
+            # Get dictionaries of methods for the given class (default to empty dict if not present)
+            broken_methods = broken_classes.get(class_name, {})
+            repaired_methods = repaired_classes.get(class_name, {})
+            # Union of all method signatures in this class
+            all_method_names = set(broken_methods.keys()).union(repaired_methods.keys())
+            class_hunks = []
+            for method_name in sorted(all_method_names):
+                broken_code = broken_methods.get(method_name, '')
+                repaired_code = repaired_methods.get(method_name, '')
+                diff = list(difflib.unified_diff(broken_code.splitlines(), repaired_code.splitlines(), lineterm=""))
+                formatted_hunk = self.format_inline_diff(method_name, diff)
+                if formatted_hunk:
+                    class_hunks.append(formatted_hunk)
+            if class_hunks:
+                result.append(f'class {class_name}:')
+                result.extend(class_hunks)
         return "\n\n".join(result)
 
-    def split_into_methods(self, source_code):
-        methods = {}
+    def split_into_classes(self, source_code):
+        """
+        Splits the source code into a dictionary organized by class.
+        Each key is the class name (or 'Global' if code is outside any class), and its value is a dict mapping
+        method signatures to the corresponding method body.
+        """
+        classes = {}
+        current_class = 'Global'
         current_method = None
         current_lines = []
 
+        # Initialize the global group.
+        if current_class not in classes:
+            classes[current_class] = {}
+
         for line in source_code.splitlines():
-            if re.match(r'^\s*(def|class|public|private|protected)\s+\w+', line):
+            # Detect class definition.
+            class_match = re.match(r'^\s*class\s+(\w+)', line)
+            if class_match:
+                # Finish any pending method before switching class.
                 if current_method:
-                    methods[current_method] = "\n".join(current_lines)
+                    classes[current_class][current_method] = "\n".join(current_lines)
+                    current_method = None
+                    current_lines = []
+                # Switch to the new class.
+                current_class = class_match.group(1)
+                if current_class not in classes:
+                    classes[current_class] = {}
+                continue
+
+            # Detect a method definition.
+            method_match = re.match(r'^\s*def\s+(\w+)', line)
+            if method_match:
+                # If we were collecting a previous method, save it.
+                if current_method:
+                    classes[current_class][current_method] = "\n".join(current_lines)
                 current_method = line.strip()
                 current_lines = [line]
             else:
+                # If within a method, continue collecting its lines.
                 if current_method:
                     current_lines.append(line)
-
+        # Save any method still in progress.
         if current_method:
-            methods[current_method] = "\n".join(current_lines)
-
-        return methods
+            classes[current_class][current_method] = "\n".join(current_lines)
+        return classes
 
     def format_inline_diff(self, method_name, diff):
-        hunk_lines = ["[<HUNK>]"]
-        inside_method = False
+        """
+        Returns a string that wraps changes for a given method in [<HUNK>] tags.
+        Within the hunk, added lines are wrapped in [<ADD>] tags and removed lines in [<DEL>] tags.
+        """
+        hunk_lines = [f"[<HUNK>] {method_name}"]
+        inside_hunk = False
 
         for line in diff:
             if line.startswith('@@'):
-                inside_method = True
-            elif inside_method:
+                inside_hunk = True
+            elif inside_hunk:
                 if line.startswith('+'):
-                    hunk_lines.append(f"[<ADD>]{line[1:]}[</ADD>")
+                    hunk_lines.append(f"[<ADD>]{line[1:]}[</ADD>]")
                 elif line.startswith('-'):
-                    hunk_lines.append(f"[<DEL>]{line[1:]}[</DEL>")
+                    hunk_lines.append(f"[<DEL>]{line[1:]}[</DEL>]")
                 else:
                     hunk_lines.append(line)
-
         hunk_lines.append("[</HUNK>]")
-
         return "\n".join(hunk_lines) if len(hunk_lines) > 2 else ""
 
     def get_covered_source(self, rel_path, test_method, commit_hash):
         repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
 
-        proc = subprocess.run([
-            "git", "checkout", commit_hash
-        ], cwd=str(repo_dir), capture_output=True, text=True, env=os.environ)
-
+        proc = subprocess.run(
+            ["git", "checkout", commit_hash],
+            cwd=str(repo_dir),
+            capture_output=True,
+            text=True,
+            env=os.environ
+        )
         if proc.returncode != 0:
             print(f"Git checkout failed: {proc.stderr}")
             return ""
 
         test_file_path = repo_dir / rel_path
         nodeid = f"{test_file_path.as_posix()}::{test_method}"
-
         cmd = [
             "python", "-m", "coverage", "run", "--parallel-mode", "-m", "pytest",
             "--maxfail=1", "--disable-warnings", "--quiet", nodeid
         ]
         returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(repo_dir), env=os.environ)
-
         combine_cmd = ["python", "-m", "coverage", "combine"]
         combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(repo_dir), env=os.environ)
 
@@ -503,7 +541,6 @@ class RepositoryActions:
                     covered_source += f"{executed_source}\n"
                 except Exception as e:
                     print(f"Error reading file {filename}: {e}")
-
         return covered_source
 
     def extract_method_code(self, rel_path, test_method):
