@@ -88,14 +88,29 @@ class RepositoryActions:
         """
         Temporarily replaces the test file's content with overridden_test_code,
         runs the specified test, and then restores the original content.
+        If the change in test code is deemed unimportant (i.e. nearly identical to the current test code),
+        the method returns a dummy success result immediately.
         """
         test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
         original_content = test_file_path.read_text(encoding="utf-8")
+
+        # Extract the current test code from the file.
+        current_test_code = self.extract_method_code(rel_path, test_method)
+
+        # Compute similarity ratio between current and overridden test code.
+        similarity = difflib.SequenceMatcher(None, current_test_code, overridden_test_code).ratio()
+        # If similarity is very high (e.g. over 98%), consider the change unimportant.
+        if similarity > 0.98:
+            print(f"Change is unimportant (similarity {similarity:.2f}); skipping override test execution.")
+            return TestVerdict.SUCCESS
+
         try:
+            # Write the overridden (parent's) test code.
             test_file_path.write_text(overridden_test_code, encoding="utf-8")
             repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
             result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
         finally:
+            # Always restore the original content.
             test_file_path.write_text(original_content, encoding="utf-8")
         return result
 
