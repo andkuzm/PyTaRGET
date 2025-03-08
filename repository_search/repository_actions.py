@@ -259,56 +259,63 @@ class RepositoryActions:
         annotated_code = self.annotate_code(broken_test, repaired_test, source_code)
         return annotated_code
 
-
     def annotate_code(self, broken_test, repaired_test, source_code):
         print("Annotating code")
         broken_lines = broken_test.splitlines()
-        repaired_lines = repaired_test.splitlines() #TODO check if gitsearch works
+        repaired_lines = repaired_test.splitlines()
         print(broken_lines, "broken lines in annotated code")
         print(repaired_lines, "repaired lines in annotated code")
+
+        # Compute the diff
         diff_lines = list(
             difflib.unified_diff(broken_lines, repaired_lines, fromfile="Broken Test", tofile="Repaired Test",
-                                 lineterm=""))
+                                 lineterm="")
+        )
         diff_lines = self.filter_diff_lines(diff_lines)
+
         if not diff_lines:
             return ""
+
         print(diff_lines)
+
+        # Initialize sections
         unchanged_before = []
         breakage_lines = []
         unchanged_after = []
         repaired_lines_only = []
+
+        # Track where we are in the diff
         in_change_block = False
-        change_done = False
 
         for line in diff_lines:
             if line.startswith('@@'):
-                if in_change_block:
-                    change_done = True
+                continue  # Skip the hunk header, no need to track
+            elif line.startswith('-'):
+                breakage_lines.append(line[1:])  # Capture broken lines
                 in_change_block = True
-            elif in_change_block and not change_done:
-                if line.startswith('-'):
-                    breakage_lines.append(line[1:])
-                elif line.startswith('+'):
-                    repaired_lines_only.append(line[1:])
-                else:
-                    unchanged_after.append(line)
-            elif not in_change_block:
-                unchanged_before.append(line)
+            elif line.startswith('+'):
+                repaired_lines_only.append(line[1:])  # Capture repaired lines
+                in_change_block = True
             else:
-                unchanged_after.append(line)
+                # Handle context lines
+                if in_change_block:
+                    unchanged_after.append(line)
+                else:
+                    unchanged_before.append(line)
 
+        # Build the annotated output
         annotated_string = (
-                "[<TESTCONTEXT>]" + "\n"
+                "[<TESTCONTEXT>]\n"
                 + "\n".join(unchanged_before) + "\n"
-                + "[<BREAKAGE>]" + "\n"
+                + "[<BREAKAGE>]\n"
                 + "\n".join(breakage_lines) + "\n"
-                + "[</BREAKAGE>]" + "\n"
+                + "[</BREAKAGE>]\n"
                 + "\n".join(unchanged_after) + "\n"
-                + "[</TESTCONTEXT>]" + "\n\n"
-                + "[<REPAIREDTEST>]" + "\n"
+                + "[</TESTCONTEXT>]\n\n"
+                + "[<REPAIREDTEST>]\n"
                 + "\n".join(repaired_lines_only) + "\n"
-                + "[</REPAIREDTEST>]" + "\n\n"
-                + "[<REPAIRCONTEXT>]" + "\n"
+                + "[</REPAIREDTEST>]\n\n"
+                + "[<REPAIRCONTEXT>]\n"
                 + source_code + "\n"
                 + "[</REPAIRCONTEXT>]"
         )
@@ -661,17 +668,31 @@ class RepositoryActions:
         # Count the number of contiguous blocks of change lines.
         block_count = 0
         in_block = False
+        has_functional_change = False
+
+        def is_functional_line(line):
+            # Strip diff markers and check if the line is meaningful code.
+            line_content = line[1:].strip()  # Remove leading + or -
+            return (
+                    line_content
+                    and not line_content.startswith("#")  # Ignore comments
+                    and not (line_content.startswith(('"""', "'''")) and line_content.endswith(('"""', "'''")))
+            # Ignore full-line docstrings
+            )
 
         for line in diff:
             if line.startswith('+') or line.startswith('-'):
                 if not in_block:
                     block_count += 1
                     in_block = True
+                # Check for functional change in each changed line
+                if is_functional_line(line):
+                    has_functional_change = True
             else:
                 in_block = False
 
-        # Return True only if there's exactly one contiguous block of changes.
-        return (block_count == 1)
+        # Return True only if there's exactly one contiguous block of *functional* changes.
+        return block_count == 1 and has_functional_change
 
     def list_test_files(self):
         print("Listing test files")
