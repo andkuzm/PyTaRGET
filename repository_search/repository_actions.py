@@ -246,12 +246,16 @@ class RepositoryActions:
     def annotate_code(self, broken_test, repaired_test, source_code):
         print("Annotating code")
         broken_lines = broken_test.splitlines()
-        repaired_lines = repaired_test.splitlines()
-        print(broken_lines, repaired_lines, "broken and repaired lines in annotated code")
+        repaired_lines = repaired_test.splitlines() #TODO check if gitsearch works
+        print(broken_lines, "broken lines in annotated code")
+        print(repaired_lines, "repaired lines in annotated code")
         diff_lines = list(
             difflib.unified_diff(broken_lines, repaired_lines, fromfile="Broken Test", tofile="Repaired Test",
                                  lineterm=""))
-
+        diff_lines = [line for line in diff_lines if not (line.startswith('---') or line.startswith('+++'))]
+        if not diff_lines:
+            return ""
+        print(diff_lines)
         unchanged_before = []
         breakage_lines = []
         unchanged_after = []
@@ -428,6 +432,7 @@ class RepositoryActions:
                 broken_code = broken_methods.get(method_name, '')
                 repaired_code = repaired_methods.get(method_name, '')
                 diff = list(difflib.unified_diff(broken_code.splitlines(), repaired_code.splitlines(), lineterm=""))
+                diff = [line for line in diff if not (line.startswith('---') or line.startswith('+++'))]
                 formatted_hunk = self.format_inline_diff(method_name, diff)
                 if formatted_hunk:
                     class_hunks.append(formatted_hunk)
@@ -617,6 +622,7 @@ class RepositoryActions:
 
         # Get the diff between the parent and child code.
         diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
+        diff = [line for line in diff if not (line.startswith('---') or line.startswith('+++'))]
 
         # Flag to track if we are in a contiguous block of changes
         in_change_block = False

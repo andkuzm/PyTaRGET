@@ -24,6 +24,8 @@ class Main:
             if repaired_cases:
                 for repaired_test in repaired_cases:
                     annotated_code = repository.extract_and_annotate_code(repaired_test)
+                    if annotated_code=="":
+                        continue
                     self.save_case(self.repository_name, annotated_code, repaired_test.rel_path, repaired_test.broken, repaired_test.repaired)
             else:
                 print("No repaired test cases found.")
