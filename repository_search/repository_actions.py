@@ -243,6 +243,7 @@ class RepositoryActions:
         annotated_code = self.annotate_code(broken_test, repaired_test, source_code)
         return annotated_code
 
+
     def annotate_code(self, broken_test, repaired_test, source_code):
         print("Annotating code")
         broken_lines = broken_test.splitlines()
@@ -252,7 +253,7 @@ class RepositoryActions:
         diff_lines = list(
             difflib.unified_diff(broken_lines, repaired_lines, fromfile="Broken Test", tofile="Repaired Test",
                                  lineterm=""))
-        diff_lines = [line for line in diff_lines if not (line.startswith('---') or line.startswith('+++'))]
+        diff_lines = self.filter_diff_lines(diff_lines)
         if not diff_lines:
             return ""
         print(diff_lines)
@@ -432,7 +433,7 @@ class RepositoryActions:
                 broken_code = broken_methods.get(method_name, '')
                 repaired_code = repaired_methods.get(method_name, '')
                 diff = list(difflib.unified_diff(broken_code.splitlines(), repaired_code.splitlines(), lineterm=""))
-                diff = [line for line in diff if not (line.startswith('---') or line.startswith('+++'))]
+                diff = self.filter_diff_lines(diff)
                 formatted_hunk = self.format_inline_diff(method_name, diff)
                 if formatted_hunk:
                     class_hunks.append(formatted_hunk)
@@ -615,38 +616,46 @@ class RepositoryActions:
     #     diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
     #     return len(diff) > 0
 
+    def filter_diff_lines(self, diff_lines, strip_markers=False):
+        """
+        Filters out diff header lines from a list of diff lines.
+
+        If strip_markers is True, also removes the leading '+' or '-' from changed lines.
+        Otherwise, leaves changed lines intact.
+        """
+        filtered = []
+        for line in diff_lines:
+            if line.startswith('@@') or line.startswith('---') or line.startswith('+++'):
+                continue  # Skip header lines
+            if strip_markers and (line.startswith('+') or line.startswith('-')):
+                filtered.append(line[1:])
+            else:
+                filtered.append(line)
+        return filtered
+
     def is_test_method_changed(self, parent_code, child_code):
         # Normalize each line by stripping trailing whitespace.
         parent_lines = [line.rstrip() for line in parent_code.splitlines()]
         child_lines = [line.rstrip() for line in child_code.splitlines()]
 
-        # Get the diff between the parent and child code.
+        # Get the unified diff and filter out header lines.
         diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
-        diff = [line for line in diff if not (line.startswith('---') or line.startswith('+++'))]
+        diff = self.filter_diff_lines(diff)
 
-        # Flag to track if we are in a contiguous block of changes
-        in_change_block = False
-        last_change_line = None
+        # Count the number of contiguous blocks of change lines.
+        block_count = 0
+        in_block = False
 
         for line in diff:
             if line.startswith('+') or line.startswith('-'):
-                if in_change_block:
-                    # If we're already in a change block, continue (adjacent changes)
-                    pass
-                else:
-                    if last_change_line is not None and line[0] != last_change_line[0]:
-                        # If we are switching between addition and removal (non-adjacent change)
-                        return False
-                    # Start a new change block
-                    in_change_block = True
-                last_change_line = line
+                if not in_block:
+                    block_count += 1
+                    in_block = True
             else:
-                # Non-change line; end of the current block
-                if in_change_block:
-                    in_change_block = False
-                    last_change_line = None
+                in_block = False
 
-        return True
+        # Return True only if there's exactly one contiguous block of changes.
+        return (block_count == 1)
 
     def list_test_files(self):
         print("Listing test files")
