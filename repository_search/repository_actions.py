@@ -84,6 +84,7 @@ class RepositoryActions:
         print("Tests not found")
         return False
 
+
     def run_test_with_overridden_test_code(self, rel_path, test_method, overridden_test_code):
         """
         Temporarily replaces the test file's content with overridden_test_code,
@@ -102,7 +103,7 @@ class RepositoryActions:
         # If similarity is very high (e.g. over 98%), consider the change unimportant.
         if similarity > 0.98:
             print(f"Change is unimportant (similarity {similarity:.2f}); skipping override test execution.")
-            return TestVerdict.SUCCESS
+            return TestVerdict(status=TestVerdict.SUCCESS, error_lines="test skipped due to high similarity")
 
         try:
             # Write the overridden (parent's) test code.
