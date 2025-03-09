@@ -49,12 +49,14 @@ class Main:
         with output_file.open("a", newline='', encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile, delimiter='|')
             if not file_exists:
-                writer.writerow(["repository_name", "annotated_code", "relative_path", "broken_hash", "repaired_hash"])
-            writer.writerow([repository_name, annotated_code, relative_path, broken_hash, repaired_hash])
                 writer.writerow(["repository_name", "annotated_code", "relative_path", "broken_hash", "repaired_hash", "outdated_test_log"])
             writer.writerow([repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log])
 
         print(f"Saved annotated case for repository '{repository_name}' to {output_file}")
 # Main("cool-RR/PySnooper", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos", out_path="C:\\Users\\kandr\\Desktop").process_repository()
-# ra = repository_actions.RepositoryActions("littlecodersh/ItChat", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos")
-# print(ra.extract_covered_source_coverage('itchat\\utils.py', 'test_connect'))
+ra = repository_actions.RepositoryActions("cool-RR/PySnooper", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos")
+ra.clone_repository_last()
+repaired_cases = ra.find_repaired_test_cases()
+for repaired_test in repaired_cases:
+    annotated_code = ra.extract_and_annotate_code(repaired_test)
+    print(annotated_code)
