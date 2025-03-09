@@ -212,7 +212,7 @@ class RepositoryActions:
                 result = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
                 if result.status != TestVerdict.SUCCESS:
                     print(f"Repaired test detected: {key}")
-                    repaired_case = Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path)
+                    repaired_case = Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path, result.log)
                     repaired_cases.add(repaired_case)
 
             # --- Update current commit to parent's commit for the next iteration ---
