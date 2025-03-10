@@ -371,7 +371,7 @@ class RepositoryActions:
         self.current_hash = parent_hash
         self.commit_counter += 1  # Increment commit counter for every successful commit move.
         self.set_full_permissions()
-        print(f"Repository is now at commit: {self.current_hash}, processed commits: {self.commit_counter}")
+        print(f"Repository is now at commit: {self.current_hash}, previously invoked move_to_earlier_commit: {self.commit_counter} times")
         return parent_hash
 
     def move_to_later_commit(self):
