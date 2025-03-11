@@ -210,6 +210,7 @@ class RepositoryActions:
 
                 # Run the override: inject parent's test code into child's source.
                 result = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
+                print("LOOKHERE!!!", result.log, "ENDSHERE")
                 if result.status != TestVerdict.SUCCESS:
                     print(f"Repaired test detected: {key}")
                     repaired_case = Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path, result.log)
@@ -425,12 +426,6 @@ class RepositoryActions:
                             test_methods.append([test_rel_path, f"{node.name}.{item.name}"])
         return test_methods
 
-    def compare_ast_similarity(self, ast1, ast2):
-        print("Checking changeset similarity")
-        dump1 = ast.dump(ast1, annotate_fields=False)
-        dump2 = ast.dump(ast2, annotate_fields=False)
-        return SequenceMatcher(None, dump1, dump2).ratio()
-
     def extract_executed_methods(self, source_code, rel_path):
         """
         Extracts full methods that were executed during the test.
@@ -547,53 +542,6 @@ class RepositoryActions:
             result.append(formatted_hunk)
 
         return "\n\n".join(result)
-
-    def split_into_classes(self, source_code):
-        """
-        Splits the source code into a dictionary organized by class.
-        Each key is the class name (or 'Global' if code is outside any class), and its value is a dict mapping
-        method signatures to the corresponding method body.
-        """
-        classes = {}
-        current_class = 'Global'
-        current_method = None
-        current_lines = []
-
-        # Initialize the global group.
-        if current_class not in classes:
-            classes[current_class] = {}
-
-        for line in source_code.splitlines():
-            # Detect class definition.
-            class_match = re.match(r'^\s*class\s+(\w+)', line)
-            if class_match:
-                # Finish any pending method before switching class.
-                if current_method:
-                    classes[current_class][current_method] = "\n".join(current_lines)
-                    current_method = None
-                    current_lines = []
-                # Switch to the new class.
-                current_class = class_match.group(1)
-                if current_class not in classes:
-                    classes[current_class] = {}
-                continue
-
-            # Detect a method definition.
-            method_match = re.match(r'^\s*def\s+(\w+)', line)
-            if method_match:
-                # If we were collecting a previous method, save it.
-                if current_method:
-                    classes[current_class][current_method] = "\n".join(current_lines)
-                current_method = line.strip()
-                current_lines = [line]
-            else:
-                # If within a method, continue collecting its lines.
-                if current_method:
-                    current_lines.append(line)
-        # Save any method still in progress.
-        if current_method:
-            classes[current_class][current_method] = "\n".join(current_lines)
-        return classes
 
     def format_inline_diff(self, method_name, diff):
         """
@@ -738,40 +686,6 @@ class RepositoryActions:
             print(f"Warning: Test method {test_method} not found in {test_file_path}")
         return extractor.found_code.strip() if extractor.found_code else ""
 
-    def extract_method_ast(self, rel_path, test_method):
-        test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
-        if not test_file_path.exists():
-            print(f"Error: Test file {test_file_path} does not exist.")
-            return None
-        try:
-            source_code = test_file_path.read_text(encoding="utf-8")
-        except Exception as e:
-            print(f"Error reading {test_file_path}: {e}")
-            return None
-        try:
-            tree = ast.parse(source_code)
-        except Exception as e:
-            print(f"Error parsing {test_file_path}: {e}")
-            return None
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name == test_method:
-                return node
-        print(f"Warning: Test method {test_method} not found in {test_file_path}")
-        return None
-
-    def compare_ast(self, ast1, ast2):
-        print("Comparing ASTs")
-        if ast1 is None or ast2 is None:
-            return False
-        return ast.dump(ast1, annotate_fields=False) == ast.dump(ast2, annotate_fields=False)
-
-    # def is_test_method_changed(self, parent_code, child_code):
-    #     # Normalize each line by stripping trailing whitespace.
-    #     parent_lines = [line.rstrip() for line in parent_code.splitlines()]
-    #     child_lines = [line.rstrip() for line in child_code.splitlines()]
-    #     diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
-    #     return len(diff) > 0
-
     def filter_diff_lines(self, diff_lines, strip_markers=False):
         """
         Filters out diff header lines from a list of diff lines.
@@ -853,24 +767,3 @@ class RepositoryActions:
             for f in files:
                 file_path = os.path.join(root, f)
                 os.chmod(file_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-
-    def install_dependencies(self):
-        repo_path = Path(self.repository_path) / self.repository_name.split("/")[-1]
-        req_file = repo_path / "requirements.txt"
-        if req_file.exists():
-            print(f"Installing dependencies from {req_file}")
-            try:
-                subprocess.run(["pip", "install", "-r", str(req_file)], check=True, env=os.environ)
-            except subprocess.CalledProcessError as e:
-                print(f"Error installing requirements from {req_file}: {e}")
-        else:
-            print("No requirements.txt found.")
-        setup_file = repo_path / "setup.py"
-        if setup_file.exists():
-            print("Found setup.py; installing package...")
-            try:
-                subprocess.run(["pip", "install", "."], cwd=str(repo_path), check=True, env=os.environ)
-            except subprocess.CalledProcessError as e:
-                print(f"Error installing package via setup.py: {e}")
-        else:
-            print("No setup.py found.")
