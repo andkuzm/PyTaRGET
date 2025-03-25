@@ -39,8 +39,11 @@ class Main:
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
-        cmd = [sys.executable, "-m", "pip", "uninstall", "-y", self.repository_name.split("/")[-1]]
-        subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
+        try:
+            subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", self.repository_name.split("/")[-1]],
+                           capture_output=True, text=True, check=True, env=os.environ)
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to uninstall {self.repository_name.split('/')[-1]}: {e}")
 
     def save_case(self, repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log):
         output_file = Path(self.out_path) / "annotated_cases.csv"

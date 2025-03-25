@@ -269,14 +269,15 @@ class RepositoryActions:
         # Compute the diff
         diff_lines = list(
             difflib.unified_diff(broken_lines, repaired_lines, fromfile="Broken Test", tofile="Repaired Test",
-                                 lineterm="")
+                                 lineterm="", n=len(broken_lines)+len(repaired_lines))
         )
+        print("diff lines before filtering: ", diff_lines)
         diff_lines = self.filter_diff_lines(diff_lines)
 
         if not diff_lines:
             return ""
 
-        print(diff_lines)
+        print("after: ", diff_lines)
 
         # Initialize sections
         unchanged_before = []

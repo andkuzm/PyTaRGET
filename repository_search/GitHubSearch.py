@@ -1,3 +1,4 @@
+import subprocess
 import sys
 from pathlib import Path
 
@@ -32,6 +33,20 @@ class GitHubSearch:
             print(f"Error fetching latest commit for {full_name}: {response.status_code} {response.text}")
         return ""
 
+    def run_pytest_check(self, last_repo):
+        """Runs pytest --trace-config to check for module issues after processing a repository."""
+        print("Running pytest --trace-config...")
+        result = subprocess.run(["pytest", "--trace-config"], capture_output=True, text=True, cwd="dummy_folder")
+        print("code: ", result.returncode)
+        if result.returncode not in (0, 5):
+            print(f"\nPytest encountered an error after processing {last_repo}.")
+            print("Stopping execution due to pytest --trace-config failure.")
+            print("Pytest Output:\n", result.stdout)
+            print("Pytest Errors:\n", result.stderr)
+            sys.exit(1)
+        else:
+            print("pytest module passed.")
+
     def find_and_process_repositories(self):
         """
         Searches GitHub for repositories that are either unlicensed or have a public non-commercial license,
@@ -57,15 +72,16 @@ class GitHubSearch:
         # Define the search queries. GitHub supports "license:none" to find repositories with no license.
         # For public non-commercial licenses, you might search for a known license identifier (e.g., "cc-by-nc").
         queries = [
-            "license:mit language:python stars:>50 size:<1000",
-            "license:apache-2.0 language:python stars:>50 size:<1000",
-            "license:Unlicense language:python stars:>50 size:<1000"
+            "license:mit language:python stars:>50 size:>=1000 size:<10000", #size:>=1000 size:<10000
+            "license:apache-2.0 language:python stars:>50 size:>=1000 size:<10000", # size:<1000
+            "license:Unlicense language:python stars:>50 size:>=1000 size:<10000"
         ]  # TODO: look some more about non-licensed repos
         base_url = "https://api.github.com/search/repositories"
 
         for query in queries:
             page = 1
             while True:
+                print("page:", page, "running query:", query)
                 params = {
                     "q": query,
                     "sort": "stars",
@@ -98,11 +114,14 @@ class GitHubSearch:
 
                     # Also update the in-memory set.
                     processed_repos.add(full_name)
+
+                    self.run_pytest_check(full_name)
                 # Check for pagination; GitHub API provides link headers.
                 if 'next' not in response.links:
+                    print("no 'next' link found")
                     break
                 page += 1
-                time.sleep(1)  # be respectful of rate limits
+                time.sleep(2)  # be respectful of rate limits
 
         print("Finished processing repositories.")
 
