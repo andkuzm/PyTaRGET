@@ -75,7 +75,7 @@ class GitHubSearch:
             "license:mit language:python stars:>50 size:>=1000 size:<10000", #size:>=1000 size:<10000
             "license:apache-2.0 language:python stars:>50 size:>=1000 size:<10000", # size:<1000
             "license:Unlicense language:python stars:>50 size:>=1000 size:<10000"
-        ]  # TODO: look some more about non-licensed repos
+        ]
         base_url = "https://api.github.com/search/repositories"
 
         for query in queries:
