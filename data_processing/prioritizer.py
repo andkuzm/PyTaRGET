@@ -1,13 +1,42 @@
-import numpy as np
 import difflib
+import re
 from collections import defaultdict
 
+import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 class HunkPrioritizer:
     def __init__(self, tokenizer, ds):
         self.tokenizer = tokenizer
+        self.ds = ds
+
+    def extract_hunks_from_code(self, code_str):
+        # Extract all [<HUNK>]...</HUNK>] blocks
+        hunk_blocks = re.findall(r"\[<HUNK>](.*?)\[</HUNK>]", code_str, re.DOTALL)
+        return [{"annotated_doc": "[<HUNK>]" + h + "[</HUNK>]"} for h in hunk_blocks]
+
+    def prioritize_hunks_prep(self):
+        """
+        Extracts and prioritizes all hunks from the dataset row-by-row,
+        using test breakage and test source context from each row.
+        """
+        self.ds["prioritized_changes"] = pd.Series([None] * len(self.ds), dtype=object)  # Key fix
+
+        for idx, row in self.ds.iterrows():
+            code_str = row["annotated_code"]
+            hunks = self.extract_hunks_from_code(code_str)
+            print("hunks:", len(hunks))
+
+            test_breakage_code = self.extract_test_breakage(code_str)
+            test_source_code = self.extract_testcontext(code_str)
+            if test_source_code == "":
+                continue
+
+            prioritized = self.prioritize_hunks(hunks, test_breakage_code, test_source_code)
+            self.ds.at[idx, "prioritized_changes"] = prioritized
+
+        return self.ds
 
     def prioritize_hunks(self, hunks, test_breakage_code, test_source_code):
         """
@@ -75,35 +104,24 @@ class HunkPrioritizer:
         return f"HUNK {src_annotated_doc} {tgt_annotated_doc} HUNK_END"
 
     def extract_hunk_lines(self, hunk):
-        """Extracts DEL and ADD lines separately from a hunk."""
-        del_lines, add_lines = [], []
-        in_del, in_add = False, False
+        del_match = re.search(r"\[<DEL>](.*?)\[</DEL>]", hunk["annotated_doc"], re.DOTALL)
+        add_match = re.search(r"\[<ADD>](.*?)\[</ADD>]", hunk["annotated_doc"], re.DOTALL)
 
-        for line in hunk["annotated_doc"].split("\n"):
-            if line.startswith("[<DEL>]"):
-                in_del, in_add = True, False
-                continue
-            elif line.startswith("[</DEL>]"):
-                in_del = False
-                continue
-            elif line.startswith("[<ADD>]"):
-                in_add, in_del = True, False
-                continue
-            elif line.startswith("[</ADD>]"):
-                in_add = False
-                continue
+        del_lines = del_match.group(1).rstrip().split("\n") if del_match else []
+        add_lines = add_match.group(1).rstrip().split("\n") if add_match else []
 
-            if in_del:
-                del_lines.append(line.strip())
-            elif in_add:
-                add_lines.append(line.strip())
+        if not del_lines and not add_lines:
+            # No DEL/ADD, fallback to body content
+            # Extract everything between [<HUNK>] and [</HUNK>]
+            raw = re.search(r"\[<HUNK>].*?\n(.*?)\[</HUNK>]", hunk["annotated_doc"], re.DOTALL)
+            context_lines = raw.group(1).rstrip().split("\n") if raw else []
+            add_lines = context_lines #TODO mb separate from add and del
 
         return del_lines, add_lines
 
     def extract_diff_lines(self, del_lines, add_lines):
         """Extracts only changed lines (+/-) from a unified diff string."""
         diff_lines = list(difflib.unified_diff(del_lines, add_lines, lineterm=""))
-        print("diff_lines:", diff_lines)
         return [line for line in diff_lines if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))]
 
     def remove_duplicate_change_documents(self, change_docs):
@@ -123,3 +141,13 @@ class HunkPrioritizer:
         dense = vectors.todense()
         cosine_sim = (dense * dense[0].T).T.tolist()[0]
         return [cosine_sim[i + 1] for i in range(len(changes))]
+
+    def extract_testcontext(self, code_str):
+        """Extracts the full test context block from annotated_code."""
+        match = re.search(r"\[<TESTCONTEXT>](.*?)\[</TESTCONTEXT>]", code_str, re.DOTALL)
+        return match.group(1).rstrip() if match else ""
+
+    def extract_test_breakage(self, code_str):
+        """Extracts the failing test lines from the BREAKAGE block in annotated_code."""
+        match = re.search(r"\[<BREAKAGE>](.*?)\[</BREAKAGE>]", code_str, re.DOTALL)
+        return match.group(1).rstrip() if match else ""
