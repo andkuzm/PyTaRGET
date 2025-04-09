@@ -1,11 +1,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
+from data_processing.CodeBLEU import bleu, weighted_ngram_match, syntax_match, dataflow_match
+
 
 # -*- coding:utf-8 -*-
-import CodeBLEU.bleu as bleu
-import CodeBLEU.weighted_ngram_match as weighted_ngram_match
-import CodeBLEU.syntax_match as syntax_match
-import CodeBLEU.dataflow_match as dataflow_match
 
 
 def calc_code_bleu(refs, hyp, lang="java", params="0.25,0.25,0.25,0.25"):

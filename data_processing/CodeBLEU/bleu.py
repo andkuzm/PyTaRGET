@@ -15,7 +15,7 @@ from fractions import Fraction
 import warnings
 from collections import Counter
 
-from CodeBLEU.utils import ngrams
+from .utils import ngrams
 import pdb
 
 
