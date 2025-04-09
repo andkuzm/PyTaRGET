@@ -3,9 +3,10 @@ import pandas as pd
 from pathlib import Path
 from accelerate import Accelerator
 from nltk.translate.bleu_score import corpus_bleu
-from CodeBLEU.code_bleu import calc_code_bleu
 from datetime import datetime
 from tqdm import tqdm
+
+from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester:
