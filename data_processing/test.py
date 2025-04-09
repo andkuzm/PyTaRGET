@@ -19,7 +19,7 @@ class Tester:
         self.checkpoint_dir = self.out_path / self.model / str(self.train_fraction) / "checkpoint-best"
         self.split_dir = self.out_path / self.model / str(self.train_fraction) / "splits"
 
-    def test(self):
+    def validate(self):
         # Load test dataset (structured by encoder and pickled)
         test_ds = pickle.load(open(self.split_dir / "test.pkl", "rb"))
         df = pd.read_json(self.split_dir / "test.json")

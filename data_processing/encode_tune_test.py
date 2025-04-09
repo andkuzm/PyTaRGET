@@ -52,6 +52,11 @@ class Eftt:
             self.dataset_class = EncDecDataset
         self.beam_size = beam_size
 
+    def full_cycle(self):
+        self.encode()
+        self.train()
+        self.validate()
+
     def encode(self):
         encoder = Encoder(self.annotated_cases_path, self.out_path, self.train_size, self.tokenizer, self.dataset_class, self.model, Tokens)
         encoder.encode()
@@ -60,9 +65,9 @@ class Eftt:
         trainer = Trainer(self.model, self.model_path, self.tokenizer, self.out_path, self.model_class, self.train_size)
         trainer.train()
 
-    def test(self):
+    def validate(self):
         tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size)
-        tester.test()
+        tester.validate()
 
 
 
