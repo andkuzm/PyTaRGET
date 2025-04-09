@@ -68,12 +68,12 @@ class Trainer:
             collate_fn = make_collate_fn(self.tokenizer)
 
         # Training params
-        batch_size = 8
-        eval_batch_size = 8
+        batch_size = 1
+        eval_batch_size = 1
         epochs = 4
         best_loss = float("inf")
         best_epoch = 0
-        early_stop = 2
+        early_stop = 1
         stats = {"epochs": [], "train_set_size": len(train_dataset), "valid_set_size": len(eval_dataset)}
 
         id_check = self.tokenizer.convert_tokens_to_ids("__python__")
@@ -87,6 +87,7 @@ class Trainer:
             train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
             for step, batch in enumerate(train_loader, 1):
                 with accelerator.accumulate(model):
+                    batch = {k: v.to(accelerator.device) for k, v in batch.items()}
                     print("processing batch", step)
                     outputs = model(**batch)
                     loss = outputs.loss
