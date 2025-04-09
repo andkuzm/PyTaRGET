@@ -1,5 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
+import os
+
 from data_processing.CodeBLEU import bleu, weighted_ngram_match, syntax_match, dataflow_match
 
 
@@ -31,7 +33,9 @@ def calc_code_bleu(refs, hyp, lang="java", params="0.25,0.25,0.25,0.25"):
     ngram_match_score = bleu.corpus_bleu(tokenized_refs, tokenized_hyps)
 
     # calculate weighted ngram match
-    keywords = [x.strip() for x in open("CodeBLEU/keywords/" + lang + ".txt", "r", encoding="utf-8").readlines()]
+    base_dir = os.path.dirname(__file__)
+    keywords_path = os.path.join(base_dir, "keywords", f"{lang}.txt")
+    keywords = [x.strip() for x in open(keywords_path, "r", encoding="utf-8").readlines()]
 
     def make_weights(reference_tokens, key_word_list):
         return {token: 1 if token in key_word_list else 0.2 for token in reference_tokens}
