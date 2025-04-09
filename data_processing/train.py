@@ -133,6 +133,8 @@ class Trainer:
         with torch.no_grad():
             eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size, collate_fn=collate_fn)
             for step, batch in enumerate(eval_loader, 1):
+                batch = {k: v.to(accelerator.device) for k, v in batch.items()}
+                print("validating batch", step)
                 outputs = model(**batch)
                 loss = outputs.loss
                 total_loss += accelerator.gather_for_metrics(loss).sum().item()
