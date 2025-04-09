@@ -99,7 +99,7 @@ class Trainer:
 
             avg_loss = total_loss / step
             print(f"Epoch {epoch} | Training loss: {avg_loss:.4f}")
-            valid_loss = self.validate(model, eval_dataset, accelerator, eval_batch_size)
+            valid_loss = self.validate(model, eval_dataset, accelerator, eval_batch_size, collate_fn)
             print(f"Epoch {epoch} | Validation loss: {valid_loss:.4f}")
 
             # Save stats
@@ -127,11 +127,11 @@ class Trainer:
             json.dump(stats, f, indent=2)
         print("Training completed.")
 
-    def validate(self, model, eval_dataset, accelerator, batch_size):
+    def validate(self, model, eval_dataset, accelerator, batch_size, collate_fn):
         model.eval()
         total_loss = 0
         with torch.no_grad():
-            eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size, collate_fn=self.collate_fn)
+            eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size, collate_fn=collate_fn)
             for step, batch in enumerate(eval_loader, 1):
                 outputs = model(**batch)
                 loss = outputs.loss
