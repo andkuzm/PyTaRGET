@@ -41,11 +41,3 @@ class Main_r:
                            capture_output=True, text=True, check=True, env=os.environ)
         except subprocess.CalledProcessError as e:
             print(f"Failed to uninstall {self.repository_name.split('/')[-1]}: {e}")
-
-# Main("cool-RR/PySnooper", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos", out_path="C:\\Users\\kandr\\Desktop").process_repository()
-# ra = repository_actions_R.RepositoryActions("cool-RR/PySnooper", repository_path="C:\\Users\\kandr\\PycharmProjects\\repos")
-# ra.clone_repository_last()
-# repaired_cases = ra.find_repaired_test_cases()
-# for repaired_test in repaired_cases:
-#     annotated_code = ra.extract_and_annotate_code(repaired_test)
-#     print(annotated_code)

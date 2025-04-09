@@ -109,8 +109,6 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     # Run the command and capture output.
     returncode, log = run_cmd(cmd, timeout=timeout, cwd=project_path, env=os.environ)
 
-    # Save log if needed.
-    log_file = log_path / "test.log"
     print("compiling and running")
     # if save_logs:
     #     log_path.mkdir(parents=True, exist_ok=True)

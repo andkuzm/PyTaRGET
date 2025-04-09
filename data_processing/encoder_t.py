@@ -5,8 +5,8 @@ from data_processing.encode_tune_test import Eftt
 
 def encoder_t():
     # Parameters
-    annotated_cases_path = Path(r"C:\Users\kandr\PycharmProjects\PyTaRGET\dataset.csv")
-    out_path = Path(r"C:\Users\kandr\PycharmProjects\PyTaRGET\data_processing\results")
+    annotated_cases_path = Path(r"")
+    out_path = Path(r"")
     model = "codet5p"
     train_size = 0.8  # You can adjust this (e.g., 0.7, 0.9, etc.)
 

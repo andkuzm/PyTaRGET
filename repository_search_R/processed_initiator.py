@@ -42,8 +42,8 @@ class ProcessedInitiator:
             print("Finished processing repositories.")
 
 searcher = ProcessedInitiator(
-    github_token="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",
-    repository_path="C:\\Users\\kandr\\PycharmProjects\\repos",
-    out_path="C:\\Users\\kandr\\Desktop"
+    github_token="",
+    repository_path="",
+    out_path=""
 )
 searcher.find_and_process_repositories()
