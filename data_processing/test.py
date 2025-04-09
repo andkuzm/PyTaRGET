@@ -80,5 +80,5 @@ class Tester:
 
         em = round(em_size / eval_size * 100, 2)
         bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
-        code_bleu_score = calc_code_bleu([targets], best_preds)
+        code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
         return round(bleu_score * 100, 2), round(code_bleu_score, 2), em
