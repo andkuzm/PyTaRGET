@@ -49,7 +49,7 @@ class Tester:
 
             decoded = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
             predictions.append({
-                "ID": row["ID"],
+                "ID": idx,
                 "target": row["output"],
                 "preds": [pred.strip() for pred in decoded]
             })
