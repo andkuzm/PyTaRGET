@@ -26,7 +26,6 @@ class HunkPrioritizer:
         for idx, row in self.ds.iterrows():
             code_str = row["annotated_code"]
             hunks = self.extract_hunks_from_code(code_str)
-            print("hunks:", len(hunks))
 
             test_breakage_code = self.extract_test_breakage(code_str)
             test_source_code = self.extract_testcontext(code_str)
