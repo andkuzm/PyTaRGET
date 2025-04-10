@@ -25,9 +25,8 @@ def calc_syntax_match(references, candidate, lang):
     return corpus_syntax_match([references], [candidate], lang)
 
 def corpus_syntax_match(references, candidates, lang):
-    PY_LANGUAGE = tspython.language()
-    parser = Parser()
-    parser.set_language(PY_LANGUAGE)
+    PY_LANGUAGE = Language(tspython.language())
+    parser = Parser(PY_LANGUAGE)
     match_count = 0
     total_count = 0
 
