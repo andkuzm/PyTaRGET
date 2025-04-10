@@ -1,5 +1,7 @@
 # Copyright (c) Microsoft Corporation. 
 # Licensed under the MIT license.
+import tree_sitter_python
+from codebleu.utils import get_tree_sitter_language
 
 from .parser import DFG_python,DFG_java,DFG_ruby,DFG_go,DFG_php,DFG_javascript,DFG_csharp
 from .parser import (remove_comments_and_docstrings,
@@ -23,7 +25,7 @@ def calc_syntax_match(references, candidate, lang):
     return corpus_syntax_match([references], [candidate], lang)
 
 def corpus_syntax_match(references, candidates, lang):
-    PY_LANGUAGE = Language(tspython.language())
+    PY_LANGUAGE = get_tree_sitter_language(lang)
     parser = Parser(PY_LANGUAGE)
     match_count = 0
     total_count = 0
