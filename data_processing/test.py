@@ -38,9 +38,9 @@ class Tester:
 
             outputs = model.generate(
                 input_ids=input_ids,
-                max_length=self.tokenizer.model_max_length,
-                num_beams=self.beam_size,
-                num_return_sequences=self.beam_size,
+                max_length=int(self.tokenizer.model_max_length),
+                num_beams=int(self.beam_size),
+                num_return_sequences=int(self.beam_size),
                 early_stopping=True,
                 pad_token_id=pad_id,
                 eos_token_id=eos_id,
