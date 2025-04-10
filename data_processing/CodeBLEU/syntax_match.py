@@ -48,13 +48,15 @@ def corpus_syntax_match(references, candidates, lang):
             reference_tree = parser.parse(bytes(reference,'utf8')).root_node
 
             def get_all_sub_trees(root_node):
+                def get_sexpr(node):
+                    return f"({node.type} {' '.join(get_sexpr(child) for child in node.children)})"
                 node_stack = []
                 sub_tree_sexp_list = []
                 depth = 1
                 node_stack.append([root_node, depth])
                 while len(node_stack) != 0:
                     cur_node, cur_depth = node_stack.pop()
-                    sub_tree_sexp_list.append([cur_node.sexp(), cur_depth])
+                    sub_tree_sexp_list.append([get_sexpr(cur_node), cur_depth])
                     for child_node in cur_node.children:
                         if len(child_node.children) != 0:
                             depth = cur_depth + 1
