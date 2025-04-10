@@ -41,18 +41,9 @@ class Trainer:
         # Model loading
         model_dir = self.out_path / self.model / str(self.train_fraction) / "model"
 
-        if model_dir.exists() and any(model_dir.iterdir()):
-            print(f"Loading resized model from: {model_dir}")
-            model = self.model_class.from_pretrained(model_dir, trust_remote_code=True)
-            # Check and assert vocab size again here for safety
-            assert model.config.vocab_size >= len(self.tokenizer), (
-                f"Model vocab size ({model.config.vocab_size}) < tokenizer size ({len(self.tokenizer)})"
-            )
-        else:
-            print(f"No resized model found at {model_dir}, loading from base: {self.model_path}")
-            model = self.model_class.from_pretrained(self.model_path, trust_remote_code=True)
-            model.resize_token_embeddings(len(self.tokenizer))
-            model.save_pretrained(model_dir)
+        model = self.model_class.from_pretrained(self.model_path, trust_remote_code=True)
+        model.resize_token_embeddings(len(self.tokenizer))
+        model.save_pretrained(model_dir)
 
         # Optimizer and scheduler
         train_steps = len(train_dataset) * 10 // (8 * self.grad_accum_steps)

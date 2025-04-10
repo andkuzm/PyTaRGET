@@ -30,15 +30,27 @@ class Tester:
 
         pad_id = self.tokenizer.pad_token_id
         eos_id = self.tokenizer.eos_token_id
-        decoder_sid = self.tokenizer.convert_tokens_to_ids(self.tokenizer.cls_token) if self.tokenizer.cls_token else None
+
+        # Safely get decoder_start_token_id
+        if hasattr(model.config, "decoder_start_token_id") and model.config.decoder_start_token_id is not None:
+            decoder_sid = model.config.decoder_start_token_id
+        else:
+            try:
+                decoder_sid = self.tokenizer.convert_tokens_to_ids("__python__")
+            except:
+                decoder_sid = self.tokenizer.pad_token_id  # fallback
+        print("decoder_start_token_id:", decoder_sid)
+        print("vocab_size:", model.config.vocab_size)
+        assert decoder_sid < model.config.vocab_size
 
         predictions = []
         for idx, row in tqdm(df.iterrows(), total=len(df), desc="Generating predictions"):
-            input_ids = self.tokenizer(row["input"], return_tensors="pt", truncation=True, padding=True).input_ids.to(accelerator.device)
+            input_ids = self.tokenizer(row["input"], return_tensors="pt", truncation=True, padding=True).input_ids.to(
+                accelerator.device)
 
             outputs = model.generate(
                 input_ids=input_ids,
-                max_length=int(self.tokenizer.model_max_length),
+                max_length=min(512, self.tokenizer.model_max_length),
                 num_beams=int(self.beam_size),
                 num_return_sequences=int(self.beam_size),
                 early_stopping=True,
