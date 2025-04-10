@@ -8,7 +8,7 @@ from data_processing.CodeBLEU import bleu, weighted_ngram_match, syntax_match, d
 # -*- coding:utf-8 -*-
 
 
-def calc_code_bleu(refs, hyp, lang="java", params="0.25,0.25,0.25,0.25"):
+def calc_code_bleu(refs, hyp, lang="python", params="0.25,0.25,0.25,0.25"):
     alpha, beta, gamma, theta = [float(x) for x in params.split(",")]
 
     # preprocess inputs

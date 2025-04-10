@@ -7,6 +7,7 @@ from .parser import (remove_comments_and_docstrings,
                    index_to_code_token,
                    tree_to_variable_index)
 from tree_sitter import Language, Parser
+import tree_sitter_python as tspython
 
 dfg_function={
     'python':DFG_python,
@@ -21,10 +22,9 @@ dfg_function={
 def calc_syntax_match(references, candidate, lang):
     return corpus_syntax_match([references], [candidate], lang)
 
-def corpus_syntax_match(references, candidates, lang):   
-    JAVA_LANGUAGE = Language('CodeBLEU/parser/my-languages.so', lang)
-    parser = Parser()
-    parser.set_language(JAVA_LANGUAGE)
+def corpus_syntax_match(references, candidates, lang):
+    PY_LANGUAGE = Language(tspython.language())
+    parser = Parser(PY_LANGUAGE)
     match_count = 0
     total_count = 0
 
@@ -33,11 +33,11 @@ def corpus_syntax_match(references, candidates, lang):
         candidate = candidates[i] 
         for reference in references_sample:
             try:
-                candidate=remove_comments_and_docstrings(candidate,'java')
+                candidate=remove_comments_and_docstrings(candidate,'python')
             except:
                 pass    
             try:
-                reference=remove_comments_and_docstrings(reference,'java')
+                reference=remove_comments_and_docstrings(reference,'python')
             except:
                 pass  
 
