@@ -41,18 +41,9 @@ class Trainer:
         # Model loading
         model_dir = self.out_path / self.model / str(self.train_fraction) / "model"
 
-        if model_dir.exists() and any(model_dir.iterdir()):
-            print(f"Loading resized model from: {model_dir}")
-            model = self.model_class.from_pretrained(model_dir, trust_remote_code=True)
-            # Check and assert vocab size again here for safety
-            assert model.config.vocab_size >= len(self.tokenizer), (
-                f"Model vocab size ({model.config.vocab_size}) < tokenizer size ({len(self.tokenizer)})"
-            )
-        else:
-            print(f"No resized model found at {model_dir}, loading from base: {self.model_path}")
-            model = self.model_class.from_pretrained(self.model_path, trust_remote_code=True)
-            model.resize_token_embeddings(len(self.tokenizer))
-            model.save_pretrained(model_dir)
+        model = self.model_class.from_pretrained(self.model_path, trust_remote_code=True)
+        model.resize_token_embeddings(len(self.tokenizer))
+        model.save_pretrained(model_dir)
 
         # Optimizer and scheduler
         train_steps = len(train_dataset) * 10 // (8 * self.grad_accum_steps)
@@ -68,12 +59,12 @@ class Trainer:
             collate_fn = make_collate_fn(self.tokenizer)
 
         # Training params
-        batch_size = 8
-        eval_batch_size = 8
+        batch_size = 1
+        eval_batch_size = 1
         epochs = 4
         best_loss = float("inf")
         best_epoch = 0
-        early_stop = 2
+        early_stop = 1
         stats = {"epochs": [], "train_set_size": len(train_dataset), "valid_set_size": len(eval_dataset)}
 
         id_check = self.tokenizer.convert_tokens_to_ids("__python__")
@@ -87,6 +78,7 @@ class Trainer:
             train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
             for step, batch in enumerate(train_loader, 1):
                 with accelerator.accumulate(model):
+                    batch = {k: v.to(accelerator.device) for k, v in batch.items()}
                     print("processing batch", step)
                     outputs = model(**batch)
                     loss = outputs.loss
@@ -98,7 +90,7 @@ class Trainer:
 
             avg_loss = total_loss / step
             print(f"Epoch {epoch} | Training loss: {avg_loss:.4f}")
-            valid_loss = self.validate(model, eval_dataset, accelerator, eval_batch_size)
+            valid_loss = self.validate(model, eval_dataset, accelerator, eval_batch_size, collate_fn)
             print(f"Epoch {epoch} | Validation loss: {valid_loss:.4f}")
 
             # Save stats
@@ -126,12 +118,14 @@ class Trainer:
             json.dump(stats, f, indent=2)
         print("Training completed.")
 
-    def validate(self, model, eval_dataset, accelerator, batch_size):
+    def validate(self, model, eval_dataset, accelerator, batch_size, collate_fn):
         model.eval()
         total_loss = 0
         with torch.no_grad():
-            eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size, collate_fn=self.collate_fn)
+            eval_loader = torch.utils.data.DataLoader(eval_dataset, batch_size=batch_size, collate_fn=collate_fn)
             for step, batch in enumerate(eval_loader, 1):
+                batch = {k: v.to(accelerator.device) for k, v in batch.items()}
+                print("validating batch", step)
                 outputs = model(**batch)
                 loss = outputs.loss
                 total_loss += accelerator.gather_for_metrics(loss).sum().item()

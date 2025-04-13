@@ -77,6 +77,8 @@ class Eftt:
             "additional_special_tokens": self.tokenizer.additional_special_tokens
             + [v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")]
         }
+        self.tokenizer.model_max_length = min(512, self.tokenizer.model_max_length)
+        print(self.tokenizer.model_max_length)
         self.tokenizer.add_special_tokens(new_special_tokens)
         self.tokenizer.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
         self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))

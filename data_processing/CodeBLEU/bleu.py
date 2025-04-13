@@ -177,7 +177,7 @@ def corpus_bleu(
 
     # Collects the various precision values for the different ngram orders.
     p_n = [
-        Fraction(p_numerators[i], p_denominators[i], _normalize=False)
+        Fraction(p_numerators[i], p_denominators[i])
         for i, _ in enumerate(weights, start=1)
     ]
 
@@ -297,7 +297,7 @@ def modified_precision(references, hypothesis, n):
     # Usually this happens when the ngram order is > len(reference).
     denominator = max(1, sum(counts.values()))
 
-    return Fraction(numerator, denominator, _normalize=False)
+    return Fraction(numerator, denominator)
 
 
 def closest_ref_length(references, hyp_len):
@@ -492,7 +492,7 @@ class SmoothingFunction:
         skip-bigram statistics. In ACL04.
         """
         return [
-            Fraction(p_i.numerator + 1, p_i.denominator + 1, _normalize=False)
+            Fraction(p_i.numerator + 1, p_i.denominator + 1) #, _normalize=False
             for p_i in p_n
         ]
 
