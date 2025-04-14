@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
+from tqdm import tqdm
 
 
 class HunkPrioritizer:
@@ -20,20 +21,41 @@ class HunkPrioritizer:
         """
         Extracts and prioritizes all hunks from the dataset row-by-row,
         using test breakage and test source context from each row.
+        Rows with invalid or empty TF-IDF inputs are skipped.
         """
-        self.ds["prioritized_changes"] = pd.Series([None] * len(self.ds), dtype=object)  # Key fix
+        self.ds["prioritized_changes"] = pd.Series([None] * len(self.ds), dtype=object)
+        valid_indices = []
 
-        for idx, row in self.ds.iterrows():
+        for idx, row in tqdm(self.ds.iterrows(), total=len(self.ds), desc="Filtering and prioritizing hunks"):
             code_str = row["annotated_code"]
             hunks = self.extract_hunks_from_code(code_str)
-
             test_breakage_code = self.extract_test_breakage(code_str)
             test_source_code = self.extract_testcontext(code_str)
-            if test_source_code == "":
+
+            if not test_source_code.strip():
+                continue
+
+            # Step 1: Create change documents and filter empty ones
+            change_docs = []
+            for hunk in hunks:
+                doc = self.create_changed_document(hunk)
+                if len(doc["annotated_doc_seq"]) > 0:
+                    change_docs.append(doc)
+
+            if not change_docs:
+                continue
+
+            try:
+                _ = self.get_tfidf_sim(test_breakage_code, change_docs)
+            except Exception:
                 continue
 
             prioritized = self.prioritize_hunks(hunks, test_breakage_code, test_source_code)
             self.ds.at[idx, "prioritized_changes"] = prioritized
+            valid_indices.append(idx)
+
+        self.ds = self.ds.loc[valid_indices].reset_index(drop=True)
+        print(f"Remaining rows after filtering: {len(self.ds)}")
 
         return self.ds
 
@@ -135,7 +157,10 @@ class HunkPrioritizer:
 
     def get_tfidf_sim(self, target, changes):
         vectorizer = TfidfVectorizer(tokenizer=lambda t: t, lowercase=False, token_pattern=None)
-        tokenized_docs = [self.tokenizer.encode(target)] + [c["annotated_doc_seq"] for c in changes]
+        tokenized_docs = [
+            tokens for tokens in [self.tokenizer.encode(target)] + [c.get("annotated_doc_seq", []) for c in changes]
+            if isinstance(tokens, list) and len(tokens) > 0
+        ]
         vectors = vectorizer.fit_transform(tokenized_docs)
         dense = vectors.todense()
         cosine_sim = (dense * dense[0].T).T.tolist()[0]
