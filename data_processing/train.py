@@ -59,12 +59,12 @@ class Trainer:
             collate_fn = make_collate_fn(self.tokenizer)
 
         # Training params
-        batch_size = 1
-        eval_batch_size = 1
-        epochs = 4
+        batch_size = 8
+        eval_batch_size = 8
+        epochs = 10
         best_loss = float("inf")
         best_epoch = 0
-        early_stop = 1
+        early_stop = 111
         stats = {"epochs": [], "train_set_size": len(train_dataset), "valid_set_size": len(eval_dataset)}
 
         id_check = self.tokenizer.convert_tokens_to_ids("__python__")
