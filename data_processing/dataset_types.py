@@ -158,3 +158,13 @@ class CodeGenDataset(DecoderDataset):
     def initialize_tokens(self, tokenizer):
         super().initialize_tokens(tokenizer)
         self.pad_id = tokenizer.eos_token_id
+
+class LLMSeqDataset(DecoderDataset):
+    def __init__(self, ds, tokenizer, split, out_path, save_os_id=False):
+        super().__init__(ds, tokenizer, split, out_path, save_os_id)
+        self.pad_id = None
+
+    def initialize_tokens(self, tokenizer):
+        super().initialize_tokens(tokenizer)
+        # Assume instruction-tuned models have EOS tokens used for padding if needed
+        self.pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
