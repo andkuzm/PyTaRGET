@@ -136,7 +136,7 @@ class HunkPrioritizer:
             # Extract everything between [<HUNK>] and [</HUNK>]
             raw = re.search(r"\[<HUNK>].*?\n(.*?)\[</HUNK>]", hunk["annotated_doc"], re.DOTALL)
             context_lines = raw.group(1).rstrip().split("\n") if raw else []
-            add_lines = context_lines #TODO mb separate from add and del
+            add_lines = context_lines
 
         return del_lines, add_lines
 
