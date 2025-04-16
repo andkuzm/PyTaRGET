@@ -1,22 +1,36 @@
 import pickle
 from pathlib import Path
-
 import pandas as pd
+from huggingface_hub import login
 from tqdm import tqdm
 import torch
-from transformers import GenerationConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM
+
 from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester_llm:
-    def __init__(self, model_name, model, tokenizer, dataset_path, device="cuda"):
+    def __init__(self, model_name, model_path, model_class, dataset_path, token=None, device="cuda"):
         self.model_name = model_name
-        self.model = model.to(device)
-        self.tokenizer = tokenizer
+        self.model_path = model_path
+        self.model_class = model_class
         self.device = device
+        self.token = token
         self.dataset_path = Path(dataset_path)
         self.dataset_file = self.dataset_path / "splits" / "test.pkl"
+
+        # Authenticate if token provided
+        if self.token:
+            login(self.token)
+
+        # Load model and tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path, trust_remote_code=True, token=self.token
+        )
+        self.model = self.model_class.from_pretrained(
+            self.model_path, trust_remote_code=True, token=self.token
+        ).to(self.device)
 
         # Load dataset
         with open(self.dataset_file, "rb") as f:
@@ -24,17 +38,17 @@ class Tester_llm:
 
     def build_prompt(self, row):
         if self.model_name in {"llama", "gemma"}:
-            # ChatML style (used by llama3, gemma)
             system_prompt = "You are a helpful assistant that repairs test code given broken test and code changes."
             user_input = row["input"]
-            return f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n{user_input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
+            return (
+                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{system_prompt}<|eot_id|>"
+                f"<|start_header_id|>user<|end_header_id|>\n{user_input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
+            )
 
         elif self.model_name in {"qwen", "deepseek"}:
-            # Plain instruction-style prompt
             return f"### Task:\nRepair the broken test code based on the following input:\n\n{row['input']}\n\n### Repaired Test Code:\n"
 
         else:
-            # Fallback: simple instruction prompt
             return f"Repair the following test:\n{row['input']}\n\nRepaired test:\n"
 
     def run(self, out_path=None, max_gen_tokens=256, save_json=True):
@@ -46,7 +60,6 @@ class Tester_llm:
             prompt = self.build_prompt(row)
             input_ids = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding=True).input_ids.to(self.device)
 
-            # Generation config
             with torch.no_grad():
                 output_ids = self.model.generate(
                     input_ids=input_ids,
@@ -58,13 +71,12 @@ class Tester_llm:
 
             generated = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
-            # Extract only generated continuation if needed
             if self.model_name in {"llama", "gemma"}:
                 assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
                 generated = generated.split(assistant_tag)[-1].rstrip()
 
             predictions.append({
-                "ID": row["ID"] if "ID" in row else i,
+                "ID": row.get("ID", i),
                 "target": row["output"],
                 "preds": [generated.rstrip()]
             })
@@ -76,16 +88,13 @@ class Tester_llm:
             pd.DataFrame(predictions).to_json(out_file, indent=2)
             print(f"Saved predictions to {out_file}")
 
-            # Compute evaluation scores
+        # Evaluate
         bleu, codebleu, em = self.compute_scores(predictions)
         print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em}")
 
         return predictions
 
     def compute_scores(self, predictions):
-        """
-        predictions: list of {"ID", "target", "preds": [<best>, ...]}
-        """
         pred_df = pd.DataFrame(predictions)
         eval_size = pred_df["ID"].nunique()
         em_size = 0
@@ -107,5 +116,4 @@ class Tester_llm:
         em = round(em_size / eval_size * 100, 2)
         bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
         code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
-        print(f"BLEU: {round(bleu_score * 100, 2)} | CodeBLEU: {round(code_bleu_score, 2)} | EM: {em}")
         return round(bleu_score * 100, 2), round(code_bleu_score, 2), em

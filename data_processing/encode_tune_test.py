@@ -7,6 +7,7 @@ from transformers import (
 )
 
 from data_processing.encode import Encoder
+from data_processing.llm_test import Tester_llm
 from data_processing.test import Tester
 from data_processing.train import Trainer
 from dataset_types import EncDecDataset, PLBARTDataset, CodeGenDataset, LLMSeqDataset
@@ -124,6 +125,16 @@ class Eftt:
     def validate(self):
         tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size)
         tester.validate()
+
+    def validate_llm(self):
+        tester = Tester_llm(
+            model_name=self.model,
+            model_path=self.model_path,
+            model_class=self.model_class,
+            dataset_path=self.out_path / self.model / str(self.train_size),
+            token=self.hftok  # Pass the Hugging Face token if available
+        )
+        tester.run(out_path=self.out_path / self.model / str(self.train_size))
 
 
 
