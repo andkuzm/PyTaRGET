@@ -26,6 +26,8 @@ class Tokens:
     ADD_END = "[</ADD>]"
     HUNK = "[<HUNK>]"
     HUNK_END = "[</HUNK>]"
+    TAB = "<TAB>"
+    NEW_LINE = "<NL>"
 
 class Eftt:
     def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=5, hftoken=None):
