@@ -201,10 +201,10 @@ class Encoder:
         # Clean and process each line
         lines = test_code.split("\n")
         processed_lines = [
-            " ".join(list(line.rstrip()))
+            line.rstrip()
             for line in lines
             if not line.strip().startswith("#") and line.strip()
         ]
 
-        test_context = " ".join(processed_lines)
+        test_context = "\n".join(processed_lines)
         return test_context
