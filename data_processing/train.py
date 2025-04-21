@@ -64,7 +64,7 @@ class Trainer:
         epochs = 10
         best_loss = float("inf")
         best_epoch = 0
-        early_stop = 111
+        early_stop = 3
         stats = {"epochs": [], "train_set_size": len(train_dataset), "valid_set_size": len(eval_dataset)}
 
         id_check = self.tokenizer.convert_tokens_to_ids("__python__")
