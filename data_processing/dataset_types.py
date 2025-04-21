@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import torch
 
@@ -28,7 +30,14 @@ class ATRDataset(torch.utils.data.Dataset):
         #         pd.DataFrame({"id": oversized_ids}).to_csv(ds_output_dir / f"{split}_os_ids.csv", index=False)
         # else:
         ds = ds.iloc[list(valid_length_ind)].reset_index(drop=True)
-        ds.to_json(ds_output_dir / f"{split}.json", orient="records", indent=2)
+        with open(ds_output_dir / f"{split}.json", "w", encoding="utf-8") as f:
+            f.write("[\n")
+            for i, row in enumerate(ds.to_dict(orient="records")):
+                json_str = json.dumps(row, ensure_ascii=False)
+                if i > 0:
+                    f.write(",\n")
+                f.write(json_str)
+            f.write("\n]")
 
     def __len__(self):
         return len(self.data)
