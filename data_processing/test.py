@@ -63,7 +63,7 @@ class Tester:
             predictions.append({
                 "ID": idx,
                 "target": row["output"],
-                "preds": [pred.strip() for pred in decoded]
+                "preds": [pred.rstrip() for pred in decoded]
             })
 
         pred_df = pd.DataFrame(predictions)

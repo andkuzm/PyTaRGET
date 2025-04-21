@@ -136,40 +136,38 @@ class Eftt:
         )
         tester.run(out_path=self.out_path / self.model / str(self.train_size))
 
-
-
-
     def create_tokenizer(self):
         new_special_tokens = {
             "additional_special_tokens": self.tokenizer.additional_special_tokens
-            + [v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")]
+                                         + [v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")]
         }
-        self.tokenizer.model_max_length = min(512, self.tokenizer.model_max_length)
-        print(self.tokenizer.model_max_length)
+
+        # Only override if it's a placeholder (commonly very large int)
+        if self.tokenizer.model_max_length > 10000:
+            self.tokenizer.model_max_length = 512
+
+        print("Final tokenizer model_max_length:", self.tokenizer.model_max_length)
         self.tokenizer.add_special_tokens(new_special_tokens)
         self.tokenizer.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
         self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))
 
     def create_tokenizer_llm(self):
-        # Register custom special tokens if needed
         new_special_tokens = {
             "additional_special_tokens": list({
                 v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")
             })
         }
 
-        # Add tokens and resize embeddings only if new tokens were added
         num_added_tokens = self.tokenizer.add_special_tokens(new_special_tokens)
         if num_added_tokens > 0 and hasattr(self.model_class, "resize_token_embeddings"):
             model = self.model_class.from_pretrained(self.model_path, trust_remote_code=True)
             model.resize_token_embeddings(len(self.tokenizer))
             model.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "checkpoint-best"))
 
-        # Cap max length explicitly (you can adjust the limit if needed)
-        self.tokenizer.model_max_length = min(2048, self.tokenizer.model_max_length)
+        # Only override if the value is clearly a placeholder (very high number)
+        if self.tokenizer.model_max_length > 10000:
+            self.tokenizer.model_max_length = 2048
 
-        # Disable max length warnings if needed
+        print("Final LLM tokenizer model_max_length:", self.tokenizer.model_max_length)
         self.tokenizer.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
-
-        # Save tokenizer with added tokens
         self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))
