@@ -62,7 +62,7 @@ class Tester:
             )
 
             def restore_formatting(text):
-                text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '\t', text)
+                text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '    ', text)
                 text = re.sub(r'(?:\s*)<NL>(?:\s*)', '\n', text)
                 return text.rstrip()
             decoded = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)

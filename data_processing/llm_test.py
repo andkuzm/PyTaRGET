@@ -70,7 +70,7 @@ class Tester_llm:
                     do_sample=False
                 )
             def restore_formatting(text):
-                text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '\t', text)
+                text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '    ', text)
                 text = re.sub(r'(?:\s*)<NL>(?:\s*)', '\n', text)
                 return text.rstrip()
             generated = restore_formatting(self.tokenizer.decode(output_ids[0], skip_special_tokens=True))
