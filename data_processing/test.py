@@ -1,3 +1,5 @@
+import re
+
 import pandas as pd
 from pathlib import Path
 from accelerate import Accelerator
@@ -63,7 +65,7 @@ class Tester:
             predictions.append({
                 "ID": idx,
                 "target": row["output"],
-                "preds": [pred.replace(" <TAB> ", "\t").rstrip() for pred in decoded]
+                "preds": [re.sub(r'(?:\s*)<TAB>(?:\s*)', '\t', pred).rstrip() for pred in decoded]
             })
 
         pred_df = pd.DataFrame(predictions)
