@@ -61,11 +61,15 @@ class Tester:
                 decoder_start_token_id=decoder_sid
             )
 
+            def restore_formatting(text):
+                text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '\t', text)
+                text = re.sub(r'(?:\s*)<NL>(?:\s*)', '\n', text)
+                return text.rstrip()
             decoded = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
             predictions.append({
                 "ID": idx,
                 "target": row["output"],
-                "preds": [re.sub(r'(?:\s*)<TAB>(?:\s*)', '\t', pred).rstrip() for pred in decoded]
+                "preds": [restore_formatting(pred) for pred in decoded]
             })
 
         pred_df = pd.DataFrame(predictions)

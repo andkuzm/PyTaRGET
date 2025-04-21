@@ -69,9 +69,11 @@ class Tester_llm:
                     eos_token_id=self.tokenizer.eos_token_id,
                     do_sample=False
                 )
-
-            generated = re.sub(r'(?:\s*)<TAB>(?:\s*)', '\t',
-                               self.tokenizer.decode(output_ids[0], skip_special_tokens=True)).rstrip()
+            def restore_formatting(text):
+                text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '\t', text)
+                text = re.sub(r'(?:\s*)<NL>(?:\s*)', '\n', text)
+                return text.rstrip()
+            generated = restore_formatting(self.tokenizer.decode(output_ids[0], skip_special_tokens=True))
 
             if self.model_name in {"llama", "gemma"}:
                 assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"

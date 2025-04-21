@@ -112,7 +112,7 @@ class Encoder:
         # Extract the testcontext
         testcontext = self.extract_testcontext(row["annotated_code"])
         # Tokenize and check if testcontext length exceeds half of the max token length
-        testcontext_tokens = self.tokenizer.encode(testcontext.replace("\t", " <TAB> ").replace("    ", " <TAB> "))
+        testcontext_tokens = self.tokenizer.encode(testcontext.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "))
         if len(testcontext_tokens) > (max_token_length // 2):
             return False  # Remove this row
         return True
@@ -169,7 +169,7 @@ class Encoder:
         pr_changes_cnt = len(row["prioritized_changes"])
         selected_changes = []
         test_context = self.create_test_context(row)
-        test_context_e = self.tokenizer.encode(test_context.replace("\t", " <TAB> ").replace("    ", " <TAB> "))
+        test_context_e = self.tokenizer.encode(test_context.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "))
         for i in range(pr_changes_cnt):
             row["prioritized_changes"][i]["selected"] = False
             new_selected_changes = selected_changes + [row["prioritized_changes"][i]]

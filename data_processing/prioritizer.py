@@ -114,7 +114,7 @@ class HunkPrioritizer:
         if "annotated_doc" not in hunk:
             hunk["annotated_doc"] = self.create_hunk_document(hunk)
         if "annotated_doc_seq" not in hunk:
-            hunk["annotated_doc_seq"] = self.tokenizer.encode(hunk["annotated_doc"].replace("\t", " <TAB> ").replace("    ", " <TAB> "))
+            hunk["annotated_doc_seq"] = self.tokenizer.encode(hunk["annotated_doc"].replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "))
         return {"annotated_doc": hunk["annotated_doc"], "annotated_doc_seq": hunk["annotated_doc_seq"]}
 
     def create_hunk_document(self, hunk):
@@ -158,7 +158,7 @@ class HunkPrioritizer:
     def get_tfidf_sim(self, target, changes):
         vectorizer = TfidfVectorizer(tokenizer=lambda t: t, lowercase=False, token_pattern=None)
         tokenized_docs = [
-            tokens for tokens in [self.tokenizer.encode(target.replace("\t", " <TAB> ").replace("    ", " <TAB> "))] + [c.get("annotated_doc_seq", []) for c in changes]
+            tokens for tokens in [self.tokenizer.encode(target.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "))] + [c.get("annotated_doc_seq", []) for c in changes]
             if isinstance(tokens, list) and len(tokens) > 0
         ]
         vectors = vectorizer.fit_transform(tokenized_docs)

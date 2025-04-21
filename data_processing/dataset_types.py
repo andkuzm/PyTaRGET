@@ -84,11 +84,11 @@ class EncDecDataset(ATRDataset):
 
     def get_input(self, row, tokenizer):
         input = row["input"]
-        return tokenizer.encode(input.replace("\t", " <TAB> ").replace("    ", " <TAB> "), return_tensors="pt")
+        return tokenizer.encode(input.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "), return_tensors="pt")
 
     def get_output(self, row, tokenizer):
         output = row["output"]
-        return tokenizer.encode(output.replace("\t", " <TAB> ").replace("    ", " <TAB> "), return_tensors="pt")
+        return tokenizer.encode(output.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "), return_tensors="pt")
 
     def create_item(self, input, output):
         return {
@@ -108,11 +108,11 @@ class EncDecDataset(ATRDataset):
 class PLBARTDataset(EncDecDataset):
     def get_input(self, row, tokenizer):
         input = row["input"] + tokenizer.eos_token + "__python__"
-        return tokenizer.encode(input.replace("\t", " <TAB> ").replace("    ", " <TAB> "), add_special_tokens=False, return_tensors="pt")
+        return tokenizer.encode(input.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "), add_special_tokens=False, return_tensors="pt")
 
     def get_output(self, row, tokenizer):
         output = "__python__" + row["output"] + tokenizer.eos_token
-        return tokenizer.encode(output.replace("\t", " <TAB> ").replace("    ", " <TAB> "), add_special_tokens=False, return_tensors="pt")
+        return tokenizer.encode(output.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "), add_special_tokens=False, return_tensors="pt")
 
     def get_decoder_start_token_id(self, tokenizer):
         return tokenizer.lang_code_to_id["__python__"]
@@ -125,14 +125,14 @@ class DecoderDataset(ATRDataset):
 
     def get_input(self, row, tokenizer):
         input = row["input"] + row["output"] + self.eos_token
-        return tokenizer.encode(input.replace("\t", " <TAB> ").replace("    ", " <TAB> "), return_tensors="pt")
+        return tokenizer.encode(input.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "), return_tensors="pt")
 
     def get_inference_input(self, row, tokenizer):
-        return tokenizer.encode(row["input"].replace("\t", " <TAB> ").replace("    ", " <TAB> "), return_tensors="pt")
+        return tokenizer.encode(row["input"].replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "), return_tensors="pt")
 
     def get_output(self, row, tokenizer):
         output = row["output"] + self.eos_token
-        return tokenizer.encode(output.replace("\t", " <TAB> ").replace("    ", " <TAB> "), return_tensors="pt")
+        return tokenizer.encode(output.replace("\t", " <TAB> ").replace("    ", " <TAB> ").replace("\n", " <NL> "), return_tensors="pt")
 
     def create_item(self, input, output):
         input = input.squeeze(0)
