@@ -69,7 +69,7 @@ class Tester_llm:
                     do_sample=False
                 )
 
-            generated = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+            generated = self.tokenizer.decode(output_ids[0], skip_special_tokens=True).replace("<TAB>", "\t").replace("<NL>", "\n")
 
             if self.model_name in {"llama", "gemma"}:
                 assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"

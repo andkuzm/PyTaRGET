@@ -30,7 +30,14 @@ class ATRDataset(torch.utils.data.Dataset):
         #         pd.DataFrame({"id": oversized_ids}).to_csv(ds_output_dir / f"{split}_os_ids.csv", index=False)
         # else:
         ds = ds.iloc[list(valid_length_ind)].reset_index(drop=True)
-        ds.to_json(ds_output_dir / f"{split}.json", orient="records", indent=2)
+        with open(ds_output_dir / f"{split}.json", "w", encoding="utf-8") as f:
+            f.write("[\n")
+            for i, row in enumerate(ds.to_dict(orient="records")):
+                json_str = json.dumps(row, ensure_ascii=False)
+                if i > 0:
+                    f.write(",\n")
+                f.write(json_str)
+            f.write("\n]")
 
     def __len__(self):
         return len(self.data)
@@ -77,11 +84,11 @@ class EncDecDataset(ATRDataset):
 
     def get_input(self, row, tokenizer):
         input = row["input"]
-        return tokenizer.encode(input, return_tensors="pt")
+        return tokenizer.encode(input.replace("\t", "<TAB>").replace("\n", "<NL>"), return_tensors="pt")
 
     def get_output(self, row, tokenizer):
         output = row["output"]
-        return tokenizer.encode(output, return_tensors="pt")
+        return tokenizer.encode(output.replace("\t", "<TAB>").replace("\n", "<NL>"), return_tensors="pt")
 
     def create_item(self, input, output):
         return {
@@ -101,11 +108,11 @@ class EncDecDataset(ATRDataset):
 class PLBARTDataset(EncDecDataset):
     def get_input(self, row, tokenizer):
         input = row["input"] + tokenizer.eos_token + "__python__"
-        return tokenizer.encode(input, add_special_tokens=False, return_tensors="pt")
+        return tokenizer.encode(input.replace("\t", "<TAB>").replace("\n", "<NL>"), add_special_tokens=False, return_tensors="pt")
 
     def get_output(self, row, tokenizer):
         output = "__python__" + row["output"] + tokenizer.eos_token
-        return tokenizer.encode(output, add_special_tokens=False, return_tensors="pt")
+        return tokenizer.encode(output.replace("\t", "<TAB>").replace("\n", "<NL>"), add_special_tokens=False, return_tensors="pt")
 
     def get_decoder_start_token_id(self, tokenizer):
         return tokenizer.lang_code_to_id["__python__"]
@@ -118,14 +125,14 @@ class DecoderDataset(ATRDataset):
 
     def get_input(self, row, tokenizer):
         input = row["input"] + row["output"] + self.eos_token
-        return tokenizer.encode(input, return_tensors="pt")
+        return tokenizer.encode(input.replace("\t", "<TAB>").replace("\n", "<NL>"), return_tensors="pt")
 
     def get_inference_input(self, row, tokenizer):
-        return tokenizer.encode(row["input"], return_tensors="pt")
+        return tokenizer.encode(row["input"].replace("\t", "<TAB>").replace("\n", "<NL>"), return_tensors="pt")
 
     def get_output(self, row, tokenizer):
         output = row["output"] + self.eos_token
-        return tokenizer.encode(output, return_tensors="pt")
+        return tokenizer.encode(output.replace("\t", "<TAB>").replace("\n", "<NL>"), return_tensors="pt")
 
     def create_item(self, input, output):
         input = input.squeeze(0)
