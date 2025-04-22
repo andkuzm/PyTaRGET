@@ -26,8 +26,6 @@ class Tokens:
     ADD_END = "[</ADD>]"
     HUNK = "[<HUNK>]"
     HUNK_END = "[</HUNK>]"
-    TAB = "<TAB>"
-    NEW_LINE = "<NL>"
 
 class Eftt:
     def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=5, hftoken=None):
@@ -150,6 +148,7 @@ class Eftt:
 
         print("Final tokenizer model_max_length:", self.tokenizer.model_max_length)
         self.tokenizer.add_special_tokens(new_special_tokens)
+        self.tokenizer.add_tokens(["<TAB>", "<NL>"])
         self.tokenizer.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
         self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))
 
@@ -161,6 +160,7 @@ class Eftt:
         }
 
         num_added_tokens = self.tokenizer.add_special_tokens(new_special_tokens)
+        num_added_tokens += self.tokenizer.add_tokens(["<TAB>", "<NL>"])
         if num_added_tokens > 0 and hasattr(self.model_class, "resize_token_embeddings"):
             model = self.model_class.from_pretrained(self.model_path, trust_remote_code=True)
             model.resize_token_embeddings(len(self.tokenizer))

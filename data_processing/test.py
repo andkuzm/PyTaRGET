@@ -60,16 +60,11 @@ class Tester:
                 eos_token_id=eos_id,
                 decoder_start_token_id=decoder_sid
             )
-
-            def restore_formatting(text):
-                text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '    ', text)
-                text = re.sub(r'(?:\s*)<NL>(?:\s*)', '\n', text)
-                return text.rstrip()
             decoded = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
             predictions.append({
                 "ID": idx,
                 "target": row["output"],
-                "preds": [restore_formatting(pred) for pred in decoded]
+                "preds": [pred.replace("<TAB>", "    ").replace("<NL>", "\n") for pred in decoded]
             })
 
         pred_df = pd.DataFrame(predictions)
