@@ -79,7 +79,6 @@ class Trainer:
             for step, batch in enumerate(train_loader, 1):
                 with accelerator.accumulate(model):
                     batch = {k: v.to(accelerator.device) for k, v in batch.items()}
-                    print("processing batch", step)
                     outputs = model(**batch)
                     loss = outputs.loss
                     total_loss += loss.item()
