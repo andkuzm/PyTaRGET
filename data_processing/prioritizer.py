@@ -13,9 +13,17 @@ class HunkPrioritizer:
         self.ds = ds
 
     def extract_hunks_from_code(self, code_str):
-        # Extract all [<HUNK>]...</HUNK>] blocks
-        hunk_blocks = re.findall(r"\[<HUNK>](.*?)\[</HUNK>]", code_str, re.DOTALL)
-        return [{"annotated_doc": "[<HUNK>]" + h + "[</HUNK>]"} for h in hunk_blocks]
+        # Match full [<HUNK>]...[/HUNK>] blocks line by line, including method names
+        pattern = r"(^\[<HUNK>].*?\n)(.*?)(^\[</HUNK>])"
+        matches = re.findall(pattern, code_str, flags=re.DOTALL | re.MULTILINE)
+
+        cleaned_blocks = []
+        for opening_line, hunk_body, closing_line in matches:
+            # Keep only a clean [<HUNK>] line and the rest as-is
+            cleaned_hunk = "[<HUNK>]\n" + hunk_body.strip() + "\n[</HUNK>]"
+            cleaned_blocks.append({"annotated_doc": cleaned_hunk})
+
+        return cleaned_blocks
 
     def prioritize_hunks_prep(self):
         """
