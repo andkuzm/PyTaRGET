@@ -32,7 +32,7 @@ class Tester_llm:
         self.model = self.model_class.from_pretrained(
             self.model_path, trust_remote_code=True, token=self.token,
             device_map="auto", torch_dtype="auto",
-        ).to(self.device)
+        )
 
         # Load dataset
         with open(self.dataset_file, "rb") as f:
