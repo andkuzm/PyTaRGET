@@ -85,7 +85,7 @@ class Eftt:
 
         if model == "deepseek":
             login(token=self.hftok)
-            self.model_path = "deepseek-ai/deepseek-coder-33b-instruct"
+            self.model_path = "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct" #deepseek-ai/deepseek-coder-33b-instruct
             self.model_class = AutoModelForCausalLM
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path, trust_remote_code=True, token=True
