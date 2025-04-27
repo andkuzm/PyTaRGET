@@ -60,13 +60,20 @@ class Tester_llm:
             input_ids = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding=True).input_ids.to(self.device)
 
             with torch.no_grad():
-                output_ids = self.model.generate(
-                    input_ids=input_ids,
-                    max_new_tokens=max_gen_tokens,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id,
-                    do_sample=False
-                )
+                gen_kwargs = {
+                    "input_ids": input_ids,
+                    "max_new_tokens": max_gen_tokens,
+                    "pad_token_id": self.tokenizer.pad_token_id,
+                    "eos_token_id": self.tokenizer.eos_token_id,
+                    "do_sample": False,
+                }
+
+                # Special handling for DeepSeek models
+                if self.model_name.lower() == "deepseek":
+                    gen_kwargs["use_cache"] = True
+                    gen_kwargs["cache_position"] = torch.arange(0, input_ids.shape[1], device=input_ids.device)
+
+                output_ids = self.model.generate(**gen_kwargs)
             def restore_formatting(text):
                 text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '    ', text)
                 text = re.sub(r'(?:\s*)<NL>(?:\s*)', '\n', text)
