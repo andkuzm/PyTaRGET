@@ -119,20 +119,29 @@ class PLBARTDataset(EncDecDataset):
 
 
 class DecoderDataset(ATRDataset):
+    def __init__(self, ds, tokenizer, split, out_path, save_os_id=False, is_llm=False):
+        self.is_llm = is_llm
+        super().__init__(ds, tokenizer, split, out_path, save_os_id)
+
     def initialize_tokens(self, tokenizer):
         super().initialize_tokens(tokenizer)
         self.eos_token = tokenizer.eos_token
 
+    def preprocess(self, text):
+        if not self.is_llm:
+            text = text.replace("\t", "<TAB>").replace("    ", "<TAB>").replace("\n", "<NL>")
+        return text
+
     def get_input(self, row, tokenizer):
         input = row["input"] + row["output"] + self.eos_token
-        return tokenizer.encode(input.replace("\t", "<TAB>").replace("    ", "<TAB>").replace("\n", "<NL>"), return_tensors="pt")
+        return tokenizer.encode(self.preprocess(input), return_tensors="pt")
 
     def get_inference_input(self, row, tokenizer):
-        return tokenizer.encode(row["input"].replace("\t", "<TAB>").replace("    ", "<TAB>").replace("\n", "<NL>"), return_tensors="pt")
+        return tokenizer.encode(self.preprocess(row["input"]), return_tensors="pt")
 
     def get_output(self, row, tokenizer):
         output = row["output"] + self.eos_token
-        return tokenizer.encode(output.replace("\t", "<TAB>").replace("    ", "<TAB>").replace("\n", "<NL>"), return_tensors="pt")
+        return tokenizer.encode(self.preprocess(output), return_tensors="pt")
 
     def create_item(self, input, output):
         input = input.squeeze(0)
@@ -159,9 +168,8 @@ class DecoderDataset(ATRDataset):
 
     @staticmethod
     def get_max_input_len(max_len):
-        # When decoder-only, we consider two-third of the prompt as the input, and the rest as the output.
+        # When decoder-only, consider two-thirds of the prompt as input
         return max_len * 2 // 3
-
 
 class CodeGenDataset(DecoderDataset):
     def initialize_tokens(self, tokenizer):
@@ -170,7 +178,7 @@ class CodeGenDataset(DecoderDataset):
 
 class LLMSeqDataset(DecoderDataset):
     def __init__(self, ds, tokenizer, split, out_path, save_os_id=False):
-        super().__init__(ds, tokenizer, split, out_path, save_os_id)
+        super().__init__(ds, tokenizer, split, out_path, save_os_id, is_llm=True)
         self.pad_id = None
 
     def initialize_tokens(self, tokenizer):

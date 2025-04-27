@@ -92,6 +92,7 @@ class Eftt:
             )
             self.create_tokenizer_llm()
             self.dataset_class = LLMSeqDataset
+        self.is_llm=model in {"deepseek", "qwen", "llama", "gemma"}
 
         # Gemini and Claude are API-based (not HuggingFace-hosted), so you’ll need API wrappers instead
         # if model == "gemini":
@@ -115,7 +116,7 @@ class Eftt:
         self.validate()
 
     def encode(self):
-        encoder = Encoder(self.annotated_cases_path, self.out_path, self.train_size, self.tokenizer, self.dataset_class, self.model, Tokens)
+        encoder = Encoder(self.annotated_cases_path, self.out_path, self.train_size, self.tokenizer, self.dataset_class, self.model, self.is_llm, Tokens)
         encoder.encode()
 
     def train(self):
@@ -130,9 +131,8 @@ class Eftt:
         tester = Tester_llm(
             model_name=self.model,
             model_path=self.model_path,
-            model_class=self.model_class,
             dataset_path=self.out_path / self.model / str(self.train_size),
-            token=self.hftok  # Pass the Hugging Face token if available
+            token=self.hftok
         )
         tester.run(out_path=self.out_path / self.model / str(self.train_size))
 
@@ -153,23 +153,24 @@ class Eftt:
         self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))
 
     def create_tokenizer_llm(self):
-        new_special_tokens = {
-            "additional_special_tokens": list({
-                v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")
-            })
-        }
-
-        num_added_tokens = self.tokenizer.add_special_tokens(new_special_tokens)
-        num_added_tokens += self.tokenizer.add_tokens(["<TAB>", "<NL>"])
-        if num_added_tokens > 0 and hasattr(self.model_class, "resize_token_embeddings"):
-            model = self.model_class.from_pretrained(self.model_path, trust_remote_code=True)
-            model.resize_token_embeddings(len(self.tokenizer))
-            model.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "checkpoint-best"))
-
-        # Only override if the value is clearly a placeholder (very high number)
-        if self.tokenizer.model_max_length > 10000:
-            self.tokenizer.model_max_length = 2048
-
-        print("Final LLM tokenizer model_max_length:", self.tokenizer.model_max_length)
-        self.tokenizer.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
-        self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))
+        pass
+        # new_special_tokens = {
+        #     "additional_special_tokens": list({
+        #         v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")
+        #     })
+        # }
+        #
+        # num_added_tokens = self.tokenizer.add_special_tokens(new_special_tokens)
+        # num_added_tokens += self.tokenizer.add_tokens(["<TAB>", "<NL>"])
+        # if num_added_tokens > 0 and hasattr(self.model_class, "resize_token_embeddings"):
+        #     model = self.model_class.from_pretrained(self.model_path, trust_remote_code=True)
+        #     model.resize_token_embeddings(len(self.tokenizer))
+        #     model.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "checkpoint-best"))
+        #
+        # # Only override if the value is clearly a placeholder (very high number)
+        # if self.tokenizer.model_max_length > 10000:
+        #     self.tokenizer.model_max_length = 2048
+        #
+        # print("Final LLM tokenizer model_max_length:", self.tokenizer.model_max_length)
+        # self.tokenizer.deprecation_warnings["sequence-length-is-longer-than-the-specified-maximum"] = True
+        # self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))

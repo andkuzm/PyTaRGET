@@ -8,9 +8,10 @@ from tqdm import tqdm
 
 
 class HunkPrioritizer:
-    def __init__(self, tokenizer, ds):
+    def __init__(self, tokenizer, ds, is_llm=False):
         self.tokenizer = tokenizer
         self.ds = ds
+        self.is_llm = is_llm
 
     def extract_hunks_from_code(self, code_str):
         # Match full [<HUNK>]...[/HUNK>] blocks line by line, including method names
@@ -118,11 +119,13 @@ class HunkPrioritizer:
         return prioritized_hunks
 
     def create_changed_document(self, hunk):
-        """Creates an annotated document for a hunk."""
         if "annotated_doc" not in hunk:
             hunk["annotated_doc"] = self.create_hunk_document(hunk)
         if "annotated_doc_seq" not in hunk:
-            hunk["annotated_doc_seq"] = self.tokenizer.encode(hunk["annotated_doc"].replace("\t", "<TAB>").replace("    ", "<TAB>").replace("\n", "<NL>"))
+            text = hunk["annotated_doc"]
+            if not self.is_llm:
+                text = text.replace("\t", "<TAB>").replace("    ", "<TAB>").replace("\n", "<NL>")
+            hunk["annotated_doc_seq"] = self.tokenizer.encode(text)
         return {"annotated_doc": hunk["annotated_doc"], "annotated_doc_seq": hunk["annotated_doc_seq"]}
 
     def create_hunk_document(self, hunk):
@@ -165,8 +168,10 @@ class HunkPrioritizer:
 
     def get_tfidf_sim(self, target, changes):
         vectorizer = TfidfVectorizer(tokenizer=lambda t: t, lowercase=False, token_pattern=None)
+        if not self.is_llm:
+            target = target.replace("\t", "<TAB>").replace("    ", "<TAB>").replace("\n", "<NL>")
         tokenized_docs = [
-            tokens for tokens in [self.tokenizer.encode(target.replace("\t", "<TAB>").replace("    ", "<TAB>").replace("\n", "<NL>"))] + [c.get("annotated_doc_seq", []) for c in changes]
+            tokens for tokens in [self.tokenizer.encode(target)] + [c.get("annotated_doc_seq", []) for c in changes]
             if isinstance(tokens, list) and len(tokens) > 0
         ]
         vectors = vectorizer.fit_transform(tokenized_docs)
