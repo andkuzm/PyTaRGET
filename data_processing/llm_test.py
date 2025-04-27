@@ -19,7 +19,8 @@ class Tester_llm:
         self.device = device
         self.token = token
         self.dataset_path = Path(dataset_path)
-        self.dataset_file = self.dataset_path / "splits" / "test.pkl"
+        self.dataset_file = self.dataset_path / "splits" / "test.json"
+        self.dataset = pd.read_json(self.dataset_file).to_dict(orient="records")
 
         # Authenticate if token provided
         if self.token:
@@ -33,10 +34,6 @@ class Tester_llm:
             self.model_path, trust_remote_code=True, token=self.token,
             device_map="auto", torch_dtype="auto",
         )
-
-        # Load dataset
-        with open(self.dataset_file, "rb") as f:
-            self.dataset = pickle.load(f)
 
     def build_prompt(self, row):
         if self.model_name in {"llama", "gemma"}:
