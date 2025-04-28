@@ -35,18 +35,41 @@ class Tester_llm:
         )
         self.model.eval()  # Important!
 
-    def build_prompt(self, row):
+    def build_prompt(self, row): #BLEU=2.29 | CodeBLEU=0.49 | EM=0.0
+        instruction = (
+            "Only repair the specific broken lines inside the given code context. "
+            "Output only the corrected lines, without any extra explanation, comments, or code outside the necessary fix."
+        )
+
         if self.model_name in {"llama", "gemma"}:
-            system_prompt = "You are a helpful assistant that repairs test code given broken test and code changes."
-            user_input = row["input"]
             return (
-                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{system_prompt}<|eot_id|>"
-                f"<|start_header_id|>user<|end_header_id|>\n{user_input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
+                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{instruction}<|eot_id|>"
+                f"<|start_header_id|>user<|end_header_id|>\n{row['input']}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
             )
         elif self.model_name in {"qwen", "deepseek"}:
-            return f"### Task:\nRepair the broken test code based on the following input:\n\n{row['input']}\n\n### Repaired Test Code:\n"
+            return (
+                f"### Instruction:\n{instruction}\n\n### Input:\n{row['input']}\n\n### Corrected Lines:\n"
+            )
         else:
-            return f"Repair the following test:\n{row['input']}\n\nRepaired test:\n"
+            return (
+                f"{instruction}\nInput:\n{row['input']}\nCorrected Lines:\n"
+            )
+
+    def postprocess_prediction(self, prediction):
+        # Remove Markdown code block markers if present
+        prediction = prediction.strip()
+        if prediction.startswith("```"):
+            prediction = prediction.split("```")[1].strip()
+        if prediction.startswith("python"):
+            prediction = prediction[len("python"):].strip()
+        # Also remove trailing ``` if still present
+        prediction = prediction.split("```")[0].strip()
+
+        # Remove common unnecessary sections introduced by some models
+        prediction = re.sub(r"###.*", "", prediction).strip()
+
+        return prediction
+
 
     def restore_formatting(self, text):
         text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '    ', text)
@@ -77,6 +100,7 @@ class Tester_llm:
 
             for j, generated in enumerate(decoded_outputs):
                 generated = self.restore_formatting(generated)
+                generated = self.postprocess_prediction(generated)
 
                 if self.model_name in {"llama", "gemma"}:
                     assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
