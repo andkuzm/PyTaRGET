@@ -1,3 +1,4 @@
+import json
 import pickle
 import re
 from pathlib import Path
@@ -15,7 +16,8 @@ class Tester_llm:
     def __init__(self, model_name, model_path, dataset_path, token, device="cuda"):
         self.model_name = model_name
         self.model_path = model_path
-        self.dataset_path = dataset_path
+        self.dataset_path = Path(dataset_path)/"splits"/"test.json"
+        self.dataset = json.load(open(self.dataset_path, 'r'))
         self.token = token
         self.device = device
 
