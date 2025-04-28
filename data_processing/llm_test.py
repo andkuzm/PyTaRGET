@@ -12,28 +12,29 @@ from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester_llm:
-    def __init__(self, model_name, model_path, dataset_path, token=None, device="cuda"):
+    def __init__(self, model_name, model_path, dataset_path, token, device="cuda"):
         self.model_name = model_name
         self.model_path = model_path
-        self.device = device
+        self.dataset_path = dataset_path
         self.token = token
-        self.dataset_path = Path(dataset_path)
-        self.dataset_file = self.dataset_path / "splits" / "test.json"
-        self.dataset = pd.read_json(self.dataset_file).to_dict(orient="records")
+        self.device = device
 
-        # Authenticate if token provided
-        if self.token:
-            login(self.token)
+        # Manually load model and tokenizer using token
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.model_path, trust_remote_code=True, token=self.token, device_map="auto", torch_dtype="auto"
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path, trust_remote_code=True, token=self.token
+        )
 
-        # Initialize pipeline
+        # Create pipeline using loaded model/tokenizer
         self.pipe = pipeline(
             "text-generation",
-            model=self.model_path,
-            tokenizer=self.model_path,
+            model=self.model,
+            tokenizer=self.tokenizer,
             device_map="auto",
-            trust_remote_code=True,
             torch_dtype="auto",
-            token=self.token
+            trust_remote_code=True
         )
 
     def build_prompt(self, row):
