@@ -25,6 +25,7 @@ class Tester_llm:
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True, token=self.token
         )
+        self.tokenizer.padding_side = "left"
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             device_map="auto",
