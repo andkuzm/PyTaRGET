@@ -1,12 +1,11 @@
 import json
-import pickle
 import re
 from pathlib import Path
+
 import pandas as pd
-from huggingface_hub import login
-from tqdm import tqdm
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM, pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from tqdm import tqdm
 
 from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
@@ -22,23 +21,18 @@ class Tester_llm:
         self.device = device
         self.batch_size = batch_size
 
-        # Load model and tokenizer manually
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path, trust_remote_code=True, token=self.token, device_map="auto", torch_dtype="auto"
-        )
+        # Load model manually (no pipeline)
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_path, trust_remote_code=True, token=self.token
         )
-
-        # Create pipeline
-        self.pipe = pipeline(
-            "text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.model_path,
             device_map="auto",
-            torch_dtype="auto",
-            trust_remote_code=True
+            torch_dtype=torch.float16,
+            trust_remote_code=True,
+            token=self.token
         )
+        self.model.eval()  # Important!
 
     def build_prompt(self, row):
         if self.model_name in {"llama", "gemma"}:
@@ -60,24 +54,27 @@ class Tester_llm:
 
     def run(self, out_path=None, max_gen_tokens=256, save_json=True):
         predictions = []
-        total = len(self.dataset)
-        for i in tqdm(range(0, total, self.batch_size), desc=f"Testing {self.model_name}"):
-            batch_rows = self.dataset[i:i + self.batch_size]
-            prompts = [self.build_prompt(row) for row in batch_rows]
+        all_prompts = [self.build_prompt(row) for row in self.dataset]
+
+        for i in tqdm(range(0, len(all_prompts), self.batch_size), desc=f"Testing {self.model_name}"):
+            batch_prompts = all_prompts[i:i+self.batch_size]
+            batch_rows = self.dataset[i:i+self.batch_size]
+
+            inputs = self.tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True, max_length=2048)
+            inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
 
             with torch.no_grad():
-                outputs = self.pipe(
-                    prompts,
+                outputs = self.model.generate(
+                    **inputs,
                     max_new_tokens=max_gen_tokens,
                     do_sample=False,
-                    pad_token_id=self.pipe.tokenizer.pad_token_id,
-                    eos_token_id=self.pipe.tokenizer.eos_token_id,
-                    return_full_text=False,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
                 )
-            torch.cuda.empty_cache()
 
-            for j, output in enumerate(outputs):
-                generated = output[0]["generated_text"]
+            decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+
+            for j, generated in enumerate(decoded_outputs):
                 generated = self.restore_formatting(generated)
 
                 if self.model_name in {"llama", "gemma"}:
@@ -86,10 +83,12 @@ class Tester_llm:
                         generated = generated.split(assistant_tag)[-1].rstrip()
 
                 predictions.append({
-                    "ID": batch_rows[j].get("ID", i + j),
+                    "ID": batch_rows[j].get("ID", i+j),
                     "target": batch_rows[j]["output"],
                     "preds": [generated.rstrip()]
                 })
+
+            torch.cuda.empty_cache()
 
         if save_json and out_path:
             out_path = Path(out_path)
@@ -106,27 +105,23 @@ class Tester_llm:
     def compute_scores(self, predictions):
         pred_df = pd.DataFrame(predictions)
         eval_size = pred_df["ID"].nunique()
-
-        em_scores = []
-        bleu_scores = []
-        codebleu_scores = []
+        em_size = 0
+        best_preds = []
+        targets = []
 
         for _, row in pred_df.iterrows():
             beam_outputs = row["preds"]
             target = row["target"]
+            best_pred = beam_outputs[0]
+            for output in beam_outputs:
+                if output == target:
+                    em_size += 1
+                    best_pred = output
+                    break
+            best_preds.append(best_pred)
+            targets.append(target)
 
-            for pred in beam_outputs:
-                em = int(pred.strip() == target.strip())
-                bleu = corpus_bleu([[target.split()]], [pred.split()])
-                codebleu = calc_code_bleu([[target]], [pred], lang="python")
-
-                em_scores.append(em)
-                bleu_scores.append(bleu)
-                codebleu_scores.append(codebleu)
-
-        # Average all predictions' metrics
-        avg_em = round(sum(em_scores) / len(em_scores) * 100, 2)
-        avg_bleu = round(sum(bleu_scores) / len(bleu_scores) * 100, 2)
-        avg_codebleu = round(sum(codebleu_scores) / len(codebleu_scores), 2)
-
-        return avg_bleu, avg_codebleu, avg_em
+        em = round(em_size / eval_size * 100, 2)
+        bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
+        code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
+        return round(bleu_score * 100, 2), round(code_bleu_score, 2), em
