@@ -44,8 +44,8 @@ class Tester_llm:
         instruction = (
             "You are given a full Python test function, where some lines are broken (marked explicitly).\n"
             "Using the helpful code changes, repair ONLY the broken lines.\n"
-            "Output ONLY the repaired lines, without copying the whole function, and without adding explanations.\n"
-            "repaired lines must be wrapped in [<REPAIR>] and [</REPAIR>] brackets."
+            "Output ONLY the repaired lines.\n"
+            "Wrap the repaired lines inside [<REPAIR>] ... [</REPAIR>] brackets, and do not add anything else."
         )
         test_context, broken_lines, helpful_hunks = self.extract_relevant_code(row["input"])
 
