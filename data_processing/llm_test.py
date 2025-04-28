@@ -67,7 +67,7 @@ class Tester_llm:
         Returns (full_test_context, broken_lines, helpful_hunks)
         """
         # Extract full [<TESTCONTEXT>] block (including [<BREAKAGE>] etc.)
-        testcontext_match = re.search(r"\[<TESTCONTEXT>](.*?)\[<\/REPAIRCONTEXT>]", input_text, re.DOTALL)
+        testcontext_match = re.search(r"\[<TESTCONTEXT>](.*?)\[<REPAIRCONTEXT>]", input_text, re.DOTALL)
         testcontext_code = testcontext_match.group(1).strip() if testcontext_match else ""
         print("test code: ", testcontext_code)
         # Extract broken lines
