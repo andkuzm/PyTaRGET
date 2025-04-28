@@ -153,6 +153,8 @@ class Eftt:
         self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))
 
     def create_tokenizer_llm(self):
+        if self.tokenizer.model_max_length > 10000:
+            self.tokenizer.model_max_length = 2048
         pass
         # new_special_tokens = {
         #     "additional_special_tokens": list({
