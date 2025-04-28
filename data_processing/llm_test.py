@@ -35,12 +35,12 @@ class Tester_llm:
         )
         self.model.eval()  # Important!
 
-    def build_prompt(self, row): #BLEU=2.29 | CodeBLEU=0.49 | EM=0.0
+    def build_prompt(self, row):
         instruction = (
-            "Only repair the specific broken lines inside the given code context. "
-            "Output only the corrected lines, without any extra explanation, comments, or code outside the necessary fix."
+            "You are given a test code context. Some lines are broken and need fixing.\n"
+            "ONLY output the repaired lines, without repeating the input, and without adding explanations.\n"
+            "Start immediately with the repaired lines."
         )
-
         if self.model_name in {"llama", "gemma"}:
             return (
                 f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{instruction}<|eot_id|>"
@@ -48,11 +48,11 @@ class Tester_llm:
             )
         elif self.model_name in {"qwen", "deepseek"}:
             return (
-                f"### Instruction:\n{instruction}\n\n### Input:\n{row['input']}\n\n### Corrected Lines:\n"
+                f"### Instruction:\n{instruction}\n\n### Input:\n{row['input']}\n\n### Response:\n"
             )
         else:
             return (
-                f"{instruction}\nInput:\n{row['input']}\nCorrected Lines:\n"
+                f"{instruction}\n\nInput:\n{row['input']}\n\nResponse:\n"
             )
 
     def postprocess_prediction(self, prediction):
