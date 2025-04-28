@@ -65,14 +65,16 @@ class Tester_llm:
             batch_rows = self.dataset[i:i + self.batch_size]
             prompts = [self.build_prompt(row) for row in batch_rows]
 
-            outputs = self.pipe(
-                prompts,
-                max_new_tokens=max_gen_tokens,
-                do_sample=False,
-                pad_token_id=self.pipe.tokenizer.pad_token_id,
-                eos_token_id=self.pipe.tokenizer.eos_token_id,
-                return_full_text=False,
-            )
+            with torch.no_grad():
+                outputs = self.pipe(
+                    prompts,
+                    max_new_tokens=max_gen_tokens,
+                    do_sample=False,
+                    pad_token_id=self.pipe.tokenizer.pad_token_id,
+                    eos_token_id=self.pipe.tokenizer.eos_token_id,
+                    return_full_text=False,
+                )
+            torch.cuda.empty_cache()
 
             for j, output in enumerate(outputs):
                 generated = output[0]["generated_text"]
