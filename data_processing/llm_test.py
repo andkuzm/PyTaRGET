@@ -13,15 +13,16 @@ from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester_llm:
-    def __init__(self, model_name, model_path, dataset_path, token, device="cuda"):
+    def __init__(self, model_name, model_path, dataset_path, token, device="cuda", batch_size=4):
         self.model_name = model_name
         self.model_path = model_path
-        self.dataset_path = Path(dataset_path)/"splits"/"test.json"
+        self.dataset_path = Path(dataset_path) / "splits" / "test.json"
         self.dataset = json.load(open(self.dataset_path, 'r'))
         self.token = token
         self.device = device
+        self.batch_size = batch_size
 
-        # Manually load model and tokenizer using token
+        # Load model and tokenizer manually
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path, trust_remote_code=True, token=self.token, device_map="auto", torch_dtype="auto"
         )
@@ -29,7 +30,7 @@ class Tester_llm:
             self.model_path, trust_remote_code=True, token=self.token
         )
 
-        # Create pipeline using loaded model/tokenizer
+        # Create pipeline
         self.pipe = pipeline(
             "text-generation",
             model=self.model,
@@ -59,29 +60,34 @@ class Tester_llm:
 
     def run(self, out_path=None, max_gen_tokens=256, save_json=True):
         predictions = []
-        for i, row in tqdm(enumerate(self.dataset), total=len(self.dataset), desc=f"Testing {self.model_name}"):
-            prompt = self.build_prompt(row)
+        total = len(self.dataset)
+        for i in tqdm(range(0, total, self.batch_size), desc=f"Testing {self.model_name}"):
+            batch_rows = self.dataset[i:i + self.batch_size]
+            prompts = [self.build_prompt(row) for row in batch_rows]
+
             outputs = self.pipe(
-                prompt,
+                prompts,
                 max_new_tokens=max_gen_tokens,
                 do_sample=False,
                 pad_token_id=self.pipe.tokenizer.pad_token_id,
                 eos_token_id=self.pipe.tokenizer.eos_token_id,
                 return_full_text=False,
             )
-            generated = outputs[0]["generated_text"]
-            generated = self.restore_formatting(generated)
 
-            if self.model_name in {"llama", "gemma"}:
-                assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
-                if assistant_tag in generated:
-                    generated = generated.split(assistant_tag)[-1].rstrip()
+            for j, output in enumerate(outputs):
+                generated = output["generated_text"]
+                generated = self.restore_formatting(generated)
 
-            predictions.append({
-                "ID": row.get("ID", i),
-                "target": row["output"],
-                "preds": [generated.rstrip()]
-            })
+                if self.model_name in {"llama", "gemma"}:
+                    assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
+                    if assistant_tag in generated:
+                        generated = generated.split(assistant_tag)[-1].rstrip()
+
+                predictions.append({
+                    "ID": batch_rows[j].get("ID", i + j),
+                    "target": batch_rows[j]["output"],
+                    "preds": [generated.rstrip()]
+                })
 
         if save_json and out_path:
             out_path = Path(out_path)
