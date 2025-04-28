@@ -44,7 +44,8 @@ class Tester_llm:
         instruction = (
             "You are given a full Python test function, where some lines are broken (marked explicitly).\n"
             "Using the helpful code changes, repair ONLY the broken lines.\n"
-            "Output ONLY the repaired lines, without copying the whole function, and without adding explanations."
+            "Output ONLY the repaired lines, without copying the whole function, and without adding explanations.\n"
+            "repaired lines must be wrapped in [<REPAIR>] and [</REPAIR>] brackets."
         )
         test_context, broken_lines, helpful_hunks = self.extract_relevant_code(row["input"])
 
@@ -85,19 +86,18 @@ class Tester_llm:
         return testcontext_code, broken_lines, repaired_hunks
 
     def postprocess_prediction(self, prediction):
-        # Remove Markdown code block markers if present
-        prediction = prediction.strip()
-        if prediction.startswith("```"):
-            prediction = prediction.split("```")[1].strip()
-        if prediction.startswith("python"):
-            prediction = prediction[len("python"):].strip()
-        # Also remove trailing ``` if still present
-        prediction = prediction.split("```")[0].strip()
-
-        # Remove common unnecessary sections introduced by some models
-        prediction = re.sub(r"###.*", "", prediction).strip()
-
-        return prediction
+        """
+        Extract repaired lines enclosed within [<REPAIR>]...</REPAIR>] from model prediction.
+        If no brackets are found, return the full prediction as fallback.
+        """
+        matches = re.findall(r"\[<REPAIR>](.*?)\[<\/REPAIR>]", prediction, re.DOTALL)
+        if matches:
+            # Join multiple repaired fragments if model predicted several
+            repaired_code = "\n".join(m.strip() for m in matches)
+            return repaired_code.strip()
+        else:
+            # Fallback: return everything (maybe model ignored format)
+            return prediction.strip()
 
 
     def restore_formatting(self, text):
