@@ -45,7 +45,7 @@ class Tester_llm:
             "You are given a full Python test function, where some lines are broken (marked explicitly).\n"
             "Using the helpful code changes, repair ONLY the broken lines.\n"
             "Output ONLY the repaired lines.\n"
-            "Wrap the repaired lines inside [<REPAIR>][</REPAIR>] brackets, and do not add anything else."
+            "Wrap the repaired lines inside [<REPAIR>] brackets, and do not add anything else."
         )
         test_context, broken_lines, helpful_hunks = self.extract_relevant_code(row["input"])
 
@@ -90,7 +90,7 @@ class Tester_llm:
         Extract repaired lines enclosed within [<REPAIR>]...</REPAIR>] from model prediction.
         If no brackets are found, return the full prediction as fallback.
         """
-        matches = re.findall(r"\[<REPAIR>](.*?)\[<\/REPAIR>]", prediction, re.DOTALL)
+        matches = re.findall(r"\[<REPAIR>](.*?)\[<REPAIR>]", prediction, re.DOTALL)
         if matches:
             # Join multiple repaired fragments if model predicted several
             repaired_code = "\n".join(m.strip() for m in matches)
