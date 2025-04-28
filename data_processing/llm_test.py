@@ -75,7 +75,8 @@ class Tester_llm:
             )
 
             for j, output in enumerate(outputs):
-                generated = output["generated_text"]
+                print(output)
+                generated = output[0]["generated_text"]
                 generated = self.restore_formatting(generated)
 
                 if self.model_name in {"llama", "gemma"}:
