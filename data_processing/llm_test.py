@@ -11,6 +11,9 @@ from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
+
+
+
 class Tester_llm:
     def __init__(self, model_name, model_path, dataset_path, token, device="cuda", batch_size=4):
         self.model_name = model_name
@@ -37,23 +40,45 @@ class Tester_llm:
 
     def build_prompt(self, row):
         instruction = (
-            "You are given a test code context. Some lines are broken and need fixing.\n"
-            "ONLY output the repaired lines, without repeating the input, and without adding explanations.\n"
-            "Start immediately with the repaired lines."
+            "You are given a full Python test function, where some lines are broken (marked explicitly).\n"
+            "Using the helpful code changes, repair ONLY the broken lines.\n"
+            "Output ONLY the repaired lines, without copying the whole function, and without adding explanations."
         )
+        test_context, broken_lines, helpful_hunks = self.extract_relevant_code(row["input"])
+
         if self.model_name in {"llama", "gemma"}:
             return (
                 f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{instruction}<|eot_id|>"
-                f"<|start_header_id|>user<|end_header_id|>\n{row['input']}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
+                f"<|start_header_id|>user<|end_header_id|>\n"
+                f"Full Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nHelpful Code Changes:\n{helpful_hunks}\n<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
             )
         elif self.model_name in {"qwen", "deepseek"}:
             return (
-                f"### Instruction:\n{instruction}\n\n### Input:\n{row['input']}\n\n### Response:\n"
+                f"### Instruction:\n{instruction}\n\n### Full Test Context:\n{test_context}\n\n### Broken Lines:\n{broken_lines}\n\n### Helpful Code Changes:\n{helpful_hunks}\n\n### Repaired Code:\n"
             )
         else:
             return (
-                f"{instruction}\n\nInput:\n{row['input']}\n\nResponse:\n"
+                f"{instruction}\n\nFull Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nHelpful Code Changes:\n{helpful_hunks}\n\nRepaired Code:\n"
             )
+
+    def extract_relevant_code(self, input_text):
+        """
+        Extract full test context, broken lines, and helpful hunks.
+        Returns (full_test_context, broken_lines, helpful_hunks)
+        """
+        # Extract full [<TESTCONTEXT>] block (including [<BREAKAGE>] etc.)
+        testcontext_match = re.search(r"\[<TESTCONTEXT>](.*?)\[<\/TESTCONTEXT>]", input_text, re.DOTALL)
+        testcontext_code = testcontext_match.group(1).strip() if testcontext_match else ""
+
+        # Extract broken lines
+        breakage_match = re.search(r"\[<BREAKAGE>](.*?)\[<\/BREAKAGE>]", input_text, re.DOTALL)
+        broken_lines = breakage_match.group(1).strip() if breakage_match else ""
+
+        # Extract all [<HUNK>] repaired pieces
+        hunk_matches = re.findall(r"\[<HUNK>](.*?)\[<\/HUNK>]", input_text, re.DOTALL)
+        repaired_hunks = "\n\n".join(h.strip() for h in hunk_matches)
+
+        return testcontext_code, broken_lines, repaired_hunks
 
     def postprocess_prediction(self, prediction):
         # Remove Markdown code block markers if present
