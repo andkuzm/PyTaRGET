@@ -75,7 +75,6 @@ class Tester_llm:
             )
 
             for j, output in enumerate(outputs):
-                print(output)
                 generated = output[0]["generated_text"]
                 generated = self.restore_formatting(generated)
 
@@ -105,23 +104,27 @@ class Tester_llm:
     def compute_scores(self, predictions):
         pred_df = pd.DataFrame(predictions)
         eval_size = pred_df["ID"].nunique()
-        em_size = 0
-        best_preds = []
-        targets = []
+
+        em_scores = []
+        bleu_scores = []
+        codebleu_scores = []
 
         for _, row in pred_df.iterrows():
             beam_outputs = row["preds"]
             target = row["target"]
-            best_pred = beam_outputs[0]
-            for output in beam_outputs:
-                if output == target:
-                    em_size += 1
-                    best_pred = output
-                    break
-            best_preds.append(best_pred)
-            targets.append(target)
 
-        em = round(em_size / eval_size * 100, 2)
-        bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
-        code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
-        return round(bleu_score * 100, 2), round(code_bleu_score, 2), em
+            for pred in beam_outputs:
+                em = int(pred.strip() == target.strip())
+                bleu = corpus_bleu([[target.split()]], [pred.split()])
+                codebleu = calc_code_bleu([[target]], [pred], lang="python")
+
+                em_scores.append(em)
+                bleu_scores.append(bleu)
+                codebleu_scores.append(codebleu)
+
+        # Average all predictions' metrics
+        avg_em = round(sum(em_scores) / len(em_scores) * 100, 2)
+        avg_bleu = round(sum(bleu_scores) / len(bleu_scores) * 100, 2)
+        avg_codebleu = round(sum(codebleu_scores) / len(codebleu_scores), 2)
+
+        return avg_bleu, avg_codebleu, avg_em
