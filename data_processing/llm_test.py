@@ -15,7 +15,7 @@ from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester_llm:
-    def __init__(self, model_name, model_path, dataset_path, token, device="cuda", batch_size=2):
+    def __init__(self, model_name, model_path, dataset_path, token, device="cuda", batch_size=4):
         self.model_name = model_name
         self.model_path = model_path
         self.dataset_path = Path(dataset_path) / "splits" / "test.json"
