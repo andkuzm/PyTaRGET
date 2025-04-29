@@ -112,7 +112,6 @@ class Tester_llm:
             return repaired_code.strip()
         else:
             # Fallback: return everything (maybe model ignored format)
-            print("\n\nnone\n")
             return prediction.strip()
 
     def run(self, out_path=None, max_gen_tokens=256, save_json=True):
