@@ -157,7 +157,7 @@ class Tester_llm:
                 else:
                     generated = self.postprocess_prediction(generated)
 
-                print(generated)
+                #print(generated)
 
                 # if self.model_name in {"llama3", "llama4", "gemma"}:
                 #     assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
