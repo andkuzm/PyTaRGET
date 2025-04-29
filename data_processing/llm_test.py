@@ -90,22 +90,22 @@ class Tester_llm:
         Extract repaired lines enclosed within [<REPAIR>]...</REPAIR>] from model prediction.
         If no brackets are found, return the full prediction as fallback.
         """
-        matches = re.findall(r"\[<REPAIR>](.*?)\[</REPAIR>]", prediction, re.DOTALL)
+        matches = re.search(r"\[<REPAIR>](.*?)\[</REPAIR>]", prediction, re.DOTALL)
         if matches:
             # Join multiple repaired fragments if model predicted several
             repaired_code = "\n".join(m.strip() for m in matches)
             return repaired_code.strip()
-        matches = re.findall(r"\[<REPAIR>](.*?)\[<REPAIR>]", prediction, re.DOTALL)
+        matches = re.search(r"\[<REPAIR>](.*?)\[<REPAIR>]", prediction, re.DOTALL)
         if matches:
             # Join multiple repaired fragments if model predicted several
             repaired_code = "\n".join(m.strip() for m in matches)
             return repaired_code.strip()
-        matches = re.findall(r"\[<REPAIR>](.*?)\[(.*?)REPAIR", prediction, re.DOTALL)
+        matches = re.search(r"\[<REPAIR>](.*?)\[(.*?)REPAIR", prediction, re.DOTALL)
         if matches:
             # Join multiple repaired fragments if model predicted several
             repaired_code = "\n".join(m.strip() for m in matches)
             return repaired_code.strip()
-        matches = re.findall(r"\[<REPAIR>](.*?)", prediction, re.DOTALL)
+        matches = re.search(r"\[<REPAIR>](.*?)", prediction, re.DOTALL)
         if matches:
             # Join multiple repaired fragments if model predicted several
             repaired_code = "\n".join(m.strip() for m in matches)
@@ -134,6 +134,7 @@ class Tester_llm:
                         pad_token_id=self.tokenizer.pad_token_id,
                         eos_token_id=self.tokenizer.eos_token_id,
                         use_cache=False,
+                        num_return_sequences=4,
                     )
                 else:
                     outputs = self.model.generate(
@@ -142,39 +143,38 @@ class Tester_llm:
                         do_sample=False,
                         pad_token_id=self.tokenizer.pad_token_id,
                         eos_token_id=self.tokenizer.eos_token_id,
+                        num_return_sequences=4,
                     )
 
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
-            for j, generated in enumerate(decoded_outputs):
-                if self.model_name=="gemma":
-                    if len(generated.split("**Output:**"))>1:
-                        generated = self.postprocess_prediction(generated.split("**Output:**")[1])
-                    elif len(generated.split("```"))>2:
-                        generated = self.postprocess_prediction(generated.split("```")[2])
-                    elif len(generated.split("**"))>2:
-                        generated = self.postprocess_prediction(generated.split("**")[2])
-                    else:
-                        generated = self.postprocess_prediction(generated)
-                if self.model_name=="qwen":
-                    if len(generated.split("### Repaired Code:"))>1:
-                        generated = self.postprocess_prediction(generated.split("### Repaired Code:")[1])
-                    else:
-                        print(generated)
-                        generated = self.postprocess_prediction(generated)
-
-                #print(generated)
-
-                # if self.model_name in {"llama3", "llama4", "gemma"}:
-                #     assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
-                #     self.tokenizer.pad_token = self.tokenizer.eos_token
-                #     if assistant_tag in generated:
-                #         generated = generated.split(assistant_tag)[-1].rstrip()
-
+            for j in range(len(batch_rows)):
+                preds = []
+                for k in range(4):  # 4 sequences per input
+                    idx = j * 4 + k
+                    gen = decoded_outputs[idx]
+                    if self.model_name == "gemma":
+                        if len(gen.split("**Output:**")) > 1:
+                            gen = self.postprocess_prediction(gen.split("**Output:**")[1])
+                        elif len(gen.split("```")) > 2:
+                            gen = self.postprocess_prediction(gen.split("```")[2])
+                        elif len(gen.split("**")) > 2:
+                            gen = self.postprocess_prediction(gen.split("**")[2])
+                        else:
+                            gen = self.postprocess_prediction(gen)
+                    if self.model_name == "qwen":
+                        if len(gen.split("### Repaired Code:")) > 1:
+                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
+                        else:
+                            print(gen)
+                            gen = self.postprocess_prediction(gen)
+                    preds.append(gen)
+                    
+                    
                 predictions.append({
-                    "ID": batch_rows[j].get("ID", i+j),
+                    "ID": batch_rows[j].get("ID", i + j),
                     "target": batch_rows[j]["output"],
-                    "preds": [generated.rstrip()]
+                    "preds": preds
                 })
 
             torch.cuda.empty_cache()
