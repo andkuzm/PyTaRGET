@@ -148,7 +148,7 @@ class Tester_llm:
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
             for j, generated in enumerate(decoded_outputs):
-                generated = self.postprocess_prediction(generated)
+                generated = self.postprocess_prediction(generated.split("**Output:**")[1])
                 print(generated)
 
                 # if self.model_name in {"llama3", "llama4", "gemma"}:
