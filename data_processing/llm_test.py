@@ -117,13 +117,23 @@ class Tester_llm:
             inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
 
             with torch.no_grad():
-                outputs = self.model.generate(
-                    **inputs,
-                    max_new_tokens=max_gen_tokens,
-                    do_sample=False,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id,
-                )
+                if self.model_name=="deepseek":
+                    outputs = self.model.generate(
+                        **inputs,
+                        max_new_tokens=max_gen_tokens,
+                        do_sample=False,
+                        pad_token_id=self.tokenizer.pad_token_id,
+                        eos_token_id=self.tokenizer.eos_token_id,
+                        use_cache=False,
+                    )
+                else:
+                    outputs = self.model.generate(
+                        **inputs,
+                        max_new_tokens=max_gen_tokens,
+                        do_sample=False,
+                        pad_token_id=self.tokenizer.pad_token_id,
+                        eos_token_id=self.tokenizer.eos_token_id,
+                    )
 
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
