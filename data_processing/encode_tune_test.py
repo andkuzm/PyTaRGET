@@ -162,9 +162,24 @@ class Eftt:
         self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))
 
     def create_tokenizer_llm(self):
-        # if self.tokenizer.model_max_length > 10000:
-        #     self.tokenizer.model_max_length = 1024-instructions_tokens
-        self.tokenizer.model_max_length = 1024 - 512
+        instruction_block = (
+            "You are given a full Python test function, where some lines are broken (marked explicitly).\n"
+            "Using the helpful code changes, repair ONLY the broken lines.\n"
+            "Output ONLY the repaired lines, without copying the whole function, and without adding explanations.\n"
+            "repaired lines must be wrapped in [<REPAIR>] and [</REPAIR>] brackets.\n"
+            "Full Test Context:\n\n\nBroken Lines:\n\n\nHelpful Code Changes:\n\n<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n### Repaired Code:"
+        )
+
+        # Encode with tokenizer to get instruction token count
+        instructions_tokens = len(self.tokenizer.encode(instruction_block, add_special_tokens=False))
+        if self.tokenizer.model_max_length > 2048:
+            self.tokenizer.model_max_length = 1024
+
+        # Subtract instruction size from model_max_length
+        self.tokenizer.model_max_length = min(
+            self.tokenizer.model_max_length,
+            2048 - instructions_tokens
+        )
         pass
         # new_special_tokens = {
         #     "additional_special_tokens": list({
