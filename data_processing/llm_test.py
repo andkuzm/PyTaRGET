@@ -79,8 +79,8 @@ class Tester_llm:
         #print("broken lines: ", broken_lines)
 
         # Extract all [<HUNK>] repaired pieces
-        hunk_matches = re.findall(r"\[<HUNK>](.*?)\[<\/HUNK>]", input_text, re.DOTALL)
-        repaired_hunks = "\n\n".join(h.strip() for h in hunk_matches)
+        hunk_match = re.findall(r"\[<HUNK>](.*?)\[<\/HUNK>]", input_text, re.DOTALL)
+        repaired_hunks = "\n\n".join(h.strip() for h in hunk_match)
         #print("repaired hunks: ", repaired_hunks)
 
         return testcontext_code, broken_lines, repaired_hunks
@@ -90,29 +90,21 @@ class Tester_llm:
         Extract repaired lines enclosed within [<REPAIR>]...</REPAIR>] from model prediction.
         If no brackets are found, return the full prediction as fallback.
         """
-        matches = re.search(r"\[<REPAIR>](.*?)\[</REPAIR>]", prediction, re.DOTALL)
-        if matches:
-            # Join multiple repaired fragments if model predicted several
-            repaired_code = "\n".join(m.strip() for m in matches)
-            return repaired_code.strip()
-        matches = re.search(r"\[<REPAIR>](.*?)\[<REPAIR>]", prediction, re.DOTALL)
-        if matches:
-            # Join multiple repaired fragments if model predicted several
-            repaired_code = "\n".join(m.strip() for m in matches)
-            return repaired_code.strip()
-        matches = re.search(r"\[<REPAIR>](.*?)\[(.*?)REPAIR", prediction, re.DOTALL)
-        if matches:
-            # Join multiple repaired fragments if model predicted several
-            repaired_code = "\n".join(m.strip() for m in matches)
-            return repaired_code.strip()
-        matches = re.search(r"\[<REPAIR>](.*?)", prediction, re.DOTALL)
-        if matches:
-            # Join multiple repaired fragments if model predicted several
-            repaired_code = "\n".join(m.strip() for m in matches)
-            return repaired_code.strip()
+        match = re.search(r"\[<REPAIR>](.*?)\[</REPAIR>]", prediction, re.DOTALL)
+        if match:
+            return match.group(1).rstrip()
+        match = re.search(r"\[<REPAIR>](.*?)\[<REPAIR>]", prediction, re.DOTALL)
+        if match:
+            return match.group(1).rstrip()
+        match = re.search(r"\[<REPAIR>](.*?)\[(.*?)REPAIR", prediction, re.DOTALL)
+        if match:
+            return match.group(1).rstrip()
+        match = re.search(r"\[<REPAIR>](.*?)", prediction, re.DOTALL)
+        if match:
+            return match.group(1).rstrip()
         else:
             # Fallback: return everything (maybe model ignored format)
-            return prediction.strip()
+            return prediction.rstrip()
 
     def run(self, out_path=None, max_gen_tokens=256, save_json=True):
         predictions = []
