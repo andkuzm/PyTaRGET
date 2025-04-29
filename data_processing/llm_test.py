@@ -45,7 +45,7 @@ class Tester_llm:
             "You are given a full Python test function, where some lines are broken by the changes in source code (marked explicitly).\n"
             "Using the source code changes, repair ONLY the broken lines.\n"
             "Output ONLY the repaired lines.\n"
-            "Wrap the repaired lines inside [<REPAIR>] brackets, and do not add anything else."
+            "Wrap the repaired lines inside [REPAIR] brackets, and do not add anything else."
         )
         test_context, broken_lines, helpful_hunks = self.extract_relevant_code(row["input"])
 
@@ -90,22 +90,22 @@ class Tester_llm:
         Extract repaired lines enclosed within [<REPAIR>]...</REPAIR>] from model prediction.
         If no brackets are found, return the full prediction as fallback.
         """
-        match = re.search(r"\[<REPAIR>](.*?)\[</REPAIR>]", prediction, re.DOTALL)
+        match = re.search(r"\[REPAIR](.*?)\[/REPAIR]", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
-        match = re.search(r"\[<REPAIR>](.*?)(?:\[/REPAIR]|\[</REPAIR>])", prediction, re.DOTALL)
+        match = re.search(r"\[REPAIR](.*?)(?:\[/REPAIR]|\[</REPAIR>])", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
-        match = re.search(r"\[<REPAIR>](.*?)\[<REPAIR>]", prediction, re.DOTALL)
+        match = re.search(r"\[REPAIR](.*?)\[<REPAIR>]", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
-        match = re.search(r"\[<REPAIR>](.*?)\[/?REPAIR", prediction, re.DOTALL)
+        match = re.search(r"\[REPAIR](.*?)\[/?REPAIR", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
-        match = re.search(r"\[<REPAIR>](.*?)\[", prediction, re.DOTALL)
+        match = re.search(r"\[REPAIR](.*?)\[", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
-        match = re.search(r"\[<REPAIR>](.*?)", prediction, re.DOTALL)
+        match = re.search(r"\[REPAIR](.*?)", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
         else:
