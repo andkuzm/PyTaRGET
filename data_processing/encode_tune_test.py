@@ -64,7 +64,7 @@ class Eftt:
             self.dataset_class = LLMSeqDataset
         if model == "llama3":
             login(token=self.hftok)
-            self.model_path = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+            self.model_path = "codellama/CodeLlama-7b-Python-hf"
             self.model_class = AutoModelForCausalLM
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path, trust_remote_code=True, token=True
@@ -162,8 +162,9 @@ class Eftt:
         self.tokenizer.save_pretrained(str(self.out_path / self.model / str(self.train_size) / "tokenizer"))
 
     def create_tokenizer_llm(self):
-        if self.tokenizer.model_max_length > 10000:
-            self.tokenizer.model_max_length = 512
+        # if self.tokenizer.model_max_length > 10000:
+        #     self.tokenizer.model_max_length = 512
+        self.tokenizer.model_max_length = 512
         pass
         # new_special_tokens = {
         #     "additional_special_tokens": list({
