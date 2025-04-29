@@ -152,8 +152,8 @@ class Tester_llm:
 
             for j in range(len(batch_rows)):
                 preds = []
-                for k in range(4):  # 4 sequences per input
-                    idx = j * 4 + k
+                for k in range(2):  # 4 sequences per input
+                    idx = j * 2 + k
                     gen = decoded_outputs[idx]
                     if self.model_name == "gemma":
                         if len(gen.split("**Output:**")) > 1:
