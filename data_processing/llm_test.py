@@ -138,6 +138,7 @@ class Tester_llm:
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
             for j, generated in enumerate(decoded_outputs):
+                print(generated)
                 generated = self.restore_formatting(generated)
                 generated = self.postprocess_prediction(generated)
 
