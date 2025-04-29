@@ -100,6 +100,11 @@ class Tester_llm:
             # Join multiple repaired fragments if model predicted several
             repaired_code = "\n".join(m.strip() for m in matches)
             return repaired_code.strip()
+        matches = re.findall(r"\[<REPAIR>](.*?)\[<", prediction, re.DOTALL)
+        if matches:
+            # Join multiple repaired fragments if model predicted several
+            repaired_code = "\n".join(m.strip() for m in matches)
+            return repaired_code.strip()
         else:
             # Fallback: return everything (maybe model ignored format)
             return prediction.strip()
