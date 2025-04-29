@@ -57,11 +57,11 @@ class Tester_llm:
             )
         elif self.model_name in {"qwen", "deepseek"}:
             return (
-                f"### Instruction:\n{instruction}\n\n### Full Test Context:\n{test_context}\n\n### Broken Lines:\n{broken_lines}\n\n### Helpful Code Changes:\n{helpful_hunks}\n\n### Repaired Code:\n"
+                f"### Instruction:\n{instruction}\n\n### Full Test Context:\n{test_context}\n\n### Broken Lines:\n{broken_lines}\n\n### Source Code Changes:\n{helpful_hunks}\n\n### Repaired Code:\n"
             )
         else:
             return (
-                f"{instruction}\n\nFull Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nHelpful Code Changes:\n{helpful_hunks}\n\nRepaired Code:\n"
+                f"{instruction}\n\nFull Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nSource Code Changes:\n{helpful_hunks}\n\nRepaired Code:\n"
             )
 
     def extract_relevant_code(self, input_text):
@@ -147,14 +147,21 @@ class Tester_llm:
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
             for j, generated in enumerate(decoded_outputs):
-                if len(generated.split("**Output:**"))>1:
-                    generated = self.postprocess_prediction(generated.split("**Output:**")[1])
-                elif len(generated.split("```"))>2:
-                    generated = self.postprocess_prediction(generated.split("```")[2])
-                elif len(generated.split("**"))>2:
-                    generated = self.postprocess_prediction(generated.split("**")[2])
-                else:
-                    generated = self.postprocess_prediction(generated)
+                if self.model_name=="gemma":
+                    if len(generated.split("**Output:**"))>1:
+                        generated = self.postprocess_prediction(generated.split("**Output:**")[1])
+                    elif len(generated.split("```"))>2:
+                        generated = self.postprocess_prediction(generated.split("```")[2])
+                    elif len(generated.split("**"))>2:
+                        generated = self.postprocess_prediction(generated.split("**")[2])
+                    else:
+                        generated = self.postprocess_prediction(generated)
+                if self.model_name=="qwen":
+                    if len(generated.split("### Repaired Code:"))>1:
+                        generated = self.postprocess_prediction(generated.split("### Repaired Code:")[1])
+                    else:
+                        print(generated)
+                        generated = self.postprocess_prediction(generated)
 
                 #print(generated)
 
