@@ -148,11 +148,11 @@ class Tester_llm:
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
             for j, generated in enumerate(decoded_outputs):
-                if generated.split("**Output:**")[1]:
+                if len(generated.split("**Output:**"))>1:
                     generated = self.postprocess_prediction(generated.split("**Output:**")[1])
-                elif generated.split("```")[2]:
+                elif len(generated.split("```"))>2:
                     generated = self.postprocess_prediction(generated.split("```")[2])
-                elif generated.split("**")[2]:
+                elif len(generated.split("**"))>2:
                     generated = self.postprocess_prediction(generated.split("**")[2])
                 else:
                     generated = self.postprocess_prediction(generated)
