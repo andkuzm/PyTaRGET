@@ -49,7 +49,7 @@ class Tester_llm:
         )
         test_context, broken_lines, helpful_hunks = self.extract_relevant_code(row["input"])
 
-        if self.model_name in {"llama", "gemma"}:
+        if self.model_name in {"llama3", "llama4", "gemma"}:
             return (
                 f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{instruction}<|eot_id|>"
                 f"<|start_header_id|>user<|end_header_id|>\n"
@@ -141,7 +141,7 @@ class Tester_llm:
                 generated = self.restore_formatting(generated)
                 generated = self.postprocess_prediction(generated)
 
-                if self.model_name in {"llama", "gemma"}:
+                if self.model_name in {"llama3", "llama4", "gemma"}:
                     assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
                     if assistant_tag in generated:
                         generated = generated.split(assistant_tag)[-1].rstrip()

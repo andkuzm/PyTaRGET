@@ -53,9 +53,18 @@ class Eftt:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
             self.create_tokenizer()
             self.dataset_class = EncDecDataset
-        if model == "llama":
+        if model == "llama4":
             login(token=self.hftok)
             self.model_path = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+            self.model_class = AutoModelForCausalLM
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_path, trust_remote_code=True, token=True
+            )
+            self.create_tokenizer_llm()
+            self.dataset_class = LLMSeqDataset
+        if model == "llama3":
+            login(token=self.hftok)
+            self.model_path = "meta-llama/Llama-3.2-11B-Vision-Instruct"
             self.model_class = AutoModelForCausalLM
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.model_path, trust_remote_code=True, token=True
