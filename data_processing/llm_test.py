@@ -160,8 +160,10 @@ class Tester_llm:
                         if len(gen.split("### Repaired Code:")) > 1:
                             gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
                         else:
-                            print(gen)
                             gen = self.postprocess_prediction(gen)
+                    if self.model_name == "deepseek":
+                        print(gen)
+                        gen = self.postprocess_prediction(gen)
                     preds.append(gen)
                     
                     
