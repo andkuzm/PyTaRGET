@@ -15,7 +15,7 @@ from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester_llm:
-    def __init__(self, model_name, model_path, dataset_path, token, device="cuda", batch_size=4):
+    def __init__(self, model_name, model_path, dataset_path, token, device="cuda", batch_size=2):
         self.model_name = model_name
         self.model_path = model_path
         self.dataset_path = Path(dataset_path) / "splits" / "test.json"
@@ -93,6 +93,9 @@ class Tester_llm:
         match = re.search(r"\[<REPAIR>](.*?)\[</REPAIR>]", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
+        match = re.search(r"\[<REPAIR>](.*?)(?:\[/REPAIR]|\[</REPAIR>])", prediction, re.DOTALL)
+        if match:
+            return match.group(1).rstrip()
         match = re.search(r"\[<REPAIR>](.*?)\[<REPAIR>]", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
@@ -100,9 +103,6 @@ class Tester_llm:
         if match:
             return match.group(1).rstrip()
         match = re.search(r"\[<REPAIR>](.*?)\[", prediction, re.DOTALL)
-        if match:
-            return match.group(1).rstrip()
-        match = re.search(r"\[<REPAIR>](.*?)(?:\[/REPAIR]|\[</REPAIR>])", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
         match = re.search(r"\[<REPAIR>](.*?)", prediction, re.DOTALL)
