@@ -90,7 +90,7 @@ class Tester_llm:
         Extract repaired lines enclosed within [<REPAIR>]...</REPAIR>] from model prediction.
         If no brackets are found, return the full prediction as fallback.
         """
-        matches = re.findall(r"\[<REPAIR>](.*?)\[<REPAIR>]", prediction, re.DOTALL)
+        matches = re.findall(r"\[<REPAIR>](.*?)\[</REPAIR>]", prediction, re.DOTALL)
         if matches:
             # Join multiple repaired fragments if model predicted several
             repaired_code = "\n".join(m.strip() for m in matches)
@@ -98,12 +98,6 @@ class Tester_llm:
         else:
             # Fallback: return everything (maybe model ignored format)
             return prediction.strip()
-
-
-    def restore_formatting(self, text):
-        text = re.sub(r'(?:\s*)<TAB>(?:\s*)', '    ', text)
-        text = re.sub(r'(?:\s*)<NL>(?:\s*)', '\n', text)
-        return text.rstrip()
 
     def run(self, out_path=None, max_gen_tokens=256, save_json=True):
         predictions = []
@@ -138,9 +132,8 @@ class Tester_llm:
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
             for j, generated in enumerate(decoded_outputs):
-                print(generated)
-                generated = self.restore_formatting(generated)
                 generated = self.postprocess_prediction(generated)
+                print(generated)
 
                 if self.model_name in {"llama3", "llama4", "gemma"}:
                     assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
