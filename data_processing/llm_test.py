@@ -42,8 +42,8 @@ class Tester_llm:
 
     def build_prompt(self, row):
         instruction = (
-            "You are given a full Python test function, where some lines are broken (marked explicitly).\n"
-            "Using the helpful code changes, repair ONLY the broken lines.\n"
+            "You are given a full Python test function, where some lines are broken by the changes in source code (marked explicitly).\n"
+            "Using the source code changes, repair ONLY the broken lines.\n"
             "Output ONLY the repaired lines.\n"
             "Wrap the repaired lines inside [<REPAIR>] brackets, and do not add anything else."
         )
@@ -53,7 +53,7 @@ class Tester_llm:
             return (
                 f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{instruction}<|eot_id|>"
                 f"<|start_header_id|>user<|end_header_id|>\n"
-                f"Full Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nHelpful Code Changes:\n{helpful_hunks}\n<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
+                f"Full Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nSource Code Changes:\n{helpful_hunks}\n<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
             )
         elif self.model_name in {"qwen", "deepseek"}:
             return (
