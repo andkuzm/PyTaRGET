@@ -128,7 +128,7 @@ class Tester_llm:
                     outputs = self.model.generate(
                         **inputs,
                         max_new_tokens=max_gen_tokens,
-                        do_sample=False,
+                        do_sample=True,
                         pad_token_id=self.tokenizer.pad_token_id,
                         eos_token_id=self.tokenizer.eos_token_id,
                         use_cache=False,
@@ -139,7 +139,7 @@ class Tester_llm:
                     outputs = self.model.generate(
                         **inputs,
                         max_new_tokens=max_gen_tokens,
-                        do_sample=False,
+                        do_sample=True,
                         pad_token_id=self.tokenizer.pad_token_id,
                         eos_token_id=self.tokenizer.eos_token_id,
                         num_beams=4,
