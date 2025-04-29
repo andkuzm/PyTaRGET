@@ -163,8 +163,8 @@ class Eftt:
 
     def create_tokenizer_llm(self):
         # if self.tokenizer.model_max_length > 10000:
-        #     self.tokenizer.model_max_length = 512
-        self.tokenizer.model_max_length = 512
+        #     self.tokenizer.model_max_length = 1024-instructions_tokens
+        self.tokenizer.model_max_length = 1024 - 512
         pass
         # new_special_tokens = {
         #     "additional_special_tokens": list({

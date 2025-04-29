@@ -143,6 +143,7 @@ class Tester_llm:
 
                 if self.model_name in {"llama3", "llama4", "gemma"}:
                     assistant_tag = "<|start_header_id|>assistant<|end_header_id|>\n"
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
                     if assistant_tag in generated:
                         generated = generated.split(assistant_tag)[-1].rstrip()
 
