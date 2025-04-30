@@ -155,7 +155,12 @@ class Eftt:
             dataset_path=self.out_path / self.model / str(self.train_size),
             token=self.hftok
         )
-        tester.compute_scores(json.load(self.out_path / self.model / str(self.train_size) / f"{self.model}_llm_test_predictions.json"))
+        pred_path = self.out_path / self.model / str(self.train_size) / f"{self.model}_llm_test_predictions.json"
+        with open(pred_path, 'r') as f:
+            preds = json.load(f)
+        bleu, codebleu, em = tester.compute_scores(preds)
+        print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em}")
+        return bleu, codebleu, em
 
     def create_tokenizer(self):
         new_special_tokens = {
