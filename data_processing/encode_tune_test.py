@@ -1,5 +1,8 @@
 import inspect
+import json
+from pathlib import Path
 
+import pandas as pd
 from huggingface_hub import login
 from transformers import (
     PLBartTokenizer,
@@ -144,6 +147,15 @@ class Eftt:
             token=self.hftok
         )
         tester.run(out_path=self.out_path / self.model / str(self.train_size))
+
+    def get_metrics_llm(self):
+        tester = Tester_llm(
+            model_name=self.model,
+            model_path=self.model_path,
+            dataset_path=self.out_path / self.model / str(self.train_size),
+            token=self.hftok
+        )
+        tester.compute_scores(json.load(self.out_path / self.model / str(self.train_size) / f"{self.model}_llm_test_predictions.json"))
 
     def create_tokenizer(self):
         new_special_tokens = {
