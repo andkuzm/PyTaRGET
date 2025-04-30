@@ -132,9 +132,9 @@ class Tester_llm:
                         pad_token_id=self.tokenizer.pad_token_id,
                         eos_token_id=self.tokenizer.eos_token_id,
                         use_cache=False,
-                        num_beams=2,
-                        temperature=1.5,
-                        num_return_sequences=2,
+                        num_beams=4,
+                        temperature=2.0,
+                        num_return_sequences=4,
                     )
                 else:
                     outputs = self.model.generate(
@@ -143,17 +143,17 @@ class Tester_llm:
                         do_sample=True,
                         pad_token_id=self.tokenizer.pad_token_id,
                         eos_token_id=self.tokenizer.eos_token_id,
-                        num_beams=2,
-                        temperature=1.5,
-                        num_return_sequences=2,
+                        num_beams=4,
+                        temperature=2.0,
+                        num_return_sequences=4,
                     )
 
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
             for j in range(len(batch_rows)):
                 preds = []
-                for k in range(2):  # 4 sequences per input
-                    idx = j * 2 + k
+                for k in range(4):  # 4 sequences per input
+                    idx = j * 4 + k
                     gen = decoded_outputs[idx]
                     if self.model_name == "gemma":
                         if len(gen.split("**Output:**")) > 1:
