@@ -117,36 +117,14 @@ class Tester_llm:
         all_prompts = [self.build_prompt(row) for row in self.dataset]
 
         for i in tqdm(range(0, len(all_prompts), self.batch_size), desc=f"Testing {self.model_name}"):
-            batch_prompts = all_prompts[i:i+self.batch_size]
-            batch_rows = self.dataset[i:i+self.batch_size]
+            batch_prompts = all_prompts[i:i + self.batch_size]
+            batch_rows = self.dataset[i:i + self.batch_size]
 
-            inputs = self.tokenizer(batch_prompts, return_tensors="pt", padding=True, truncation=True, max_length=2048)
-            inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
-
-            with torch.no_grad():
-                if self.model_name=="deepseek":
-                    outputs = self.model.generate(
-                        **inputs,
-                        max_new_tokens=max_gen_tokens,
-                        do_sample=True,
-                        pad_token_id=self.tokenizer.pad_token_id,
-                        eos_token_id=self.tokenizer.eos_token_id,
-                        use_cache=False,
-                        num_beams=4,
-                        temperature=1.5,
-                        num_return_sequences=4,
-                    )
-                else:
-                    outputs = self.model.generate(
-                        **inputs,
-                        max_new_tokens=max_gen_tokens,
-                        do_sample=True,
-                        pad_token_id=self.tokenizer.pad_token_id,
-                        eos_token_id=self.tokenizer.eos_token_id,
-                        num_beams=4,
-                        temperature=1.5,
-                        num_return_sequences=4,
-                    )
+            try:
+                outputs = self.safe_generate(batch_prompts, max_gen_tokens)
+            except RuntimeError as e:
+                print(f"Batch starting at index {i} failed permanently: {e}")
+                continue
 
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
@@ -196,6 +174,49 @@ class Tester_llm:
         print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em}")
 
         return predictions
+
+    def safe_generate(self, prompts, max_gen_tokens):
+        """
+        Attempts to generate output from prompts, halving batch size recursively on OOM.
+        """
+        batch_size = len(prompts)
+        try:
+            inputs = self.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=2048)
+            inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+            with torch.no_grad():
+                if self.model_name == "deepseek":
+                    return self.model.generate(
+                        **inputs,
+                        max_new_tokens=max_gen_tokens,
+                        do_sample=True,
+                        pad_token_id=self.tokenizer.pad_token_id,
+                        eos_token_id=self.tokenizer.eos_token_id,
+                        use_cache=False,
+                        num_beams=4,
+                        temperature=1.5,
+                        num_return_sequences=4,
+                    )
+                else:
+                    return self.model.generate(
+                        **inputs,
+                        max_new_tokens=max_gen_tokens,
+                        do_sample=True,
+                        pad_token_id=self.tokenizer.pad_token_id,
+                        eos_token_id=self.tokenizer.eos_token_id,
+                        num_beams=4,
+                        temperature=1.5,
+                        num_return_sequences=4,
+                    )
+        except torch.cuda.OutOfMemoryError:
+            torch.cuda.empty_cache()
+            if batch_size == 1:
+                raise RuntimeError("Failed to run single-sample batch due to OOM.")
+            else:
+                mid = batch_size // 2
+                print(f"OOM with batch size {batch_size}, retrying as two batches of size {mid}")
+                first = self.safe_generate(prompts[:mid], max_gen_tokens)
+                second = self.safe_generate(prompts[mid:], max_gen_tokens)
+                return torch.cat([first, second], dim=0)
 
     def compute_scores(self, predictions):
         pred_df = pd.DataFrame(predictions)
