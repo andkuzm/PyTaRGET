@@ -210,10 +210,10 @@ class Tester_llm:
         except torch.cuda.OutOfMemoryError:
             torch.cuda.empty_cache()
             if batch_size == 1:
-                raise RuntimeError("Failed to run single-sample batch due to OOM.")
+                raise RuntimeError()
             else:
                 mid = batch_size // 2
-                print(f"OOM with batch size {batch_size}, retrying as two batches of size {mid}")
+                # print(f"OOM with batch size {batch_size}, retrying as two batches of size {mid}")
                 first = self.safe_generate(prompts[:mid], max_gen_tokens)
                 second = self.safe_generate(prompts[mid:], max_gen_tokens)
                 return torch.cat([first, second], dim=0)
