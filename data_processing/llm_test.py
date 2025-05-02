@@ -32,6 +32,7 @@ class Tester_llm:
             token=self.token
         )
         self.tokenizer.padding_side = "left"
+        self.tokenizer.model_max_length = 2048
         self.model.eval()  # Important!
 
     def build_prompt(self, row):
