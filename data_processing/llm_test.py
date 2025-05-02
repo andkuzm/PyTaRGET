@@ -141,11 +141,14 @@ class Tester_llm:
                 continue
 
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+            num_ret_seq = 4
+            if self.model_name == "deepseek":
+                num_ret_seq = 2
 
             for j in range(len(batch_rows)):
                 preds = []
-                for k in range(4):
-                    idx = j * 4 + k
+                for k in range(num_ret_seq):
+                    idx = j * num_ret_seq + k
                     gen = decoded_outputs[idx]
 
                     if self.model_name in {"gemma", "qwen", "deepseek"}:
