@@ -31,8 +31,7 @@ class Tester_llm:
             trust_remote_code=True,
             token=self.token
         )
-        if self.model.config.is_encoder_decoder:
-            self.tokenizer.padding_side = "left"
+        self.tokenizer.padding_side = "left"
         self.model.eval()  # Important!
 
     def build_prompt(self, row):
@@ -192,7 +191,7 @@ class Tester_llm:
             outputs = []
             for prompt in prompts:
                 try:
-                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length",
+                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding=self.tokenizer.model_max_length,
                                             return_attention_mask=True).to(self.model.device)
                     with torch.no_grad():
                         out = self.model.generate(
