@@ -247,7 +247,7 @@ class Tester_llm:
 
     def compute_scores(self, predictions):
         pred_df = pd.DataFrame(predictions)
-        num_preds_per_row = len(pred_df.iloc[0]["preds"]) if not pred_df.empty else 1
+        num_preds_per_row = len(pred_df.iloc[0]["preds"][0]) if not pred_df.empty else 1
         eval_size = len(pred_df) * num_preds_per_row
         em_size = 0
         best_preds = []
