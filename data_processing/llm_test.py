@@ -178,43 +178,56 @@ class Tester_llm:
 
     def safe_generate(self, prompts, max_gen_tokens):
         """
-        Attempts to generate output from prompts, halving batch size recursively on OOM.
+        Handles generation with DeepSeek-specific workaround and fallbacks for OOM.
         """
+        if self.model_name == "deepseek":
+            outputs = []
+            for prompt in prompts:
+                try:
+                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding=True,
+                                            return_attention_mask=True).to(self.model.device)
+                    with torch.no_grad():
+                        out = self.model.generate(
+                            **inputs,
+                            max_new_tokens=max_gen_tokens,
+                            do_sample=True,
+                            pad_token_id=self.tokenizer.pad_token_id,
+                            eos_token_id=self.tokenizer.eos_token_id,
+                            use_cache=False,
+                            num_beams=4,
+                            temperature=1.5,
+                            num_return_sequences=4,
+                        )
+                    outputs.append(out)
+                except torch.cuda.OutOfMemoryError:
+                    torch.cuda.empty_cache()
+                    print("OOM on individual DeepSeek prompt. Skipping.")
+            return torch.cat(outputs, dim=0) if outputs else torch.empty(0, dtype=torch.long, device=self.model.device)
+
+        # For all other models
         batch_size = len(prompts)
         try:
-            inputs = self.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, return_attention_mask=True,)
+            inputs = self.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True,
+                                    return_attention_mask=True)
             inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
             with torch.no_grad():
-                if self.model_name == "deepseek":
-                    return self.model.generate(
-                        **inputs,
-                        max_new_tokens=max_gen_tokens,
-                        do_sample=True,
-                        pad_token_id=self.tokenizer.pad_token_id,
-                        eos_token_id=self.tokenizer.eos_token_id,
-                        use_cache=False,
-                        num_beams=4,
-                        temperature=1.5,
-                        num_return_sequences=4,
-                    )
-                else:
-                    return self.model.generate(
-                        **inputs,
-                        max_new_tokens=max_gen_tokens,
-                        do_sample=True,
-                        pad_token_id=self.tokenizer.pad_token_id,
-                        eos_token_id=self.tokenizer.eos_token_id,
-                        num_beams=4,
-                        temperature=1.5,
-                        num_return_sequences=4,
-                    )
+                return self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_gen_tokens,
+                    do_sample=True,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    num_beams=4,
+                    temperature=1.5,
+                    num_return_sequences=4,
+                )
         except torch.cuda.OutOfMemoryError:
             torch.cuda.empty_cache()
             if batch_size == 1:
                 raise RuntimeError()
             else:
                 mid = batch_size // 2
-                # print(f"OOM with batch size {batch_size}, retrying as two batches of size {mid}")
+                print(f"OOM with batch size {batch_size}, retrying as two batches of size {mid}")
                 first = self.safe_generate(prompts[:mid], max_gen_tokens)
                 second = self.safe_generate(prompts[mid:], max_gen_tokens)
                 return torch.cat([first, second], dim=0)
