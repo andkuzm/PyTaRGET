@@ -117,17 +117,18 @@ class Tester_llm:
             out_file = out_path / f"{self.model_name}_llm_test_predictions.json"
 
             # Load existing predictions if file exists
+            id_counter = 0
             if out_file.exists():
                 print(f"Resuming from existing file: {out_file}")
                 existing = pd.read_json(out_file)
                 predictions = existing.to_dict("records")
+                id_counter = len(predictions)
                 seen_ids = {row["ID"] for row in predictions}
 
         all_prompts = [self.build_prompt(row) for row in self.dataset]
         remaining = [(i, row, all_prompts[i]) for i, row in enumerate(self.dataset) if row.get("ID", i) not in seen_ids]
 
         for batch_start in tqdm(range(0, len(remaining), self.batch_size), desc=f"Testing {self.model_name}"):
-            id_counter=0
             batch = remaining[batch_start:batch_start + self.batch_size]
             if not batch:
                 continue
