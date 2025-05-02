@@ -199,7 +199,7 @@ class Tester_llm:
             outputs = []
             for prompt in prompts:
                 try:
-                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding=self.tokenizer.model_max_length,
+                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding='max_length',
                                             return_attention_mask=True).to(self.model.device)
                     with torch.no_grad():
                         out = self.model.generate(
