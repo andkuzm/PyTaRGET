@@ -115,62 +115,65 @@ class Tester_llm:
 
     def run(self, out_path=None, max_gen_tokens=256, save_json=True):
         predictions = []
-        all_prompts = [self.build_prompt(row) for row in self.dataset]
+        seen_ids = set()
 
-        for i in tqdm(range(0, len(all_prompts), self.batch_size), desc=f"Testing {self.model_name}"):
-            batch_prompts = all_prompts[i:i + self.batch_size]
-            batch_rows = self.dataset[i:i + self.batch_size]
+        if save_json and out_path:
+            out_path = Path(out_path)
+            out_path.mkdir(parents=True, exist_ok=True)
+            out_file = out_path / f"{self.model_name}_llm_test_predictions.json"
+
+            # Load existing predictions if file exists
+            if out_file.exists():
+                print(f"Resuming from existing file: {out_file}")
+                existing = pd.read_json(out_file)
+                predictions = existing.to_dict("records")
+                seen_ids = {row["ID"] for row in predictions}
+
+        all_prompts = [self.build_prompt(row) for row in self.dataset]
+        remaining = [(i, row, all_prompts[i]) for i, row in enumerate(self.dataset) if row.get("ID", i) not in seen_ids]
+
+        for batch_start in tqdm(range(0, len(remaining), self.batch_size), desc=f"Testing {self.model_name}"):
+            batch = remaining[batch_start:batch_start + self.batch_size]
+            if not batch:
+                continue
+
+            batch_rows = [row for _, row, _ in batch]
+            batch_prompts = [prompt for _, _, prompt in batch]
 
             try:
                 outputs = self.safe_generate(batch_prompts, max_gen_tokens)
             except RuntimeError as e:
-                print(f"Batch starting at index {i} failed permanently: {e}")
+                print(f"Batch starting at index {batch_start} failed permanently: {e}")
                 continue
 
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
             for j in range(len(batch_rows)):
                 preds = []
-                for k in range(4):  # 4 sequences per input
+                for k in range(4):
                     idx = j * 4 + k
                     gen = decoded_outputs[idx]
-                    if self.model_name == "gemma":
-                        if len(gen.split("**Output:**")) > 1:
-                            gen = self.postprocess_prediction(gen.split("**Output:**")[1])
-                        elif len(gen.split("```")) > 2:
-                            gen = self.postprocess_prediction(gen.split("```")[2])
-                        elif len(gen.split("**")) > 2:
-                            gen = self.postprocess_prediction(gen.split("**")[2])
-                        else:
-                            gen = self.postprocess_prediction(gen)
-                    if self.model_name == "qwen":
-                        if len(gen.split("### Repaired Code:")) > 1:
-                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
-                        else:
-                            gen = self.postprocess_prediction(gen)
-                    if self.model_name == "deepseek":
-                        if len(gen.split("### Repaired Code:")) > 1:
-                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
-                        else:
-                            gen = self.postprocess_prediction(gen)
+
+                    if self.model_name in {"gemma", "qwen", "deepseek"}:
+                        if "Repaired Code:" in gen:
+                            gen = gen.split("Repaired Code:")[-1]
+                        gen = self.postprocess_prediction(gen)
+
                     preds.append(gen)
-                    
-                    
+
                 predictions.append({
-                    "ID": batch_rows[j].get("ID", i + j),
+                    "ID": batch_rows[j].get("ID", j),
                     "target": batch_rows[j]["output"],
-                    "preds": preds
+                    "preds": preds,
                 })
+
+            # Save intermediate state
+            if save_json:
+                pd.DataFrame(predictions).to_json(out_file, indent=2)
 
             torch.cuda.empty_cache()
 
-        if save_json and out_path:
-            out_path = Path(out_path)
-            out_path.mkdir(parents=True, exist_ok=True)
-            out_file = out_path / f"{self.model_name}_llm_test_predictions.json"
-            pd.DataFrame(predictions).to_json(out_file, indent=2)
-            print(f"Saved predictions to {out_file}")
-
+        # Final scores
         bleu, codebleu, em = self.compute_scores(predictions)
         print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em}")
 
@@ -184,7 +187,7 @@ class Tester_llm:
             outputs = []
             for prompt in prompts:
                 try:
-                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding=True,
+                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length",
                                             return_attention_mask=True).to(self.model.device)
                     with torch.no_grad():
                         out = self.model.generate(
@@ -194,9 +197,9 @@ class Tester_llm:
                             pad_token_id=self.tokenizer.pad_token_id,
                             eos_token_id=self.tokenizer.eos_token_id,
                             use_cache=False,
-                            num_beams=4,
+                            num_beams=2,
                             temperature=1.5,
-                            num_return_sequences=4,
+                            num_return_sequences=2,
                         )
                     outputs.append(out)
                 except torch.cuda.OutOfMemoryError:
