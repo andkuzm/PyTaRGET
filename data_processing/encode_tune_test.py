@@ -191,7 +191,7 @@ class Eftt:
 
         # Encode with tokenizer to get instruction token count
         instructions_tokens = len(self.tokenizer.encode(instruction_block, add_special_tokens=False))
-        if self.tokenizer.model_max_length > 20000:
+        if self.tokenizer.model_max_length > 3000: #enlarge if lots of VRAM
             self.tokenizer.model_max_length = 2048
 
         # Subtract instruction size from model_max_length
