@@ -171,6 +171,12 @@ class Tester_llm:
                             gen = self.postprocess_prediction(gen)
                     preds.append(gen)
 
+                predictions.append({
+                    "ID": batch_rows[j].get("ID", j),
+                    "target": batch_rows[j]["output"],
+                    "preds": preds,
+                })
+
             # Save intermediate state
             if save_json:
                 pd.DataFrame(predictions).to_json(out_file, indent=2)
