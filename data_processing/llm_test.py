@@ -126,6 +126,7 @@ class Tester_llm:
         remaining = [(i, row, all_prompts[i]) for i, row in enumerate(self.dataset) if row.get("ID", i) not in seen_ids]
 
         for batch_start in tqdm(range(0, len(remaining), self.batch_size), desc=f"Testing {self.model_name}"):
+            id_counter=0
             batch = remaining[batch_start:batch_start + self.batch_size]
             if not batch:
                 continue
@@ -172,10 +173,11 @@ class Tester_llm:
                     preds.append(gen)
 
                 predictions.append({
-                    "ID": batch_rows[j].get("ID", j),
+                    "ID": id_counter,
                     "target": batch_rows[j]["output"],
                     "preds": preds,
                 })
+                id_counter += 1
 
             # Save intermediate state
             if save_json:
