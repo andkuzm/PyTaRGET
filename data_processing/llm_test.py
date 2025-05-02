@@ -143,6 +143,7 @@ class Tester_llm:
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
             num_ret_seq = 4
             if self.model_name == "deepseek":
+                print("yes, it works")
                 num_ret_seq = 2
 
             for j in range(len(batch_rows)):
@@ -150,19 +151,26 @@ class Tester_llm:
                 for k in range(num_ret_seq):
                     idx = j * num_ret_seq + k
                     gen = decoded_outputs[idx]
-
-                    if self.model_name in {"gemma", "qwen", "deepseek"}:
-                        if "Repaired Code:" in gen:
-                            gen = gen.split("Repaired Code:")[-1]
-                        gen = self.postprocess_prediction(gen)
-
+                    if self.model_name == "gemma":
+                        if len(gen.split("**Output:**")) > 1:
+                            gen = self.postprocess_prediction(gen.split("**Output:**")[1])
+                        elif len(gen.split("```")) > 2:
+                            gen = self.postprocess_prediction(gen.split("```")[2])
+                        elif len(gen.split("**")) > 2:
+                            gen = self.postprocess_prediction(gen.split("**")[2])
+                        else:
+                            gen = self.postprocess_prediction(gen)
+                    if self.model_name == "qwen":
+                        if len(gen.split("### Repaired Code:")) > 1:
+                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
+                        else:
+                            gen = self.postprocess_prediction(gen)
+                    if self.model_name == "deepseek":
+                        if len(gen.split("### Repaired Code:")) > 1:
+                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
+                        else:
+                            gen = self.postprocess_prediction(gen)
                     preds.append(gen)
-
-                predictions.append({
-                    "ID": batch_rows[j].get("ID", j),
-                    "target": batch_rows[j]["output"],
-                    "preds": preds,
-                })
 
             # Save intermediate state
             if save_json:
