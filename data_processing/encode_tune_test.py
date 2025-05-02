@@ -144,7 +144,8 @@ class Eftt:
             model_name=self.model,
             model_path=self.model_path,
             dataset_path=self.out_path / self.model / str(self.train_size),
-            token=self.hftok
+            token=self.hftok,
+            tokenizer=self.tokenizer,
         )
         tester.run(out_path=self.out_path / self.model / str(self.train_size))
 
