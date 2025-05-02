@@ -15,21 +15,15 @@ from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester_llm:
-    def __init__(self, model_name, model_path, dataset_path, token, device="cuda", batch_size=4):
+    def __init__(self, model_name, model_path, dataset_path, token, tokenizer, device="cuda", batch_size=4):
         self.model_name = model_name
         self.model_path = model_path
         self.dataset_path = Path(dataset_path) / "splits" / "test.json"
         self.dataset = json.load(open(self.dataset_path, 'r'))
         self.token = token
+        self.tokenizer = tokenizer
         self.device = device
         self.batch_size = batch_size
-
-        # Load model manually (no pipeline)
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True, token=self.token
-        )
-        if self.tokenizer.model_max_length > 10000:
-            self.tokenizer.model_max_length = 2048
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             device_map="auto",
