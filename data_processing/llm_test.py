@@ -247,7 +247,8 @@ class Tester_llm:
 
     def compute_scores(self, predictions):
         pred_df = pd.DataFrame(predictions)
-        eval_size = 0
+        num_preds_per_row = len(pred_df.iloc[0]["preds"]) if not pred_df.empty else 1
+        eval_size = len(pred_df) * num_preds_per_row
         em_size = 0
         best_preds = []
         targets = []
@@ -257,7 +258,6 @@ class Tester_llm:
             target = row["target"]
             best_pred = beam_outputs[0]
             for output in beam_outputs:
-                eval_size+=1
                 if output == target:
                     em_size += 1
                     best_pred = output
