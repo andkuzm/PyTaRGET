@@ -196,6 +196,7 @@ class Eftt:
 
         # Subtract instruction size from model_max_length
         self.tokenizer.model_max_length -= instructions_tokens
+        print(f"tokens size max: P{self.tokenizer.model_max_length}")
         pass
         # new_special_tokens = {
         #     "additional_special_tokens": list({
