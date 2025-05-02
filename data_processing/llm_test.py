@@ -200,7 +200,7 @@ class Tester_llm:
             outputs = []
             for prompt in prompts:
                 try:
-                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding='max_length',
+                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding=True, max_length=2048,
                                             return_attention_mask=True).to(self.model.device)
                     with torch.no_grad():
                         out = self.model.generate(
@@ -223,7 +223,7 @@ class Tester_llm:
         # For all other models
         batch_size = len(prompts)
         try:
-            inputs = self.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True,
+            inputs = self.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=2048,
                                     return_attention_mask=True)
             inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
             with torch.no_grad():
