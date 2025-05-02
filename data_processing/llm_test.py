@@ -248,8 +248,8 @@ class Tester_llm:
     def compute_scores(self, predictions):
         pred_df = pd.DataFrame(predictions)
         num_preds_per_row = len(pred_df["preds"].iloc[0])
-        print(f"num_preds_per_row={num_preds_per_row}, len(predictions)={len(pred_df.iloc[0]["preds"])}")
-        eval_size = len(pred_df.iloc[0]["preds"]) * num_preds_per_row
+        eval_size = len(pred_df) * num_preds_per_row
+        print(f"num_preds_per_row={len(pred_df)}, len(predictions)={len(pred_df["preds"].iloc[0])}")
         em_size = 0
         best_preds = []
         targets = []
@@ -262,7 +262,6 @@ class Tester_llm:
                 if output == target:
                     em_size += 1
                     best_pred = output
-                    break
             best_preds.append(best_pred)
             targets.append(target)
 
