@@ -247,7 +247,7 @@ class Tester_llm:
 
     def compute_scores(self, predictions):
         pred_df = pd.DataFrame(predictions)
-        eval_size = pred_df["ID"].nunique()
+        eval_size = len(pred_df["ID"])
         em_size = 0
         best_preds = []
         targets = []
