@@ -247,7 +247,7 @@ class Tester_llm:
 
     def compute_scores(self, predictions):
         pred_df = pd.DataFrame(predictions)
-        eval_size = pred_df["ID"].nunique()
+        eval_size = 0
         em_size = 0
         best_preds = []
         targets = []
@@ -257,6 +257,7 @@ class Tester_llm:
             target = row["target"]
             best_pred = beam_outputs[0]
             for output in beam_outputs:
+                eval_size+=1
                 if output == target:
                     em_size += 1
                     best_pred = output
