@@ -30,7 +30,6 @@ class Tester_llm:
         )
         if self.tokenizer.model_max_length > 10000:
             self.tokenizer.model_max_length = 2048
-        self.tokenizer.padding_side = "left"
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             device_map="auto",
@@ -38,6 +37,8 @@ class Tester_llm:
             trust_remote_code=True,
             token=self.token
         )
+        if self.model.config.is_encoder_decoder:
+            self.tokenizer.padding_side = "left"
         self.model.eval()  # Important!
 
     def build_prompt(self, row):
@@ -181,7 +182,7 @@ class Tester_llm:
         """
         batch_size = len(prompts)
         try:
-            inputs = self.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=2048)
+            inputs = self.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, return_attention_mask=True,)
             inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
             with torch.no_grad():
                 if self.model_name == "deepseek":
