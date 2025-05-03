@@ -214,6 +214,7 @@ class Tester_llm:
                             num_beams=2,
                             temperature=1.5,
                             num_return_sequences=2,
+                            max_length=2048
                         )
                     outputs.append(out)
                 except torch.cuda.OutOfMemoryError:
