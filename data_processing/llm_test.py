@@ -15,7 +15,7 @@ from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester_llm:
-    def __init__(self, model_name, model_path, dataset_path, token, tokenizer, device="cuda", batch_size=4):
+    def __init__(self, model_name, model_path, dataset_path, token, tokenizer, batch_size=4, device="cuda"):
         self.model_name = model_name
         self.model_path = model_path
         self.dataset_path = Path(dataset_path) / "splits" / "test.json"
@@ -200,8 +200,7 @@ class Tester_llm:
             outputs = []
             for prompt in prompts:
                 try:
-                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length",
-                                            max_length=2048,
+                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length", max_length=2048,
                                             return_attention_mask=True).to(self.model.device)
                     with torch.no_grad():
                         out = self.model.generate(
@@ -215,16 +214,11 @@ class Tester_llm:
                             temperature=1.5,
                             num_return_sequences=2,
                         )
-                    # Decode separately and append decoded strings, not tensors
-                    decoded = self.tokenizer.batch_decode(out, skip_special_tokens=True)
-                    outputs.append(decoded)
+                    outputs.append(out)
                 except torch.cuda.OutOfMemoryError:
                     torch.cuda.empty_cache()
                     print("OOM on individual DeepSeek prompt. Skipping.")
-                    outputs.append([""])
-
-            # Flatten the nested list: [[out1, out2], [out3, out4], ...] → [out1, out2, out3, out4, ...]
-            return [item for sublist in outputs for item in sublist]
+            return torch.cat(outputs, dim=0) if outputs else torch.empty(0, dtype=torch.long, device=self.model.device)
 
         # For all other models
         batch_size = len(prompts)

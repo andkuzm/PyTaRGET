@@ -31,11 +31,12 @@ class Tokens:
     HUNK_END = "[</HUNK>]"
 
 class Eftt:
-    def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=5, hftoken=None):
+    def __init__(self, annotated_cases_path, out_path, model, train_size, batch_size=4, beam_size=5, hftoken=None):
         self.annotated_cases_path = annotated_cases_path
         self.out_path = out_path
         self.model = model
         self.train_size = train_size
+        self.batch_size = batch_size
         self.hftok = hftoken
         self.beam_size = beam_size
         if model == "plbart":
@@ -146,6 +147,7 @@ class Eftt:
             dataset_path=self.out_path / self.model / str(self.train_size),
             token=self.hftok,
             tokenizer=self.tokenizer,
+            batch_size=self.batch_size,
         )
         tester.run(out_path=self.out_path / self.model / str(self.train_size))
 
