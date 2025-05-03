@@ -145,7 +145,6 @@ class Tester_llm:
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
             num_ret_seq = 4
             if self.model_name == "deepseek":
-                print("yes, it works")
                 num_ret_seq = 2
 
             for j in range(len(batch_rows)):
@@ -201,7 +200,8 @@ class Tester_llm:
             outputs = []
             for prompt in prompts:
                 try:
-                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length", max_length=2048,
+                    inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, padding="max_length",
+                                            max_length=2048,
                                             return_attention_mask=True).to(self.model.device)
                     with torch.no_grad():
                         out = self.model.generate(
@@ -214,13 +214,17 @@ class Tester_llm:
                             num_beams=2,
                             temperature=1.5,
                             num_return_sequences=2,
-                            max_length=2048
                         )
-                    outputs.append(out)
+                    # Decode separately and append decoded strings, not tensors
+                    decoded = self.tokenizer.batch_decode(out, skip_special_tokens=True)
+                    outputs.append(decoded)
                 except torch.cuda.OutOfMemoryError:
                     torch.cuda.empty_cache()
                     print("OOM on individual DeepSeek prompt. Skipping.")
-            return torch.cat(outputs, dim=0) if outputs else torch.empty(0, dtype=torch.long, device=self.model.device)
+                    outputs.append([""])
+
+            # Flatten the nested list: [[out1, out2], [out3, out4], ...] → [out1, out2, out3, out4, ...]
+            return [item for sublist in outputs for item in sublist]
 
         # For all other models
         batch_size = len(prompts)
