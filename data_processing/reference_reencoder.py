@@ -66,5 +66,5 @@ class Re_encoder:
 
     def save(self, ds, out_path):
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w", encoding="utf-8") as f:
+        with open(out_path/"test.json", "w", encoding="utf-8") as f:
             json.dump(ds, f, indent=2, ensure_ascii=False)
