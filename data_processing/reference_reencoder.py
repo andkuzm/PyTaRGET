@@ -13,6 +13,41 @@ class Re_encoder:
         ds = self.decode(self.original_ds)
         self.save(ds, self.out_path)
 
+    def reannotate(self):
+        with open(self.original_ds, 'r') as f:
+            raw_data = json.load(f)
+
+        reannotated_data = []
+        for row in tqdm(raw_data, desc="Re-annotating"):
+            input_text = row["input"]
+            output_text = row["output"]
+
+            # Ensure TESTCONTEXT and REPAIRCONTEXT blocks are cleanly separated
+            if "[</TESTCONTEXT>]" not in input_text and "[<REPAIRCONTEXT>]" in input_text:
+                input_text = input_text.replace("[<REPAIRCONTEXT>]", "[</TESTCONTEXT>][<REPAIRCONTEXT>]")
+
+            # Optional: Fix incorrect escaping
+            input_text = input_text.replace("[<\/BREAKAGE>]", "[</BREAKAGE>]")
+            input_text = input_text.replace("[<\/HUNK>]", "[</HUNK>]")
+
+            # If [<BREAKAGE>] is not closed, insert closing tag
+            if "[<BREAKAGE>]" in input_text and "[</BREAKAGE>]" not in input_text:
+                input_text = input_text.replace("[<BREAKAGE>]", "[<BREAKAGE>]") + "[</BREAKAGE>]"
+
+            # Insert output into REPAIREDTEST block if BREAKAGE exists
+            if "[<BREAKAGE>]" in input_text:
+                test_insert = f"[<REPAIREDTEST>]{output_text}[/REPAIREDTEST>]"
+                if "[<REPAIREDTEST>]" not in input_text:
+                    input_text = input_text.replace("[</BREAKAGE>]", f"[</BREAKAGE>]{test_insert}")
+
+            # Store back as input/output pair
+            reannotated_data.append({
+                "input": input_text,
+                "output": output_text
+            })
+
+        self.save(reannotated_data, self.out_path)
+
     def decode(self, original_ds):
         new_rows = []
         for row in tqdm(original_ds, desc="Decoding and preparing"):
