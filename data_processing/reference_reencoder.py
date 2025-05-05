@@ -14,8 +14,7 @@ class Re_encoder:
         self.save(ds, self.out_path)
 
     def reannotate(self):
-        with open(self.original_ds, 'r') as f:
-            raw_data = json.load(f)
+        raw_data = self.original_ds
 
         reannotated_data = []
         for row in tqdm(raw_data, desc="Re-annotating"):
