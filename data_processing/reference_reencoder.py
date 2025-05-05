@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 class Re_encoder:
     def __init__(self, original_ds, out_path, tokenizer):
-        self.original_ds = original_ds  # Assumes HuggingFace Dataset object or a list of dicts
+        self.original_ds = json.load(original_ds)
         self.out_path = Path(out_path)
         self.tokenizer = tokenizer
 

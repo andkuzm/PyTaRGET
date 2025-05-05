@@ -11,6 +11,7 @@ from transformers import (
 
 from data_processing.encode import Encoder
 from data_processing.llm_test import Tester_llm
+from data_processing.reference_reencoder import Re_encoder
 from data_processing.test import Tester
 from data_processing.train import Trainer
 from dataset_types import EncDecDataset, PLBARTDataset, CodeGenDataset, LLMSeqDataset
@@ -203,6 +204,10 @@ class Eftt:
         self.tokenizer.model_max_length -= instructions_tokens
         print(f"tokens size max: P{self.tokenizer.model_max_length}")
         pass
+
+    def reencode(self, ods):
+        reencoder = Re_encoder(ods, self.out_path / self.model / str(self.train_size), self.tokenizer)
+        reencoder.decode_reencode()
         # new_special_tokens = {
         #     "additional_special_tokens": list({
         #         v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")
