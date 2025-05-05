@@ -208,6 +208,9 @@ class Eftt:
     def reencode(self, ods):
         reencoder = Re_encoder(ods, self.out_path / self.model / str(self.train_size), self.tokenizer)
         reencoder.decode_reencode()
+    def reannotate(self, ods):
+        reencoder = Re_encoder(ods, self.out_path / self.model / str(self.train_size), self.tokenizer)
+        reencoder.reannotate()
         # new_special_tokens = {
         #     "additional_special_tokens": list({
         #         v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")
