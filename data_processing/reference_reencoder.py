@@ -4,7 +4,8 @@ from tqdm import tqdm
 
 class Re_encoder:
     def __init__(self, original_ds, out_path, tokenizer):
-        self.original_ds = json.load(original_ds)
+        with open(original_ds, "r", encoding="utf-8") as f:
+            self.original_ds = json.load(f)
         self.out_path = Path(out_path)
         self.tokenizer = tokenizer
 
