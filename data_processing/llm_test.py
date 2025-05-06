@@ -95,6 +95,12 @@ class Tester_llm:
         match = re.search(r"\[REPAIR](.*?)(?:\[/REPAIR]|\[</REPAIR>])", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
+        match = re.search(r"\[REPAIREDTEST](.*?)(?:\[/REPAIREDTEST]|\[</REPAIREDTEST>])", prediction, re.DOTALL)
+        if match:
+            return match.group(1).rstrip()
+        match = re.search(r"\[REPAIRED](.*?)(?:\[/REPAIRED]|\[</REPAIRED>])", prediction, re.DOTALL)
+        if match:
+            return match.group(1).rstrip()
         match = re.search(r"\[REPAIR](.*?)\[<REPAIR>]", prediction, re.DOTALL)
         if match:
             return match.group(1).rstrip()
