@@ -28,16 +28,17 @@ class Tester_llm:
         self.device = device
         self.batch_size = batch_size
         self.is_java = is_java
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_path,
-            device_map="auto",
-            torch_dtype=torch.float16,
-            trust_remote_code=True,
-            token=self.token
-        )
-        self.tokenizer.padding_side = "left"
-        self.tokenizer.model_max_length = 2048
-        self.model.eval()  # Important!
+        if not is_java:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_path,
+                device_map="auto",
+                torch_dtype=torch.float16,
+                trust_remote_code=True,
+                token=self.token
+            )
+            self.tokenizer.padding_side = "left"
+            self.tokenizer.model_max_length = 2048
+            self.model.eval()  # Important!
 
     def build_prompt(self, row):
         instruction = (
@@ -287,7 +288,7 @@ class Tester_llm:
         if self.is_java:
             print("java metrics")
             bleu_score = jcorpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
-            code_bleu_score = jcalc_code_bleu([targets], best_preds)
+            code_bleu_score = jcalc_code_bleu([targets], best_preds, lang="java")
         else:
             bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
             code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
