@@ -32,7 +32,7 @@ class Tokens:
     HUNK_END = "[</HUNK>]"
 
 class Eftt:
-    def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=5, batch_size=4, hftoken=None):
+    def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=5, batch_size=4, hftoken=None, java=False):
         self.annotated_cases_path = annotated_cases_path
         self.out_path = out_path
         self.model = model
@@ -58,53 +58,56 @@ class Eftt:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
             self.create_tokenizer()
             self.dataset_class = EncDecDataset
-        if model == "llama4":
-            login(token=self.hftok)
-            self.model_path = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
-            self.model_class = AutoModelForCausalLM
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path, trust_remote_code=True, token=True
-            )
-            self.create_tokenizer_llm()
-            self.dataset_class = LLMSeqDataset
-        if model == "llama3":
-            login(token=self.hftok)
-            self.model_path = "codellama/CodeLlama-7b-Python-hf"
-            self.model_class = AutoModelForCausalLM
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path, trust_remote_code=True, token=True
-            )
-            self.create_tokenizer_llm()
-            self.dataset_class = LLMSeqDataset
+        # if model == "llama4":
+        #     login(token=self.hftok)
+        #     self.model_path = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+        #     self.model_class = AutoModelForCausalLM
+        #     self.tokenizer = AutoTokenizer.from_pretrained(
+        #         self.model_path, trust_remote_code=True, token=True
+        #     )
+        #     self.create_tokenizer_llm()
+        #     self.dataset_class = LLMSeqDataset
+        # if model == "llama3":
+        #     login(token=self.hftok)
+        #     self.model_path = "codellama/CodeLlama-7b-Python-hf"
+        #     self.model_class = AutoModelForCausalLM
+        #     self.tokenizer = AutoTokenizer.from_pretrained(
+        #         self.model_path, trust_remote_code=True, token=True
+        #     )
+        #     self.create_tokenizer_llm()
+        #     self.dataset_class = LLMSeqDataset
 
         if model == "qwen":
             login(token=self.hftok)
             self.model_path = "Qwen/Qwen2.5-7B-Instruct"
             self.model_class = AutoModelForCausalLM
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path, trust_remote_code=True, token=True
-            )
-            self.create_tokenizer_llm()
+            if not java:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_path, trust_remote_code=True, token=True
+                )
+                self.create_tokenizer_llm()
             self.dataset_class = LLMSeqDataset
 
         if model == "gemma":
             login(token=self.hftok)
             self.model_path = "google/gemma-7b-it"
             self.model_class = AutoModelForCausalLM
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path, trust_remote_code=True, token=True
-            )
-            self.create_tokenizer_llm()
+            if not java:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_path, trust_remote_code=True, token=True
+                )
+                self.create_tokenizer_llm()
             self.dataset_class = LLMSeqDataset
 
         if model == "deepseek":
             login(token=self.hftok)
             self.model_path = "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct" #deepseek-ai/deepseek-coder-33b-instruct
             self.model_class = AutoModelForCausalLM
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path, trust_remote_code=True, token=True
-            )
-            self.create_tokenizer_llm()
+            if not java:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_path, trust_remote_code=True, token=True
+                )
+                self.create_tokenizer_llm()
             self.dataset_class = LLMSeqDataset
         self.is_llm=model in {"deepseek", "qwen", "llama", "gemma"}
 
