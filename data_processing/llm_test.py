@@ -10,8 +10,8 @@ from tqdm import tqdm
 from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
-from data_processing.CodeBLEU.bleu import corpus_bleu as jcorpus_bleu
-from data_processing.CodeBLEU.code_bleu import calc_code_bleu as jcalc_code_bleu
+from data_processing.jCodeBLEU.bleu import corpus_bleu as jcorpus_bleu
+from data_processing.jCodeBLEU.code_bleu import calc_code_bleu as jcalc_code_bleu
 
 
 
