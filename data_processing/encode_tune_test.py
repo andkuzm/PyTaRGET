@@ -172,6 +172,15 @@ class Eftt:
         print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em}")
         return bleu, codebleu, em
 
+    def get_metrics(self):
+        tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size)
+        pred_path = self.out_path / self.model / str(self.train_size) / f"test_predictions.json"
+        with open(pred_path, 'r') as f:
+            preds = json.load(f)
+        bleu, codebleu, em = tester.compute_scores(preds)
+        print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em}")
+        return bleu, codebleu, em
+
     def create_tokenizer(self):
         new_special_tokens = {
             "additional_special_tokens": self.tokenizer.additional_special_tokens
