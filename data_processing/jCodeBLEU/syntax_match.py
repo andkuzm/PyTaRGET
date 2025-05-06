@@ -22,7 +22,7 @@ def calc_syntax_match(references, candidate, lang):
     return corpus_syntax_match([references], [candidate], lang)
 
 def corpus_syntax_match(references, candidates, lang):   
-    JAVA_LANGUAGE = Language('jCodeBLEU/parser/my-languages.so', lang)
+    JAVA_LANGUAGE = Language('data_processing/jCodeBLEU/parser/my-languages.so', lang)
     parser = Parser()
     parser.set_language(JAVA_LANGUAGE)
     match_count = 0
