@@ -149,6 +149,7 @@ class Eftt:
             token=self.hftok,
             tokenizer=self.tokenizer,
             batch_size=self.batch_size,
+            is_java= "ref" in str(self.train_size),
         )
         tester.run(out_path=self.out_path / self.model / str(self.train_size))
 

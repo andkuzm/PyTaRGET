@@ -10,12 +10,15 @@ from tqdm import tqdm
 from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
+from data_processing.CodeBLEU.bleu import corpus_bleu as jcorpus_bleu
+from data_processing.CodeBLEU.code_bleu import calc_code_bleu as jcalc_code_bleu
+
 
 
 
 
 class Tester_llm:
-    def __init__(self, model_name, model_path, dataset_path, token, tokenizer, batch_size=4, device="cuda"):
+    def __init__(self, model_name, model_path, dataset_path, token, tokenizer, batch_size=4, is_java=False, device="cuda"):
         self.model_name = model_name
         self.model_path = model_path
         self.dataset_path = Path(dataset_path) / "splits" / "test.json"
@@ -24,6 +27,7 @@ class Tester_llm:
         self.tokenizer = tokenizer
         self.device = device
         self.batch_size = batch_size
+        self.is_java = is_java
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             device_map="auto",
@@ -268,6 +272,10 @@ class Tester_llm:
             targets.append(target)
 
         em = round(em_size / eval_size * 100, 2)
-        bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
-        code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
+        if self.is_java:
+            bleu_score = jcorpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
+            code_bleu_score = jcalc_code_bleu([targets], best_preds)
+        else:
+            bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
+            code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
         return round(bleu_score * 100, 2), round(code_bleu_score, 2), em
