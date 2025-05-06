@@ -285,6 +285,7 @@ class Tester_llm:
 
         em = round(em_size / eval_size * 100, 2)
         if self.is_java:
+            print("java metrics")
             bleu_score = jcorpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
             code_bleu_score = jcalc_code_bleu([targets], best_preds)
         else:
