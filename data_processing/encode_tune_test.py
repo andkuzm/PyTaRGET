@@ -40,6 +40,8 @@ class Eftt:
         self.batch_size = batch_size
         self.hftok = hftoken
         self.beam_size = beam_size
+        if java:
+            self.tokenizer = None
         if model == "plbart":
             self.model_path = "uclanlp/plbart-base"
             self.model_class = PLBartForConditionalGeneration
