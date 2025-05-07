@@ -90,6 +90,17 @@ class Eftt:
                 self.create_tokenizer_llm()
             self.dataset_class = LLMSeqDataset
 
+        if model == "qwen3":
+            login(token=self.hftok)
+            self.model_path = "Qwen/Qwen3-8B"
+            self.model_class = AutoModelForCausalLM
+            if not java:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_path, trust_remote_code=True, token=True
+                )
+                self.create_tokenizer_llm()
+            self.dataset_class = LLMSeqDataset
+
         if model == "gemma":
             login(token=self.hftok)
             self.model_path = "google/gemma-7b-it"

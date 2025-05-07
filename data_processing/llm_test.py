@@ -55,7 +55,7 @@ class Tester_llm:
                 f"<|start_header_id|>user<|end_header_id|>\n"
                 f"Full Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nSource Code Changes:\n{helpful_hunks}\n<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
             )
-        elif self.model_name in {"qwen", "deepseek"}:
+        elif self.model_name in {"qwen", "qwen3", "deepseek"}:
             return (
                 f"### Instruction:\n{instruction}\n\n### Full Test Context:\n{test_context}\n\n### Broken Lines:\n{broken_lines}\n\n### Source Code Changes:\n{helpful_hunks}\n\n### Repaired Code:\n"
             )
@@ -179,6 +179,11 @@ class Tester_llm:
                         else:
                             gen = self.postprocess_prediction(gen)
                     if self.model_name == "qwen":
+                        if len(gen.split("### Repaired Code:")) > 1:
+                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
+                        else:
+                            gen = self.postprocess_prediction(gen)
+                    if self.model_name == "qwen3":
                         if len(gen.split("### Repaired Code:")) > 1:
                             gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
                         else:
