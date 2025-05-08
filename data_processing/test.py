@@ -74,7 +74,8 @@ class Tester:
         print(f"BLEU: {bleu_score} | CodeBLEU: {code_bleu_score} | EM: {em}")
 
     def compute_scores(self, pred_df):
-        eval_size = pred_df["ID"].nunique()
+        pred_df = pd.DataFrame(pred_df)
+        eval_size = len(pred_df["ID"])
         em_size = 0
         best_preds = []
         targets = []
@@ -94,4 +95,4 @@ class Tester:
         em = round(em_size / eval_size * 100, 2)
         bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
         code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
-        return round(bleu_score * 100, 2), round(code_bleu_score, 2), em
+        return round(bleu_score * 100, 2), round(code_bleu_score * 100, 2), em
