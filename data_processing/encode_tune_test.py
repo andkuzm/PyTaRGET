@@ -216,9 +216,6 @@ class Eftt:
             "Using the source code changes, repair ONLY the broken lines.\n"
             "Output ONLY the repaired lines, without copying the whole function, and without adding explanations.\n"
             "repaired lines must be wrapped in [REPAIR] brackets.\n"
-            "Full Test Context:\n\n\nBroken Lines:\n\n\nSource Code Changes:\n\n<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n### Repaired Code:"
-            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n<|eot_id|>"
-            "<|start_header_id|>user<|end_header_id|>\n"
             "### Instruction:\n\n\n### Full Test Context:\n{test_context}\n\n### Broken Lines:\n\n\n### Source Code Changes:\n\n\n### Repaired Code:\n"
         )
 

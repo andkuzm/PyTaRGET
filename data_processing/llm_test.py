@@ -51,21 +51,9 @@ class Tester_llm:
             "Wrap the repaired lines inside [REPAIR] brackets, and do not add anything else."
         )
         test_context, broken_lines, helpful_hunks = self.extract_relevant_code(row["input"])
-
-        if self.model_name in {"llama3", "llama4", "gemma"}:
-            return (
-                f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{instruction}<|eot_id|>"
-                f"<|start_header_id|>user<|end_header_id|>\n"
-                f"Full Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nSource Code Changes:\n{helpful_hunks}\n<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
-            )
-        elif self.model_name in {"qwen", "qwen3", "deepseek"}:
-            return (
-                f"### Instruction:\n{instruction}\n\n### Full Test Context:\n{test_context}\n\n### Broken Lines:\n{broken_lines}\n\n### Source Code Changes:\n{helpful_hunks}\n\n### Repaired Code:\n"
-            )
-        else:
-            return (
-                f"{instruction}\n\nFull Test Context:\n{test_context}\n\nBroken Lines:\n{broken_lines}\n\nSource Code Changes:\n{helpful_hunks}\n\nRepaired Code:\n"
-            )
+        return (
+            f"### Instruction:\n{instruction}\n\n### Full Test Context:\n{test_context}\n\n### Broken Lines:\n{broken_lines}\n\n### Source Code Changes:\n{helpful_hunks}\n\n### Repaired Code:\n"
+        )
 
     def extract_relevant_code(self, input_text):
         """
