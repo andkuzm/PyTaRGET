@@ -41,8 +41,11 @@ class Tester_llm:
             self.model.eval()  # Important!
 
     def build_prompt(self, row):
+        language = "Python"
+        if self.is_java:
+            language = "Java"
         instruction = (
-            "You are given a full Python test function, where some lines are broken by the changes in source code (marked explicitly).\n"
+            f"You are given a full {language} test function, where some lines are broken by the changes in source code (marked explicitly).\n"
             "Using the source code changes, repair ONLY the broken lines.\n"
             "Output ONLY the repaired lines.\n"
             "Wrap the repaired lines inside [REPAIR] brackets, and do not add anything else."
