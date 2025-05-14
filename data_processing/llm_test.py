@@ -18,13 +18,14 @@ from data_processing.jCodeBLEU.code_bleu import calc_code_bleu as jcalc_code_ble
 
 
 class Tester_llm:
-    def __init__(self, model_name, model_path, dataset_path, token, tokenizer, batch_size=4, is_java=False, device="cuda"):
+    def __init__(self, model_name, model_path, dataset_path, token, tokenizer, train_fraction, batch_size=4, is_java=False, device="cuda"):
         self.model_name = model_name
         self.model_path = model_path
         self.dataset_path = Path(dataset_path) / "splits" / "test.json"
         self.dataset = json.load(open(self.dataset_path, 'r'))
         self.token = token
         self.tokenizer = tokenizer
+        self.train_fraction = train_fraction
         self.device = device
         self.batch_size = batch_size
         self.is_java = is_java
@@ -42,7 +43,7 @@ class Tester_llm:
 
     def build_prompt(self, row):
         language = "Python"
-        if self.is_java:
+        if "ref" in str(self.train_fraction):
             language = "Java"
         instruction = (
             f"You are given a full {language} test function, where some lines are broken by the changes in source code (marked explicitly).\n"

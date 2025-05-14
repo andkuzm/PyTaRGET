@@ -32,7 +32,7 @@ class Tokens:
     HUNK_END = "[</HUNK>]"
 
 class Eftt:
-    def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=5, batch_size=4, hftoken=None, java=False):
+    def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=40, batch_size=4, hftoken=None, java=False):
         self.annotated_cases_path = annotated_cases_path
         self.out_path = out_path
         self.model = model
@@ -165,7 +165,8 @@ class Eftt:
             token=self.hftok,
             tokenizer=self.tokenizer,
             batch_size=self.batch_size,
-            is_java= False,
+            train_fraction=self.train_size,
+            is_java= "ref" in str(self.train_size),
         )
         tester.run(out_path=self.out_path / self.model / str(self.train_size))
 
