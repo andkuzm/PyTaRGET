@@ -154,7 +154,7 @@ class Tester_llm:
             decoded_outputs = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
             num_ret_seq = 4
             if self.model_name == "deepseek":
-                num_ret_seq = 2
+                num_ret_seq = 1
 
             for j in range(len(batch_rows)):
                 preds = []
@@ -204,9 +204,9 @@ class Tester_llm:
                             pad_token_id=self.tokenizer.pad_token_id,
                             eos_token_id=self.tokenizer.eos_token_id,
                             use_cache=False,
-                            num_beams=2,
+                            num_beams=1,
                             temperature=1.5,
-                            num_return_sequences=2,
+                            num_return_sequences=1,
                         )
                     outputs.append(out)
                 except torch.cuda.OutOfMemoryError:
