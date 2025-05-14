@@ -29,6 +29,8 @@ class Tester_llm:
         self.device = device
         self.batch_size = batch_size
         self.is_java = is_java
+        if "ref" in str(self.train_fraction):
+            print("prompting will be done for java dataset")
         if not is_java:
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_path,
