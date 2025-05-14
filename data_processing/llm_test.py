@@ -161,30 +161,10 @@ class Tester_llm:
                 for k in range(num_ret_seq):
                     idx = j * num_ret_seq + k
                     gen = decoded_outputs[idx]
-                    if self.model_name == "gemma":
-                        if len(gen.split("**Output:**")) > 1:
-                            gen = self.postprocess_prediction(gen.split("**Output:**")[1])
-                        elif len(gen.split("```")) > 2:
-                            gen = self.postprocess_prediction(gen.split("```")[2])
-                        elif len(gen.split("**")) > 2:
-                            gen = self.postprocess_prediction(gen.split("**")[2])
-                        else:
-                            gen = self.postprocess_prediction(gen)
-                    if self.model_name == "qwen":
-                        if len(gen.split("### Repaired Code:")) > 1:
-                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
-                        else:
-                            gen = self.postprocess_prediction(gen)
-                    if self.model_name == "qwen3":
-                        if len(gen.split("### Repaired Code:")) > 1:
-                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
-                        else:
-                            gen = self.postprocess_prediction(gen)
-                    if self.model_name == "deepseek":
-                        if len(gen.split("### Repaired Code:")) > 1:
-                            gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
-                        else:
-                            gen = self.postprocess_prediction(gen)
+                    if len(gen.split("### Repaired Code:")) > 1:
+                        gen = self.postprocess_prediction(gen.split("### Repaired Code:")[1])
+                    else:
+                        gen = self.postprocess_prediction(gen)
                     preds.append(gen)
 
                 predictions.append({
