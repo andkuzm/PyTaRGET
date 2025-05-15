@@ -177,6 +177,7 @@ class Eftt:
             dataset_path=self.out_path / self.model / str(self.train_size),
             token=self.hftok,
             tokenizer=self.tokenizer,
+            train_fraction=self.train_size,
             is_java= "ref" in str(self.train_size),
         )
         pred_path = self.out_path / self.model / str(self.train_size) / f"{self.model}_llm_test_predictions.json"
