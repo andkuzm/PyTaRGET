@@ -201,7 +201,8 @@ class Eftt:
             "additional_special_tokens": self.tokenizer.additional_special_tokens
                                          + [v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")]
         }
-        self.tokenizer.model_max_length = 512
+        if self.tokenizer.model_max_length > 10000:
+            self.tokenizer.model_max_length = 512
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
