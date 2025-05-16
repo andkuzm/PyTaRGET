@@ -10,7 +10,7 @@ and then it is necessary to install external packages, for that with the environ
 pip install -r requirements.txt
 ```
 
-after that it is necessary to install some additional packages:
+after that it is necessary to install an additional package:
 ```
 pip install tree-sitter==0.24.0
 ```
