@@ -113,8 +113,8 @@ experiment.validate_llm()
 for qwen model
 
 But codebleu metrics will not work correctly for java target-to-prediction, to solve this problem the way that was used in the referenced project was used for this one, but it requires additional actions, for that - after the desired number of predictions is made it is necessary to:
-1. Create a virtual environment, that were created for the https://github.com/Ahmadreza-SY/TaRGET/tree/master?tab=readme-ov-file#test-case-repair-data-collection
-2. Install all packages into that requirement as it was instructed in the referenced project.
+1. Create a virtual environment as it was instructed in https://github.com/Ahmadreza-SY/TaRGET/tree/master?tab=readme-ov-file#test-case-repair-data-collection, or use the existing one, if Java dataset encoding process was completed with it.
+2. Install all packages into that environment as it was instructed in the referenced project if new environment was created during first step.
 3. With this environment, again create the same Eftt, that was used to make predictions but with java parameter being True, i.e.:
 ```
 from data_processing.encode_tune_test import Eftt
@@ -126,3 +126,26 @@ beam_size = 5
 experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken="huggingface token", batch_size=1, java=True)
 ```
 4. Run with this instance ```experiment.get_metrics_llm()```, when doing so, CodeBLEU metric will take specifics of Java language into account.
+
+**Python dataset collection**
+
+Dataset collection process was conducted in Pycharm IDE, by creating an instance of 
+```
+GitHubSearch(
+    github_token="",
+    repository_path="",
+    out_path=""
+)
+```
+class, there github token needs to grant ability to read public repositories, repository_path is a path to folder into which searched repositories will be cloned, and out_path is either a path to existing annotated_cases.csv file, or a path to folder in which it will be created during the run.
+
+in the GitHubSearch.py there is this code at the bottom:
+```
+searcher = GitHubSearch(
+    github_token="",
+    repository_path="",
+    out_path=""
+)
+searcher.find_and_process_repositories()
+```
+Easiest way to continue the process is to fill the parameters and run this file.
