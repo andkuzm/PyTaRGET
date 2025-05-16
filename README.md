@@ -1,98 +1,156 @@
-Data collection process includes four files, in this readme whole process of data collection will be described presenting and explining entire workflow that exists at a time of writing it, but since descriptions will be relatively superficial and workflow should stay more or less the same description should fit regardless
+In this section will be described actions, that would allow to reproduce results for test case repair for Python dataset for fine-tuned and instruction-tuned models, as well as results for instruction-tuned models for Java dataset to correctly run this program python of a version 3.12 or higher is required.
 
-Main Components
-GitHubSearch
+the most important class to do it is Eftt(encode, fine-tune, test), whole process was done in jupyter notebooks, here it was shown in blocks that were used, but with little adaptations it can be adapted to any interface.
+All code written below was completed in the order it is written, it is assumed that PyTaRGET is cloned 
+```
+git clone https://github.com/andkuzm/PyTaRGET.git 
+```
+and then it is necessary to install external packages, for that with the environment, in which the code will be run, it is necessary to move into the PyTaRGET directory (cd PyTaRGET) and run 
+```
+pip install -r requirements.txt
+```
 
-Purpose:
-Searches GitHub for repositories using a provided token, a target clone directory, and an output path.
+after that it is necessary to install an additional package:
+```
+pip install tree-sitter==0.24.0
+```
+when installing this package it is expected pip to raise a warning, since it is not compatible with some of the functions of other packages.
 
-Key Functionality:
+If testing deepseek is desired then it is also necessary to install newest version of transformers directly from directory (as of 16.05.2025 pip install transformers does not install new enough version):
+```
+git clone https://github.com/HuggingFace/transformers.git
+cd transformers
+pip install -e .
+```
 
-    Queries GitHub: Uses search queries to find repositories.
-    Iterates Over Results:
-        For each new repository, creates an instance of the Main class (from main_repository_miner.py) to process it.
+it is assumed before execution of the code, that the present working directory (pwd) is the one in which PyTaRGET folder is located.
 
-main_repository_miner (Main)
+First step would allow to correctly import PyTaRGET packages. Most of the IDEs handle that without any additional tinkering, but jupyter notebooks require running this block before anything else:
+```
+import sys
+from pathlib import Path
 
-Purpose:
-Manages the high-level workflow for processing a single repository.
+%cd PyTaRGET
+project_root = Path().resolve()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+%cd data_processing
+project_root = Path().resolve()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+%cd CodeBLEU
+project_root = Path().resolve()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+%cd ..
+%cd jCodeBLEU
+project_root = Path().resolve()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+%cd ..
+%cd ..
+```
+**Fine-tuned models**
 
-Workflow:
+Then this code can be run to create Instance of Eftt class assuming that dataset with annotated cases is located at the root of PyTaRGET directory:
 
-    Instantiation:
-        Initializes with the repository name and the path where it will be cloned.
-        Creates an instance of RepositoryActions (from repository_actions.py) for that repository.
-    Process Repository:
-        Cloning:
-            Calls clone_repository_last() to clone the repository, set file permissions, install dependencies, adjust sys.path, and record the latest commit hash.
-        Test Detection:
-            Uses has_tests() to check for the presence of Python test files.
-        Broken-to-Repaired Detection:
-            If tests exist, identifies broken-to-repaired test cases via has_broken_to_repaired_test() and extract_broken_to_repaired_list().
-        Code Extraction & Annotation:
-            For each broken-to-repaired test case, extracts the test and source code by calling extract_and_annotate_code(), which in turn uses annotate_code() to generate an annotated string.
-        Saving Data:
-            Saves each annotated case to a CSV file using save_case().
+```
+from data_processing.encode_tune_test import Eftt
+annotated_cases_path = Path("annotated_cases.csv")
+out_path = Path("data_processing/results")
+model = "codet5p"
+train_size = 0.8
+beam_size = 5
+experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken=None, batch_size=1, java=False)
+```
+(Possible values for the model parameter out of fine-tuned models are: codet5p, plbart, codegen)
+this way Eftt class will be created, in this instance it can be used to encode the prepare and encode dataset for codet5p model, in which training and validation sets will have size of 80% of the whole dataset, and test dataset will be of the size of remaining 20%, datasets will be created in a directory in PyTaRGET/data_processing/results/0.8. and to do it it is necessary to run:```experiment.encode()``` command.
 
-repository_actions.py
+After the datasets are ready, fine tuning can be performed for the modelduring fine-tuning batch_size parameter will be used to determine size of batches, higher value will speed up the process but require more video random access memory (VRAM). This process can be started using: ```experiment.train()``` command.
 
-Purpose:
-Implements repository-specific operations including cloning, setting file permissions, installing dependencies, test detection and execution, commit navigation, AST extraction, dynamic coverage measurement, and code annotation.
+Finally to test the model ```experiment.validate()``` can be used. it will take checkpoint of the models created during training, make predictions with it on the test set, and then get BLEU, CodeBLEU and Exact Match metrics for the predictions. For validation of fine-tuned models beam_size parameter will be used, it determines how many predictions will be made for every target, higher values require more VRAM.
 
-Key Methods:
+If it is required to get metrics from the predictions make this can be used: ```experiment.get_metrics()```, under the assumption that the file with predictions the model made is not moved, nor renamed.
 
-    clone_repository_last()
-        Clones the repository from GitHub.
-        Sets full permissions on the cloned repository.
-        Installs dependencies via an editable install.
-        Adjusts sys.path to include the repository’s directories (outer and nested).
-        Creates an __init__.py in the top-level folder if missing.
-        Retrieves and stores the latest commit hash.
+**Instruction-tuned models**
 
-    has_tests() & list_test_files()
-        Recursively scan the repository for Python files containing test-related patterns.
+To test Instruction-tuned models it is again necessary to create Eftt instance first:
+```
+from data_processing.encode_tune_test import Eftt
+annotated_cases_path = Path("annotated_cases.csv")
+out_path = Path("data_processing/results")
+model = "qwen"
+train_size = 0.0
+beam_size = 5
+experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken=None, batch_size=1, java=False)
+```
+(Possible values for the model parameter out of fine-tuned models are: qwen, qwen3, deepseek and gemma)
+Here HuggingFace is required to be passed as hftoken parameter, for gemma token should belong to an account with access to it.
+Encoding once again should be done with ```experiment.encode()```, which will again create three datasets, but the only one important for instruction-tuned models is test dataset, so train_fraction parameter can simple be used to determine proportion of the dataset that would be used for testing (1-train_fraction).
 
-    find_test_methods(test_rel_path)
-        Uses the AST module to parse a test file and extract test function names.
+After encoding is done testing can be started, for that ```experiment.validate_llm()``` should be used, it will load chosen model, tokenize inputs, insert insstructions and pass it to the model, then it will append predictions it gave to the results file, fine-tuned models create file with instructions only after the whole dataset is tested, instruction-tuned models append them as they are produced, so validation can be divided into several sessions.
 
-    check_if_test_changed(test_rel_path, test_method)
-        Compares the AST of a test method and the dynamic coverage data between commits.
-        Determines whether the test code has changed significantly while the underlying source code remains nearly identical (≥95% similarity).
+If it is required to get metrics from the predictions make this can be used: ```experiment.get_metrics_llm()```, under the assumption that the file with predictions the model made is not moved, nor renamed.
 
-    extract_broken_to_repaired_list()
-        Iterates over commits and test files.
-        Builds a set of broken-to-repaired test cases (instances of Broken_to_repaired) that capture:
-            The relative file path.
-            The test method name.
-            The commit hash when the test was broken.
-            The commit hash when the test was repaired.
+**Java Instruction-tuned models**
 
-    extract_and_annotate_code(broken_to_repaired_instance) & annotate_code()
-        Check out both the broken and repaired commits.
-        Extract the test method’s code (using extract_method_code() and extract_method_ast()) and dynamic coverage data (via extract_covered_source_coverage()).
-        Generate a unified diff between the broken and repaired test code.
-        Annotate the diff and code using special markers:
-            TESTCONTEXT: Contains the broken test (wrapped in [<BREAKAGE>]... [</BREAKAGE>]),
-                the repaired test (wrapped in [<REPAIREDTEST>]... [</REPAIREDTEST>]),
-                and the diff (annotated with [<HUNK>], [<DEL>], [<ADD>]).
-            REPAIRCONTEXT: Contains the related source code (wrapped in [<HUNK>]... [</HUNK>]).
-        Returns the annotated string.
+To test Instruction-tuned models on java dataset first it is necessary to have any of the .json files, that were created after encoding process  was completed as it is described in this project: https://github.com/Ahmadreza-SY/TaRGET/tree/master?tab=readme-ov-file#test-case-repair-data-collection
 
-    install_dependencies() & set_full_permissions()
-        Ensure that repository dependencies are installed.
-        Recursively set full permissions (read, write, execute) on all files and directories.
+After the file is created. it should be brought into the form that is necessary for our project, by creating any instance of the Eftt class and running ```eftt_instance.reannotate("Path/to/annotated_java_dataset.json")``` this would create reannotated file named test.json in data_processing/results/model_name/train_fraction folder. this file then should be moved into splits folder, so in the end its location from root folder should be data_processing/results/model_name/train_fraction/splits/test.json
 
-    Commit Navigation:
-        move_to_earlier_commit() and move_to_later_commit() allow traversal of the commit history to compare test behavior across revisions.
+now that we have the annotated java dataset, we can move to evaluation of the Instruction-tuned LLM for this dataset. But before it, right now the program determines whether the passed dataset is that in java language or python by the name of train_fraction parameter, if testing with java code, train_fraction parameter passed with Eftt creation should be "ref" for prompt to be correct, so actual location of the java dataset file should be data_processing/results/model_name/ref/splits/test.json. If for any reason other name is desired, it can be changed by changing if statement in the llm_test.py file on the 48th line to work functionally and also on the 32th line for print about java prompt being used to work correctly.
+Then to test The model it is necessary to just run it the same way that it was previously done, i.e.:
+```
+from data_processing.encode_tune_test import Eftt
+annotated_cases_path = Path("annotated_cases.csv")
+out_path = Path("data_processing/results")
+model = "qwen"
+train_size = "ref"
+beam_size = 5
+experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken="HuggingFace token", batch_size=1, java=False)
+experiment.validate_llm()
+```
+for qwen model
+
+But codebleu metrics will not work correctly for java target-to-prediction, to solve this problem the way that was used in the referenced project was used for this one, but it requires additional actions, for that - after the desired number of predictions is made it is necessary to:
+1. Create a virtual environment as it was instructed in https://github.com/Ahmadreza-SY/TaRGET/tree/master?tab=readme-ov-file#test-case-repair-data-collection, or use the existing one, if Java dataset encoding process was completed with it.
+2. Install all packages into that environment as it was instructed in the referenced project if new environment was created during first step.
+3. With this environment, again create the same Eftt, that was used to make predictions but with java parameter being True, i.e.:
+```
+from data_processing.encode_tune_test import Eftt
+annotated_cases_path = Path("annotated_cases.csv")
+out_path = Path("data_processing/results")
+model = "qwen"
+train_size = "ref"
+beam_size = 5
+experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken="HuggingFace token", batch_size=1, java=True)
+```
+4. Run with this instance ```experiment.get_metrics_llm()```, when doing so, CodeBLEU metric will take specifics of Java language into account.
+
+**Python dataset collection**
+
+Dataset collection process was conducted in PyCharm IDE, by creating an instance of 
+```
+GitHubSearch(
+    github_token="",
+    repository_path="",
+    out_path=""
+)
+```
+class, there GitHub token needs to grant ability to read public repositories, repository_path is a path to folder into which searched repositories will be cloned, and out_path is either a path to existing annotated_cases.csv file, or a path to folder in which it will be created during the run.
+
+in the GitHubSearch.py there is this code at the bottom:
+```
+searcher = GitHubSearch(
+    github_token="",
+    repository_path="",
+    out_path=""
+)
+searcher.find_and_process_repositories()
+```
+Easiest way to continue the process is to fill the parameters and run this file.
 
 
-py_parser.py
+Right now the way it is done, it will only search through first thousand repositories that are of acceptable licenses, has python as their language and are of sizes within allowed boundaries, sorted by number of stars for each query (there are 3 of them), so if it is desired to process more than 3000, the easiest way to do so, is to set smaller boundries within GitHubSearch.py 76-78 lines, and move them processing 3000 for each query.
 
-Purpose:
-Implements subprocess related operations.
-
-Key Methods:
-
-    compile_and_run_test_python()
-        Runs individual tests using pytest.
-        Returns a TestVerdict object (e.g., SUCCESS, FAILURE, SYNTAX_ERR, TIMEOUT, or UNCONVENTIONAL) based on the test output.
+repository_search/processed_repositories.txt file contains all repositories that were processed  during this research to get annotated_cases.csv, most contain repositories in format: repository_owner/repository_name|latest_commit_at_the_time_of_processing, but at the top there are some repositories written in a repository_owner/repository_name format, This can be seen as a kind of blacklist in a way, to prevent GitHubSearch class from  attempting to process them as it could for some of them lead to infinite loop or second variant - it could break some modules, which will be explained next. To run pytest inside the main python process, subprocess module was used, and when using subprocess to run pytest it is necessary to resolve problem of imports. Usually when running Python IDE solves the PYTHONPATH without user intervention, allowing Python to import necessary modules from within projects, but subprocess as it is currently implemented has problems doing it, so instead in the subprocess environment every repository was installed, using ```pip install -e .``` allowing PYTHONPATH to be resolved automatically, but this process can also break some of the installed modules that were used in the environment, preventing them from working correctly.
