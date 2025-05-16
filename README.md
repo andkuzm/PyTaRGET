@@ -50,7 +50,8 @@ if str(project_root) not in sys.path:
 %cd ..
 %cd ..
 ```
-##Fine-tuned models##
+**Fine-tuned models**
+
 Then this code can be run to create Instance of Eftt class assuming that dataset with annotated cases is located at the root of PyTaRGET directory:
 
 ```
@@ -69,14 +70,25 @@ After the datasets are ready, fine tuning can be performed for the modelduring f
 
 Finally to test the model ```experiment.validate()``` can be used. it will take checkpoint of the models created during training, make predictions with it on the test set, and then get BLEU, CodeBLEU and Exact Match metrics for the predictions. For validation of fine-tuned models beam_size parameter will be used, it determines how many predictions will be made for every target, higher values require more VRAM.
 
+If it is required to get metrics from the predictions make this can be used: ```experiment.get_metrics()```, under the assumption that the file with predictions the model made is not moved, nor renamed.
+
 **Instruction-tuned models**
+
 To test Instruction-tuned models it is again necessary to create Eftt instance first:
 ```
 from data_processing.encode_tune_test import Eftt
 annotated_cases_path = Path("annotated_cases.csv")
 out_path = Path("data_processing/results")
 model = "qwen"
-train_size = 0.8
+train_size = 0.0
 beam_size = 5
 experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken=None, batch_size=1, java=False)
 ```
+
+Encding once again should be done with ```experiment.encode()```, which will again create three datasets, but the only one important for instruction-tuned models is test dataset, so train_fraction parameter can simple be used to determine proportion of the dataset that would be used for testing (1-train_fraction).
+
+After encoding is done testing can be started, for that ```experiment.validate_llm()``` should be used, it will load chosen model, tokenize inputs, insert insstructions and pass it to the model, then it will append predictions it gave to the results file, fine-tuned models create file with instructions only after the whole dataset is tested, instruction-tuned models append them as they are produced, so validation can be divided into several sessions.
+
+If it is required to get metrics from the predictions make this can be used: ```experiment.get_metrics_llm()```, under the assumption that the file with predictions the model made is not moved, nor renamed.
+
+
