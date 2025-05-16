@@ -1,6 +1,6 @@
-Here will be described basicactions, that allowed to reproduce results for test case repair for Python dataset for fine-tuned and instruction-tuned models, as well as results for instruction-tuned models for Java dataset to correctly run this program python of a version 3.12 or higher is required.
+In this section will be described actions, that would allow to reproduce results for test case repair for Python dataset for fine-tuned and instruction-tuned models, as well as results for instruction-tuned models for Java dataset to correctly run this program python of a version 3.12 or higher is required.
 
-the most inportant class to do it is Eftt(encode, fine-tune, test), whole process was done in jupyter notebooks, here it was shown in blocks that were used, but with little adaptations it can be adapted to any interface.
+the most important class to do it is Eftt(encode, fine-tune, test), whole process was done in jupyter notebooks, here it was shown in blocks that were used, but with little adaptations it can be adapted to any interface.
 All code written below was completed in the order it is written, it is assumed that PyTaRGET is cloned 
 ```
 git clone https://github.com/andkuzm/PyTaRGET.git 
@@ -18,7 +18,7 @@ when installing this package it is expected pip to raise a warning, since it is 
 
 If testing deepseek is desired then it is also necessary to install newest version of transformers directly from directory (as of 16.05.2025 pip install transformers does not install new enough version):
 ```
-git clone https://github.com/huggingface/transformers.git
+git clone https://github.com/HuggingFace/transformers.git
 cd transformers
 pip install -e .
 ```
@@ -85,8 +85,8 @@ beam_size = 5
 experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken=None, batch_size=1, java=False)
 ```
 (Possible values for the model parameter out of fine-tuned models are: qwen, qwen3, deepseek and gemma)
-Here huggingface is required to be passed as hftoken parameter, for gemma token should belong to an account with access to it.
-Encding once again should be done with ```experiment.encode()```, which will again create three datasets, but the only one important for instruction-tuned models is test dataset, so train_fraction parameter can simple be used to determine proportion of the dataset that would be used for testing (1-train_fraction).
+Here HuggingFace is required to be passed as hftoken parameter, for gemma token should belong to an account with access to it.
+Encoding once again should be done with ```experiment.encode()```, which will again create three datasets, but the only one important for instruction-tuned models is test dataset, so train_fraction parameter can simple be used to determine proportion of the dataset that would be used for testing (1-train_fraction).
 
 After encoding is done testing can be started, for that ```experiment.validate_llm()``` should be used, it will load chosen model, tokenize inputs, insert insstructions and pass it to the model, then it will append predictions it gave to the results file, fine-tuned models create file with instructions only after the whole dataset is tested, instruction-tuned models append them as they are produced, so validation can be divided into several sessions.
 
@@ -98,7 +98,7 @@ To test Instruction-tuned models on java dataset first it is necessary to have a
 
 After the file is created. it should be brought into the form that is necessary for our project, by creating any instance of the Eftt class and running ```eftt_instance.reannotate("Path/to/annotated_java_dataset.json")``` this would create reannotated file named test.json in data_processing/results/model_name/train_fraction folder. this file then should be moved into splits folder, so in the end its location from root folder should be data_processing/results/model_name/train_fraction/splits/test.json
 
-now that we have the annotated java dataset, we can move to evaluation of the Instruction-tuned llm for this dataset. But before it, right now the program determines whether the passeddataset is that in java language or python by the name of train_fraction parameter, if testing with java code, train_fraction parameter passed with Eftt creation should be "ref" for prompt ot be correcct, so actual location of the java dataset file should be data_processing/results/model_name/ref/splits/test.json. If for any reason other name is desired, it can be changed by changing if statement in the llm_test.py file on the 48th line to work functionally and also on the 32th line for print about java prompt being used to work correctly.
+now that we have the annotated java dataset, we can move to evaluation of the Instruction-tuned LLM for this dataset. But before it, right now the program determines whether the passed dataset is that in java language or python by the name of train_fraction parameter, if testing with java code, train_fraction parameter passed with Eftt creation should be "ref" for prompt to be correct, so actual location of the java dataset file should be data_processing/results/model_name/ref/splits/test.json. If for any reason other name is desired, it can be changed by changing if statement in the llm_test.py file on the 48th line to work functionally and also on the 32th line for print about java prompt being used to work correctly.
 Then to test The model it is necessary to just run it the same way that it was previously done, i.e.:
 ```
 from data_processing.encode_tune_test import Eftt
@@ -107,7 +107,7 @@ out_path = Path("data_processing/results")
 model = "qwen"
 train_size = "ref"
 beam_size = 5
-experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken="huggingface token", batch_size=1, java=False)
+experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken="HuggingFace token", batch_size=1, java=False)
 experiment.validate_llm()
 ```
 for qwen model
@@ -123,13 +123,13 @@ out_path = Path("data_processing/results")
 model = "qwen"
 train_size = "ref"
 beam_size = 5
-experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken="huggingface token", batch_size=1, java=True)
+experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken="HuggingFace token", batch_size=1, java=True)
 ```
 4. Run with this instance ```experiment.get_metrics_llm()```, when doing so, CodeBLEU metric will take specifics of Java language into account.
 
 **Python dataset collection**
 
-Dataset collection process was conducted in Pycharm IDE, by creating an instance of 
+Dataset collection process was conducted in PyCharm IDE, by creating an instance of 
 ```
 GitHubSearch(
     github_token="",
@@ -137,7 +137,7 @@ GitHubSearch(
     out_path=""
 )
 ```
-class, there github token needs to grant ability to read public repositories, repository_path is a path to folder into which searched repositories will be cloned, and out_path is either a path to existing annotated_cases.csv file, or a path to folder in which it will be created during the run.
+class, there GitHub token needs to grant ability to read public repositories, repository_path is a path to folder into which searched repositories will be cloned, and out_path is either a path to existing annotated_cases.csv file, or a path to folder in which it will be created during the run.
 
 in the GitHubSearch.py there is this code at the bottom:
 ```
@@ -151,6 +151,6 @@ searcher.find_and_process_repositories()
 Easiest way to continue the process is to fill the parameters and run this file.
 
 
-Right now the way it is done, it will only search through first thousand repositories that are of acceptable licenses, has python as their language and are of sizes within allowed boundries, sorted by number of stars for each query (there are 3 of them), so if it is desired to process more than 3000, the easiest way to do so, is to set smaller boundries within GitHubSearch.py 76-78 lines, and move them processing 3000 for each query.
+Right now the way it is done, it will only search through first thousand repositories that are of acceptable licenses, has python as their language and are of sizes within allowed boundaries, sorted by number of stars for each query (there are 3 of them), so if it is desired to process more than 3000, the easiest way to do so, is to set smaller boundries within GitHubSearch.py 76-78 lines, and move them processing 3000 for each query.
 
-repository_search/processed_repositories.txt file contains all repositories that were processed  during this research to get annotated_cases.csv, most contain repositories in format: repository_owner/repository_name|latest_commit_at_the_time_of_processing, but at the top there are some repositories written in a repository_owner/repository_name format, This can be seen as a kind of blacklist in a way, to prevent GitHubSearch class from  attempting to process them as it could for some of them lead to infinite loop or second variant, it could break some modules, which will be explained next. To run pytest inside the main python process, subprocess module was used, and when using subprocess to run pytest it is necessary to resolve problem of imports. Usually when running Python IDE solves the PYTHONPATH without user intervention, allowing Python to import necessary modules from within projects, but subprocess as it is currently implemented has problems doint it, so instead in the subprocess environment every repository was installed, using ```pip install -e .``` allowing PYTHONPATH to be resolved automatically, but this process can also break some of the installed modules that were used in the environment, preventing them from working correctly.
+repository_search/processed_repositories.txt file contains all repositories that were processed  during this research to get annotated_cases.csv, most contain repositories in format: repository_owner/repository_name|latest_commit_at_the_time_of_processing, but at the top there are some repositories written in a repository_owner/repository_name format, This can be seen as a kind of blacklist in a way, to prevent GitHubSearch class from  attempting to process them as it could for some of them lead to infinite loop or second variant - it could break some modules, which will be explained next. To run pytest inside the main python process, subprocess module was used, and when using subprocess to run pytest it is necessary to resolve problem of imports. Usually when running Python IDE solves the PYTHONPATH without user intervention, allowing Python to import necessary modules from within projects, but subprocess as it is currently implemented has problems doing it, so instead in the subprocess environment every repository was installed, using ```pip install -e .``` allowing PYTHONPATH to be resolved automatically, but this process can also break some of the installed modules that were used in the environment, preventing them from working correctly.
