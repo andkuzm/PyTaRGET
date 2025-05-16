@@ -50,7 +50,7 @@ if str(project_root) not in sys.path:
 %cd ..
 %cd ..
 ```
-**Fine-tuned models**
+##Fine-tuned models##
 Then this code can be run to create Instance of Eftt class assuming that dataset with annotated cases is located at the root of PyTaRGET directory:
 
 ```
