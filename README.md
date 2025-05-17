@@ -60,7 +60,7 @@ annotated_cases_path = Path("annotated_cases.csv")
 out_path = Path("data_processing/results")
 model = "codet5p"
 train_size = 0.8
-beam_size = 5
+beam_size = 20
 experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken=None, batch_size=1, java=False)
 ```
 (Possible values for the model parameter out of fine-tuned models are: codet5p, plbart, codegen)
@@ -88,7 +88,7 @@ experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, 
 Here HuggingFace is required to be passed as hftoken parameter, for gemma token should belong to an account with access to it.
 Encoding once again should be done with ```experiment.encode()```, which will again create three datasets, but the only one important for instruction-tuned models is test dataset, so train_fraction parameter can simple be used to determine proportion of the dataset that would be used for testing (1-train_fraction).
 
-After encoding is done testing can be started, for that ```experiment.validate_llm()``` should be used, it will load chosen model, tokenize inputs, insert insstructions and pass it to the model, then it will append predictions it gave to the results file, fine-tuned models create file with instructions only after the whole dataset is tested, instruction-tuned models append them as they are produced, so validation can be divided into several sessions.
+After encoding is done testing can be started, for that ```experiment.validate_llm()``` should be used, it will load chosen model, tokenize inputs, insert instructions and pass it to the model, then it will append predictions it gave to the results file, fine-tuned models create file with instructions only after the whole dataset is tested, instruction-tuned models append them as they are produced, so validation can be divided into several sessions.
 
 If it is required to get metrics from the predictions make this can be used: ```experiment.get_metrics_llm()```, under the assumption that the file with predictions the model made is not moved, nor renamed.
 
@@ -125,11 +125,17 @@ train_size = "ref"
 beam_size = 5
 experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, hftoken="HuggingFace token", batch_size=1, java=True)
 ```
-4. Run with this instance ```experiment.get_metrics_llm()```, when doing so, CodeBLEU metric will take specifics of Java language into account.
+4. Run with this instance ```experiment.get_metrics_llm()```, when doing so, CodeBLEU metric will take specifics of Java language into account. 
+
+**Reproduction**
+
+To reproduce the processes using methods described previously, results.zip file that is located in data_processing folder should be extracted into the same folder, afterwards one can run fine-tuning on models suitable for it right away on 0.4, 0.6 or 0.8 train_fractions and afterwards run validation process with the methods that vere previously described. to get exactly the same results, it is necessary to use beam_size=20, and epochs and early early stop necessary are hard coded into the train.py file. encoding process can also be completed, but if encoding process is done, by default test dataset will have the size of 1-train_fraction, while the preuploaded results have it uniform 0.2, smallest out of tested, so unless it is manually swapped to 0.2 test.json file, only when passing 0.8 as train_fraction parameter will the same exact results be received.
+
+For instruction-tuned models, there is a ref results, where an already reannotated and reduced test.json file for Java dataset is located, so for ref only ```.validate_llm()``` should be done, and the only other train_fraction used is 0.0, which conversively means test.json is the whole Python dataset. Predictions with which the metrics referred to in the paper were received are in data_processing/results/model_name/train_fraction/model_name_llm_test_predictions.json file. It is important to notice that instruction-tuned LLMs do not have random_seed parameter, or its analog, and thus when generating predictions receiving the same results is highly unlikely, but the ones that are present in the compressed results can be validated, and evaluated with ```.get_metrics_llm()``` ,method as described previously.
 
 **Python dataset collection**
 
-Dataset collection process was conducted in PyCharm IDE, by creating an instance of 
+Dataset collection process was conducted in PyCharm IDE, by creating an instance of GitHubSearch:
 ```
 GitHubSearch(
     github_token="",
