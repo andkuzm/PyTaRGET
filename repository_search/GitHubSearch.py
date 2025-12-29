@@ -1,18 +1,21 @@
 import multiprocessing
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
+import venv
 from pathlib import Path
 
 import requests
 import time
-import main_repository_miner
 
 PROCESS_TIMEOUT = 90 * 60   # 90 minutes
 
 
-def run_processor(full_name, repository_path, out_path):
-    processor = main_repository_miner.Main(full_name, repository_path, out_path)
-    processor.process_repository()
+# def run_processor(full_name, repository_path, out_path):
+#     processor = main_repository_miner.Main(full_name, repository_path, out_path)
+#     processor.process_repository()
 
 class GitHubSearch:
 
@@ -43,13 +46,12 @@ class GitHubSearch:
     def reinstall_pytest(self):
         """
         Removes pytest + plugins and reinstalls a clean version.
-        Adjust as needed if using virtualenv / requirements file.
         """
         print("Resetting pytest installation...")
 
         cmds = [
             [sys.executable, "-m", "pip", "uninstall", "-y", "pytest"],
-            [sys.executable, "-m", "pip", "install", "--upgrade", "pip"],
+            #[sys.executable, "-m", "pip", "install", "--upgrade", "pip"],
             [sys.executable, "-m", "pip", "install", "pytest"]
         ]
 
@@ -70,7 +72,7 @@ class GitHubSearch:
             capture_output=True,
             text=True,
             cwd="dummy_folder",
-            timeout=300
+            timeout=60*5
         )
 
     def run_pytest_check(self, last_repo):
@@ -137,8 +139,6 @@ class GitHubSearch:
         if self.github_token:
             headers['Authorization'] = f'token {self.github_token}'
 
-        # Define the search queries. GitHub supports "license:none" to find repositories with no license.
-        # For public non-commercial licenses, you might search for a known license identifier (e.g., "cc-by-nc").
         queries = [
             f"license:mit language:python stars:>={stars} size:>={size_start} size:<{size_end}", #size:>=1000 size:<10000
             f"license:apache-2.0 language:python stars:>={stars} size:>={size_start} size:<{size_end}", # size:<1000
@@ -194,27 +194,79 @@ class GitHubSearch:
 
     def process_repository_with_timeout(self, full_name):
         """
-        Runs the repository miner with a hard timeout.
+        Runs the repository miner in an isolated virtualenv with a hard timeout.
         Returns True if processing finished, False if timed out or crashed.
         """
-        p = multiprocessing.Process(
-            target=run_processor,
-            args=(full_name, self.repository_path, self.out_path)
-        )
+
+        # temp venv folder
+        venv_dir = tempfile.mkdtemp(prefix=f"repo_venv_{full_name.replace('/', '_')}_")
+        create_virtualenv(venv_dir)
+
+        def target():
+            run_processor_in_venv(full_name, self.repository_path, self.out_path, venv_dir)
+
+        p = multiprocessing.Process(target=target)
 
         start = time.time()
         p.start()
         p.join(PROCESS_TIMEOUT)
 
+        timed_out = False
+
         if p.is_alive():
             print(f"Timeout while processing {full_name}. Killing process.")
             p.terminate()
             p.join()
-            return False
+            timed_out = True
 
         duration = time.time() - start
         print(f"Finished {full_name} in {int(duration)} seconds.")
+
+        # always clean up venv
+        try:
+            shutil.rmtree(venv_dir)
+        except Exception as e:
+            print(f"Warning: failed to delete venv for {full_name}: {e}")
+
+        if timed_out:
+            return False
+
         return p.exitcode == 0
+
+def create_virtualenv(venv_path):
+    builder = venv.EnvBuilder(with_pip=True, clear=True)
+    builder.create(venv_path)
+
+def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
+    """Executed inside a separate process."""
+
+    python_bin = os.path.join(venv_path, "bin", "python") if os.name != "nt" else os.path.join(venv_path, "Scripts",
+                                                                                               "python.exe")
+    clone_environment_to_venv(python_bin)
+
+    #subprocess.run([python_bin, "-m", "pip", "install", "--quiet", "--upgrade", "pip"], check=False)
+    subprocess.run([python_bin, "-m", "pip", "install", "--quiet", "pytest"], check=False)
+
+    # Import & run miner using *system* modules but venv Python
+    subprocess.check_call([
+        python_bin, "-m", "main_repository_miner",
+        full_name, repository_path, out_path
+    ])
+
+def clone_environment_to_venv(python_bin):
+    # 1. freeze current environment
+    reqs = subprocess.check_output(
+        [sys.executable, "-m", "pip", "freeze"],
+        text=True
+    )
+
+    # 2. install into venv
+    subprocess.run(
+        [python_bin, "-m", "pip", "install", "-r", "-"],
+        input=reqs,
+        text=True,
+        check=False
+    )
 
 
 searcher = GitHubSearch(
