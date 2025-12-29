@@ -1,3 +1,4 @@
+import multiprocessing
 import subprocess
 import sys
 from pathlib import Path
@@ -6,6 +7,12 @@ import requests
 import time
 import main_repository_miner
 
+PROCESS_TIMEOUT = 90 * 60   # 90 minutes
+
+
+def run_processor(full_name, repository_path, out_path):
+    processor = main_repository_miner.Main(full_name, repository_path, out_path)
+    processor.process_repository()
 
 class GitHubSearch:
 
@@ -33,19 +40,80 @@ class GitHubSearch:
             print(f"Error fetching latest commit for {full_name}: {response.status_code} {response.text}")
         return ""
 
+    def reinstall_pytest(self):
+        """
+        Removes pytest + plugins and reinstalls a clean version.
+        Adjust as needed if using virtualenv / requirements file.
+        """
+        print("Resetting pytest installation...")
+
+        cmds = [
+            [sys.executable, "-m", "pip", "uninstall", "-y", "pytest"],
+            [sys.executable, "-m", "pip", "install", "--upgrade", "pip"],
+            [sys.executable, "-m", "pip", "install", "pytest"]
+        ]
+
+        for cmd in cmds:
+            print("Running:", " ".join(cmd))
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                print("Command failed:", proc.stderr)
+
+        print("pytest reset complete.")
+
+    def run_pytest_trace(self):
+        """
+        Runs pytest trace check, with timeout to avoid hangs.
+        """
+        return subprocess.run(
+            ["pytest", "--trace-config"],
+            capture_output=True,
+            text=True,
+            cwd="dummy_folder",
+            timeout=300
+        )
+
     def run_pytest_check(self, last_repo):
-        """Runs pytest --trace-config to check for module issues after processing a repository."""
+        """Validates pytest works, auto-recovers once on failure."""
+
         print("Running pytest --trace-config...")
-        result = subprocess.run(["pytest", "--trace-config"], capture_output=True, text=True, cwd="dummy_folder")
-        print("code: ", result.returncode)
-        if result.returncode not in (0, 5):
-            print(f"\nPytest encountered an error after processing {last_repo}.")
-            print("Stopping execution due to pytest --trace-config failure.")
-            print("Pytest Output:\n", result.stdout)
-            print("Pytest Errors:\n", result.stderr)
-            sys.exit(1)
-        else:
-            print("pytest module passed.")
+
+        try:
+            result = self.run_pytest_trace()
+        except subprocess.TimeoutExpired:
+            print("pytest timed out — forcing reinstall + retry.")
+            self.reinstall_pytest()
+            result = self.run_pytest_trace()
+
+        print("Exit code:", result.returncode)
+
+        if result.returncode in (0, 5):
+            print("pytest OK.")
+            return
+
+        # ---- First failure ----
+        print(f"\npytest failed after processing {last_repo}. Attempting automatic recovery...")
+        print("Output:\n", result.stdout)
+        print("Errors:\n", result.stderr)
+
+        # Reset environment
+        self.reinstall_pytest()
+
+        time.sleep(2)
+
+        # ---- Retry ----
+        print("Re-running pytest...")
+        retry = self.run_pytest_trace()
+
+        if retry.returncode in (0, 5):
+            print("pytest OK after recovery.")
+            return
+
+        # ---- Final failure ----
+        print("\npytest still failing AFTER recovery. This is treated as a fatal error.")
+        print("Output:\n", retry.stdout)
+        print("Errors:\n", retry.stderr)
+        sys.exit(1)
 
     def find_and_process_repositories(self, stars=50, size_start=1000, size_end=10000):
         """
@@ -102,14 +170,14 @@ class GitHubSearch:
                     if full_name in processed_repos:
                         continue
                     print(f"Processing repository: {full_name}")
-                    processor = main_repository_miner.Main(full_name, self.repository_path, self.out_path)
-                    processor.process_repository()
+                    success = self.process_repository_with_timeout(full_name)
 
-                    # Retrieve the latest commit hash for reproduction purposes.
+                    if not success:
+                        print(f"Repository {full_name} failed or timed out. Marking as processed and continuing.")
+
                     latest_commit = self.get_latest_commit(full_name)
 
                     with self.processed_file.open("a", encoding="utf-8") as f:
-                        # Write in the format: "full_name|commit_hash"
                         f.write(f"{full_name}|{latest_commit}\n")
 
                     # Also update the in-memory set.
@@ -123,6 +191,30 @@ class GitHubSearch:
                 time.sleep(2)  # be respectful of rate limits
 
         print("Finished processing repositories.")
+
+    def process_repository_with_timeout(self, full_name):
+        """
+        Runs the repository miner with a hard timeout.
+        Returns True if processing finished, False if timed out or crashed.
+        """
+        p = multiprocessing.Process(
+            target=run_processor,
+            args=(full_name, self.repository_path, self.out_path)
+        )
+
+        start = time.time()
+        p.start()
+        p.join(PROCESS_TIMEOUT)
+
+        if p.is_alive():
+            print(f"Timeout while processing {full_name}. Killing process.")
+            p.terminate()
+            p.join()
+            return False
+
+        duration = time.time() - start
+        print(f"Finished {full_name} in {int(duration)} seconds.")
+        return p.exitcode == 0
 
 
 searcher = GitHubSearch(
