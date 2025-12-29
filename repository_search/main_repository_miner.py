@@ -15,35 +15,45 @@ class Main:
         self.out_path = out_path
 
     def process_repository(self):
-        print("Processing repository: {}".format(self.repository_name))
-        repository = repository_actions.RepositoryActions(self.repository_name, self.repository_path)
-        repository.clone_repository_last()
-
-        if repository.has_tests():
-            repaired_cases = repository.find_repaired_test_cases()
-            if repaired_cases:
-                for repaired_test in repaired_cases:
-                    annotated_code = repository.extract_and_annotate_code(repaired_test)
-                    if annotated_code=="":
-                        continue
-                    self.save_case(self.repository_name, annotated_code, repaired_test.rel_path, repaired_test.broken, repaired_test.repaired, f"[<TESTLOG>]\n{repaired_test.log}\n[</TESTLOG>]\n")
-            else:
-                print("No repaired test cases found.")
-        else:
-            print("Repository does not contain tests.")
-
-        # Cleanup: remove the cloned repository folder and uninstall the package.
-        def handle_remove_readonly(func, path, exc_info):
-            os.chmod(path, stat.S_IWRITE)
-            func(path)
-
-        dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
-        shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
         try:
-            subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", self.repository_name.split("/")[-1]],
-                           capture_output=True, text=True, check=True, env=os.environ)
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to uninstall {self.repository_name.split('/')[-1]}: {e}")
+            print("Processing repository: {}".format(self.repository_name))
+            repository = repository_actions.RepositoryActions(self.repository_name, self.repository_path)
+            repository.clone_repository_last()
+
+            if repository.has_tests():
+                repaired_cases = repository.find_repaired_test_cases()
+                if repaired_cases:
+                    for repaired_test in repaired_cases:
+                        annotated_code = repository.extract_and_annotate_code(repaired_test)
+                        if annotated_code=="":
+                            continue
+                        self.save_case(self.repository_name, annotated_code, repaired_test.rel_path, repaired_test.broken, repaired_test.repaired, f"[<TESTLOG>]\n{repaired_test.log}\n[</TESTLOG>]\n")
+                else:
+                    print("No repaired test cases found.")
+            else:
+                print("Repository does not contain tests.")
+
+            # Cleanup: remove the cloned repository folder and uninstall the package.
+            def handle_remove_readonly(func, path, exc_info):
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+
+            dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
+            shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
+            try:
+                subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", self.repository_name.split("/")[-1]],
+                               capture_output=True, text=True, check=True, env=os.environ)
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to uninstall {self.repository_name.split('/')[-1]}: {e}")
+        except Exception as e:
+            print(f"Repository failed: {self.repository_name}: {e}")
+        finally:
+            self.cleanup()
+
+    def cleanup(self):
+        dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
+        shutil.rmtree(dest_dir, ignore_errors=True)
+        subprocess.run(dest_dir, check=False)
 
     def save_case(self, repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log):
         output_file = Path(self.out_path) / "annotated_cases.csv"
