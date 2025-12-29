@@ -47,7 +47,7 @@ class GitHubSearch:
         else:
             print("pytest module passed.")
 
-    def find_and_process_repositories(self):
+    def find_and_process_repositories(self, stars=50, size_start=1000, size_end=10000):
         """
         Searches GitHub for repositories that are either unlicensed or have a public non-commercial license,
         extracts their full names (in "username/repository" format), and processes each repository.
@@ -72,9 +72,9 @@ class GitHubSearch:
         # Define the search queries. GitHub supports "license:none" to find repositories with no license.
         # For public non-commercial licenses, you might search for a known license identifier (e.g., "cc-by-nc").
         queries = [
-            "license:mit language:python stars:>50 size:>=1000 size:<10000", #size:>=1000 size:<10000
-            "license:apache-2.0 language:python stars:>50 size:>=1000 size:<10000", # size:<1000
-            "license:Unlicense language:python stars:>50 size:>=1000 size:<10000"
+            f"license:mit language:python stars:>={stars} size:>={size_start} size:<{size_end}", #size:>=1000 size:<10000
+            f"license:apache-2.0 language:python stars:>={stars} size:>={size_start} size:<{size_end}", # size:<1000
+            f"license:Unlicense language:python stars:>={stars} size:>={size_start} size:<{size_end}"
         ]
         base_url = "https://api.github.com/search/repositories"
 
@@ -116,7 +116,6 @@ class GitHubSearch:
                     processed_repos.add(full_name)
 
                     self.run_pytest_check(full_name)
-                # Check for pagination; GitHub API provides link headers.
                 if 'next' not in response.links:
                     print("no 'next' link found")
                     break
@@ -131,4 +130,5 @@ searcher = GitHubSearch(
     repository_path="",
     out_path=""
 )
-searcher.find_and_process_repositories()
+for i in range(0, 1000000, 100):
+    searcher.find_and_process_repositories(size_start=i, size_end=i+100)
