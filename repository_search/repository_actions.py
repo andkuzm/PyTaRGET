@@ -98,13 +98,6 @@ class RepositoryActions:
         # Extract the current test code from the file.
         current_test_code = self.extract_method_code(rel_path, test_method)
 
-        # Compute similarity ratio between current and overridden test code.
-        similarity = difflib.SequenceMatcher(None, current_test_code, overridden_test_code).ratio()
-        # If similarity is very high (e.g. over 98%), consider the change unimportant.
-        if similarity > 0.98:
-            print(f"Change is unimportant (similarity {similarity:.2f}); skipping override test execution.")
-            return TestVerdict(status=TestVerdict.SUCCESS, error_lines="test skipped due to high similarity")
-
         try:
             # Write the overridden (parent's) test code.
             test_file_path.write_text(overridden_test_code, encoding="utf-8")
@@ -432,64 +425,41 @@ class RepositoryActions:
         Parses the executed source, finds the full method definitions from the full file,
         and returns them as a dictionary with keys in the format 'ClassName.method_name'.
         """
+
         executed_methods = {}
         test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
-
         if not test_file_path.exists():
-            print(f"Warning: Test file {test_file_path} does not exist.")
             return executed_methods
 
         try:
             full_source = test_file_path.read_text(encoding="utf-8")
-        except Exception as e:
-            print(f"Error reading {test_file_path}: {e}")
-            return executed_methods
-
-        try:
             tree = ast.parse(full_source)
-        except Exception as e:
-            print(f"Error parsing {test_file_path}: {e}")
+        except Exception:
             return executed_methods
 
-        # Normalize executed lines (trim whitespace and skip empties)
-        executed_lines = set(line.strip() for line in source_code.splitlines() if line.strip())
+        executed_lines = set(i for i, _ in enumerate(full_source.splitlines(), start=1)
+                             if any(x.strip() for x in source_code.splitlines()))
 
-        # Helper to determine if a method is "executed" based on a threshold ratio.
-        def is_method_executed(method_source):
-            method_lines = [line.strip() for line in method_source.splitlines() if line.strip()]
-            if not method_lines:
-                return False
-            count = 0
-            for line in method_lines:
-                for executed in executed_lines:
-                    # Either exact match or one is contained in the other.
-                    if line == executed or line in executed or executed in line:
-                        count += 1
-                        break
-            ratio = count / len(method_lines)
-            return ratio >= 0.3  # threshold: at least 30% of lines are found
-
-        class FunctionExtractor(ast.NodeVisitor):
+        class Extractor(ast.NodeVisitor):
             def __init__(self):
-                self.methods = {}
-                self.current_class = "Global"
+                self.current_class = None
 
             def visit_ClassDef(self, node):
-                previous_class = self.current_class
+                prev = self.current_class
                 self.current_class = node.name
                 self.generic_visit(node)
-                self.current_class = previous_class
+                self.current_class = prev
 
             def visit_FunctionDef(self, node):
-                method_source = ast.get_source_segment(full_source, node)
-                if method_source and is_method_executed(method_source):
-                    class_key = self.current_class if self.current_class else "Global"
-                    self.methods[f"{class_key}.{node.name}"] = method_source
-                self.generic_visit(node)
+                start = node.lineno
+                end = getattr(node, "end_lineno", start)
 
-        extractor = FunctionExtractor()
-        extractor.visit(tree)
-        return extractor.methods
+                if any(l in executed_lines for l in range(start, end + 1)):
+                    name = f"{self.current_class}.{node.name}" if self.current_class else f"Global.{node.name}"
+                    executed_methods[name] = ast.get_source_segment(full_source, node)
+
+        Extractor().visit(tree)
+        return executed_methods
 
     def extract_covered_source_coverage(self, rel_path, test_method, broken_hash, repaired_hash):
         print("Extracting dynamic covered source code for both versions")
@@ -607,10 +577,9 @@ class RepositoryActions:
         if not coveragerc_path.exists():
             with open(coveragerc_path, "w", encoding="utf-8") as f:
                 f.write("""[run]
-    parallel = True
-    branch = True
-    concurrency = thread
-    """)
+                branch = True
+                parallel = False
+                """)
 
         # Set up the environment for the coverage subprocess.
         env = os.environ.copy()
@@ -643,7 +612,7 @@ class RepositoryActions:
         data = cov.get_data()
 
         covered_source = ""
-        for filename in data.measured_files():
+        for filename in sorted(data.measured_files()):
             executed_lines = data.lines(filename)
             if executed_lines:
                 try:
@@ -657,34 +626,48 @@ class RepositoryActions:
         return covered_source
 
     def extract_method_code(self, rel_path, test_method):
-        print("Extracting method code")
+        """
+        Supports:
+          test_func
+          ClassName.test_func
+        """
+
         test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
         if not test_file_path.exists():
-            print(f"Error: Test file {test_file_path} does not exist.")
             return ""
+
         try:
             source_code = test_file_path.read_text(encoding="utf-8")
-        except Exception as e:
-            print(f"Error reading {test_file_path}: {e}")
-            return ""
-        try:
             tree = ast.parse(source_code)
-        except Exception as e:
-            print(f"Error parsing {test_file_path}: {e}")
+        except Exception:
             return ""
+
+        target = test_method.split(".")
+        want_class = target[0] if len(target) == 2 else None
+        want_method = target[-1]
+
         class FunctionExtractor(ast.NodeVisitor):
-            def __init__(self, method_name):
-                self.method_name = method_name
-                self.found_code = ""
+            def __init__(self):
+                self.found = ""
+
             def visit_FunctionDef(self, node):
-                if node.name == self.method_name:
-                    self.found_code = ast.get_source_segment(source_code, node)
-                self.generic_visit(node)
-        extractor = FunctionExtractor(test_method)
-        extractor.visit(tree)
-        if not extractor.found_code:
-            print(f"Warning: Test method {test_method} not found in {test_file_path}")
-        return extractor.found_code.strip() if extractor.found_code else ""
+                if want_class is None and node.name == want_method:
+                    self.found = ast.get_source_segment(source_code, node)
+
+            def visit_AsyncFunctionDef(self, node):
+                if want_class is None and node.name == want_method:
+                    self.found = ast.get_source_segment(source_code, node)
+
+            def visit_ClassDef(self, node):
+                if want_class and node.name == want_class:
+                    for item in node.body:
+                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == want_method:
+                            self.found = ast.get_source_segment(source_code, item)
+
+        fx = FunctionExtractor()
+        fx.visit(tree)
+
+        return fx.found.strip() if fx.found else ""
 
     def filter_diff_lines(self, diff_lines, strip_markers=False):
         """
@@ -704,42 +687,16 @@ class RepositoryActions:
         return filtered
 
     def is_test_method_changed(self, parent_code, child_code):
-        # Normalize each line by stripping trailing whitespace.
-        parent_lines = [line.rstrip() for line in parent_code.splitlines()]
-        child_lines = [line.rstrip() for line in child_code.splitlines()]
+        parent = [l.rstrip() for l in parent_code.splitlines()]
+        child = [l.rstrip() for l in child_code.splitlines()]
 
-        # Get the unified diff and filter out header lines.
-        diff = list(difflib.unified_diff(parent_lines, child_lines, lineterm=""))
-        diff = self.filter_diff_lines(diff)
+        diff = self.filter_diff_lines(list(difflib.unified_diff(parent, child, lineterm="")))
 
-        # Count the number of contiguous blocks of change lines.
-        block_count = 0
-        in_block = False
-        has_functional_change = False
+        def meaningful(line):
+            c = line[1:].strip()
+            return c and not c.startswith("#")
 
-        def is_functional_line(line):
-            # Strip diff markers and check if the line is meaningful code.
-            line_content = line[1:].strip()  # Remove leading + or -
-            return (
-                    line_content
-                    and not line_content.startswith("#")  # Ignore comments
-                    and not (line_content.startswith(('"""', "'''")) and line_content.endswith(('"""', "'''")))
-            # Ignore full-line docstrings
-            )
-
-        for line in diff:
-            if line.startswith('+') or line.startswith('-'):
-                if not in_block:
-                    block_count += 1
-                    in_block = True
-                # Check for functional change in each changed line
-                if is_functional_line(line):
-                    has_functional_change = True
-            else:
-                in_block = False
-
-        # Return True only if there's exactly one contiguous block of *functional* changes.
-        return block_count == 1 and has_functional_change
+        return any(line.startswith(('+', '-')) and meaningful(line) for line in diff)
 
     def list_test_files(self):
         print("Listing test files")
