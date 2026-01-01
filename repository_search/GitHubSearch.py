@@ -269,11 +269,11 @@ def clone_environment_to_venv(python_bin):
         check=False
     )
 
-
-searcher = GitHubSearch(
-    github_token="",
-    repository_path="",
-    out_path=""
-)
-for i in range(0, 1000000, 100):
-    searcher.find_and_process_repositories(size_start=i, size_end=i+100)
+if __name__ == "__main__":
+    searcher = GitHubSearch(
+        github_token="",
+        repository_path="",
+        out_path=""
+    )
+    for i in range(0, 1000000, 100):
+        searcher.find_and_process_repositories(size_start=i, size_end=i+100)
