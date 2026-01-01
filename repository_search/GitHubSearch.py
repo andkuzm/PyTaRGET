@@ -24,6 +24,8 @@ class GitHubSearch:
         self.github_token = github_token
         self.out_path = out_path
         self.processed_file = Path("processed_repositories.txt")
+        print("Will write annotated test cases into:"+ self.out_path + "/annotated_cases.csv")
+        print("Will read already processed repos from:"+ Path(__file__).resolve().__str__()+"/processed_repositories.txt")
 
     def get_latest_commit(self, full_name):
         """
