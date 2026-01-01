@@ -238,22 +238,39 @@ def create_virtualenv(venv_path):
     builder.create(venv_path)
 
 def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
-    """Executed inside a separate process."""
+    python_bin = (
+        os.path.join(venv_path, "bin", "python")
+        if os.name != "nt"
+        else os.path.join(venv_path, "Scripts", "python.exe")
+    )
 
-    python_bin = os.path.join(venv_path, "bin", "python") if os.name != "nt" else os.path.join(venv_path, "Scripts",
-                                                                                               "python.exe")
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path(__file__).parent.resolve())
-    subprocess.run([python_bin, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], check=False)
 
-    #subprocess.run([python_bin, "-m", "pip", "install", "--quiet", "--upgrade", "pip"], check=False)
-    subprocess.run([python_bin, "-m", "pip", "install", "--quiet", "pytest"], check=False)
+    # Upgrade tooling
+    subprocess.run(
+        [python_bin, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
+        check=False,
+    )
 
-    # Import & run miner using *system* modules but venv Python
-    subprocess.check_call([
-        python_bin, "-m", "main_repository_miner",
-        full_name, repository_path, out_path
-    ], env=env)
+    # Install what repository_actions needs (single call, fail if broken)
+    subprocess.check_call(
+        [python_bin, "-m", "pip", "install", "pytest", "coverage"],
+        env=env,
+    )
+
+    # Run miner
+    subprocess.check_call(
+        [
+            python_bin,
+            "-m",
+            "main_repository_miner",
+            full_name,
+            repository_path,
+            out_path,
+        ],
+        env=env,
+    )
 
 def clone_environment_to_venv(python_bin):
     # 1. freeze current environment
