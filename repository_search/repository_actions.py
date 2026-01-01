@@ -21,6 +21,7 @@ class RepositoryActions:
         self.previous_hash = previous_hash
         self.visited_commits = set()
         self.commit_counter = 0
+        self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
 
     def get_repository_name(self):
         return self.repository_name
@@ -67,9 +68,8 @@ class RepositoryActions:
 
     def has_tests(self):
         print("Checking if tests exist")
-        repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         test_patterns = [r"def\s+test_"]
-        for root, dirs, files in os.walk(repo_dir):
+        for root, dirs, files in os.walk(self.repo_dir):
             for file in files:
                 if file.endswith(".py"):
                     file_path = Path(root) / file
@@ -101,8 +101,8 @@ class RepositoryActions:
         try:
             # Write the overridden (parent's) test code.
             test_file_path.write_text(overridden_test_code, encoding="utf-8")
-            repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
-            result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
+            self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+            result = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
         finally:
             # Always restore the original content.
             test_file_path.write_text(original_content, encoding="utf-8")
@@ -127,7 +127,7 @@ class RepositoryActions:
           A set of Broken_to_repaired objects representing detected repaired test cases.
         """
         repaired_cases = set()
-        repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+        
 
         while True:
             # Save current commit as child commit for this pair.
@@ -144,7 +144,7 @@ class RepositoryActions:
             # --- Extract test methods in the parent commit ---
             parent_methods = {}
             for file in self.list_test_files():
-                rel_path = str(file.relative_to(repo_dir))
+                rel_path = str(file.relative_to(self.repo_dir))
                 test_methods = self.find_test_methods(rel_path)
                 print("test methods: "+str(test_methods))
                 for (_, test_method) in test_methods:
@@ -159,7 +159,7 @@ class RepositoryActions:
 
             child_methods = {}
             for file in self.list_test_files():
-                rel_path = str(file.relative_to(repo_dir))
+                rel_path = str(file.relative_to(self.repo_dir))
                 test_methods = self.find_test_methods(rel_path)
                 for (_, test_method) in test_methods:
                     code = self.extract_method_code(rel_path, test_method)
@@ -185,7 +185,7 @@ class RepositoryActions:
                 if self.move_to_earlier_commit() == "Error":
                     print("Error moving to parent commit for verification.")
                     continue
-                parent_result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
+                parent_result = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
                 if parent_result.status != TestVerdict.SUCCESS:
                     print(f"Test {key} does not pass in parent commit; skipping.")
                     if self.move_to_later_commit() == "Error":
@@ -196,7 +196,7 @@ class RepositoryActions:
                 if self.move_to_later_commit() == "Error":
                     print("Error moving back to child commit for verification.")
                     continue
-                child_result = compile_and_run_test_python(repo_dir, rel_path, test_method, repo_dir.parent)
+                child_result = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
                 if child_result.status != TestVerdict.SUCCESS:
                     print(f"Test {key} does not pass in child commit; skipping.")
                     continue
@@ -210,7 +210,7 @@ class RepositoryActions:
 
             # --- Update current commit to parent's commit for the next iteration ---
             checkout_cmd = ["git", "checkout", parent_commit]
-            proc = subprocess.run(checkout_cmd, cwd=str(repo_dir), capture_output=True, text=True, env=os.environ)
+            proc = subprocess.run(checkout_cmd, cwd=str(self.repo_dir), capture_output=True, text=True, env=os.environ)
             if proc.returncode != 0:
                 print(f"Error checking out parent commit {parent_commit}. Ending iteration.")
                 break
@@ -560,12 +560,12 @@ class RepositoryActions:
         return "\n".join(hunk_lines) if len(hunk_lines) > 2 else ""
 
     def get_covered_source(self, rel_path, test_method, commit_hash):
-        repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+        self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
 
         # Checkout the specified commit.
         proc = subprocess.run(
             ["git", "checkout", commit_hash],
-            cwd=str(repo_dir),
+            cwd=str(self.repo_dir),
             capture_output=True,
             text=True,
             env=os.environ
@@ -575,7 +575,7 @@ class RepositoryActions:
             return ""
 
         # Ensure a .coveragerc file exists.
-        coveragerc_path = repo_dir / ".coveragerc"
+        coveragerc_path = self.repo_dir / ".coveragerc"
         if not coveragerc_path.exists():
             with open(coveragerc_path, "w", encoding="utf-8") as f:
                 f.write("""[run]
@@ -586,10 +586,10 @@ class RepositoryActions:
         # Set up the environment for the coverage subprocess.
         env = os.environ.copy()
         env["COVERAGE_PROCESS_START"] = str(coveragerc_path)
-        env["PYTHONPATH"] = str(repo_dir)
+        env["PYTHONPATH"] = str(self.repo_dir)
 
         # Build the test node id (using the absolute path of the test file).
-        test_file_path = repo_dir / rel_path
+        test_file_path = self.repo_dir / rel_path
         nodeid = f"{test_file_path.as_posix()}::{test_method}"
 
         # Run the test via coverage in parallel mode.
@@ -597,18 +597,18 @@ class RepositoryActions:
             "python", "-m", "coverage", "run", "--parallel-mode", "-m", "pytest",
             "--maxfail=1", "--disable-warnings", "--quiet", nodeid
         ]
-        returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(repo_dir), env=env)
+        returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
         print("pytest/coverage run returned:", returncode)
         print("Log output:", log)
 
         # Combine coverage data from subprocesses.
         combine_cmd = ["python", "-m", "coverage", "combine"]
-        combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(repo_dir), env=env)
+        combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
         print("Coverage combine returned:", combine_return)
         print("Coverage combine log:", combine_log)
 
         # Load the combined coverage data.
-        cov_data_file = repo_dir / ".coverage"
+        cov_data_file = self.repo_dir / ".coverage"
         cov = coverage.Coverage(data_file=str(cov_data_file))
         cov.load()
         data = cov.get_data()
@@ -702,10 +702,10 @@ class RepositoryActions:
 
     def list_test_files(self):
         print("Listing test files")
-        repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+        self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         files_paths = []
         test_patterns = [r"def\s+test_"]
-        for root, dirs, files in os.walk(repo_dir):
+        for root, dirs, files in os.walk(self.repo_dir):
             for file in files:
                 if file.endswith(".py"):
                     file_path = Path(root) / file
