@@ -68,7 +68,7 @@ class GitHubSearch:
         Runs pytest trace check, with timeout to avoid hangs.
         """
         return subprocess.run(
-            [sys.executable, "-m", "pytest", "--trace-config"],
+            [sys.executable, "-m", "pytest", "--version"],
             capture_output=True,
             text=True,
             cwd=".",
@@ -78,7 +78,7 @@ class GitHubSearch:
     def run_pytest_check(self, last_repo):
         """Validates pytest works, auto-recovers once on failure."""
 
-        print("Running pytest --trace-config...")
+        print("Running pytest --version")
 
         try:
             result = self.run_pytest_trace()
@@ -246,6 +246,7 @@ def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path(__file__).parent.parent.resolve())
+    print("PYTHONPATH=", env["PYTHONPATH"])
 
     # Upgrade tooling
     subprocess.run(
