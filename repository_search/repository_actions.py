@@ -49,7 +49,7 @@ class RepositoryActions:
         cmd = ["git", "clone", repo_url, dest_dir]
         subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
 
-        cmd = [sys.executable, "-m", "pip", "install", "-e", "."]
+        cmd = [sys.executable, "-m", "pip", "install", "."]
         print(subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir))
 
         hash_cmd = ["git", "rev-parse", "HEAD"]
@@ -355,6 +355,8 @@ class RepositoryActions:
         #     raise Exception("Cycle detected: commit has already been visited.")
         # self.visited_commits.add(parent_hash)
 
+        subprocess.check_call(["git", "reset", "--hard"], cwd=self.repo_dir)
+        subprocess.check_call(["git", "clean", "-fdx"], cwd=self.repo_dir)
         print(f"Parent commit hash: {parent_hash}")
         print("moving to parent commit")
         # Checkout the parent commit
