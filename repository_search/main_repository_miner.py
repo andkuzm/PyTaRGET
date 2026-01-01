@@ -53,7 +53,6 @@ class Main:
     def cleanup(self):
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         shutil.rmtree(dest_dir, ignore_errors=True)
-        subprocess.run(dest_dir, check=False)
 
     def save_case(self, repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log):
         output_file = Path(self.out_path) / "annotated_cases.csv"
