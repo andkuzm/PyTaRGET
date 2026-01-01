@@ -378,6 +378,8 @@ class RepositoryActions:
             print("Either attempting to reverse second time, or first commit")
             return "Error"
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
+        subprocess.check_call(["git", "reset", "--hard"], cwd=self.repo_dir)
+        subprocess.check_call(["git", "clean", "-fdx"], cwd=self.repo_dir)
         print(f"Current repository directory: {dest_dir}")
         print("moving to child commit")
         cmd_checkout = ["git", "checkout", self.previous_hash]
