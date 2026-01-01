@@ -238,40 +238,25 @@ def create_virtualenv(venv_path):
     builder.create(venv_path)
 
 def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
-    python_bin = (
-        os.path.join(venv_path, "bin", "python")
-        if os.name != "nt"
-        else os.path.join(venv_path, "Scripts", "python.exe")
+
+    python_bin = os.path.join(
+        venv_path,
+        "Scripts" if os.name == "nt" else "bin",
+        "python"
     )
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path(__file__).parent.parent.resolve())
-    print("PYTHONPATH=", env["PYTHONPATH"])
+    root = Path(__file__).resolve().parent.parent
+    env["PYTHONPATH"] = str(root)
 
-    # Upgrade tooling
-    subprocess.run(
-        [python_bin, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
-        check=False,
-    )
+    miner = root / "repository_search" / "main_repository_miner.py"
 
-    # Install what repository_actions needs (single call, fail if broken)
-    subprocess.check_call(
-        [python_bin, "-m", "pip", "install", "pytest", "coverage"],
-        env=env,
-    )
+    subprocess.run([python_bin, "-m", "pip", "install", "pytest", "coverage"], check=False)
 
-    # Run miner
-    subprocess.check_call(
-        [
-            python_bin,
-            "-m",
-            "main_repository_miner",
-            full_name,
-            repository_path,
-            out_path,
-        ],
-        env=env,
-    )
+    subprocess.check_call([
+        python_bin, "-u", str(miner),
+        full_name, repository_path, out_path
+    ], env=env)
 
 def clone_environment_to_venv(python_bin):
     # 1. freeze current environment
