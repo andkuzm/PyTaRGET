@@ -245,7 +245,7 @@ def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
     )
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(Path(__file__).parent.resolve())
+    env["PYTHONPATH"] = str(Path(__file__).parent.parent.resolve())
 
     # Upgrade tooling
     subprocess.run(
