@@ -68,7 +68,7 @@ class GitHubSearch:
         Runs pytest trace check, with timeout to avoid hangs.
         """
         return subprocess.run(
-            ["pytest", "--trace-config"],
+            [sys.executable, "-m", "pytest", "--trace-config"],
             capture_output=True,
             text=True,
             cwd=".",
@@ -242,8 +242,9 @@ def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
 
     python_bin = os.path.join(venv_path, "bin", "python") if os.name != "nt" else os.path.join(venv_path, "Scripts",
                                                                                                "python.exe")
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path(__file__).parent.resolve())
     subprocess.run([python_bin, "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], check=False)
-    subprocess.run([python_bin, "-m", "pip", "install", "pytest", "coverage"], check=False)
 
     #subprocess.run([python_bin, "-m", "pip", "install", "--quiet", "--upgrade", "pip"], check=False)
     subprocess.run([python_bin, "-m", "pip", "install", "--quiet", "pytest"], check=False)
@@ -252,7 +253,7 @@ def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
     subprocess.check_call([
         python_bin, "-m", "main_repository_miner",
         full_name, repository_path, out_path
-    ])
+    ], env=env)
 
 def clone_environment_to_venv(python_bin):
     # 1. freeze current environment
