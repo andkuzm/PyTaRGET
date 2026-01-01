@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import repository_actions
-
+print(">>> main_repository_miner started", flush=True)
 class Main:
     def __init__(self, repository_name, repository_path, out_path):
         self.repository_name = repository_name
@@ -65,3 +65,12 @@ class Main:
             writer.writerow([repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log])
 
         print(f"Saved annotated case for repository '{repository_name}' to {output_file}")
+        
+if __name__ == "__main__":
+    import sys
+    repository_name = sys.argv[1]
+    repository_path = sys.argv[2]
+    out_path = sys.argv[3]
+
+    m = Main(repository_name, repository_path, out_path)
+    m.process_repository()
