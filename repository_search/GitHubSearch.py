@@ -57,7 +57,7 @@ class GitHubSearch:
 
         for cmd in cmds:
             print("Running:", " ".join(cmd))
-            proc = subprocess.run(cmd, capture_output=True, text=True)
+            proc = subprocess.run(cmd, timeout=600, capture_output=True, text=True)
             if proc.returncode != 0:
                 print("Command failed:", proc.stderr)
 
@@ -251,17 +251,17 @@ def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
 
     miner = root / "repository_search" / "main_repository_miner.py"
 
-    subprocess.run([python_bin, "-m", "pip", "install", "pytest", "coverage"], check=False)
+    subprocess.run([python_bin, "-m", "pip", "install", "pytest", "coverage"], timeout=600, check=False)
 
     subprocess.check_call([
         python_bin, "-u", str(miner),
         full_name, repository_path, out_path
-    ], env=env)
+    ], timeout=600, env=env)
 
 def clone_environment_to_venv(python_bin):
     # 1. freeze current environment
     reqs = subprocess.check_output(
-        [sys.executable, "-m", "pip", "freeze"],
+        [sys.executable, "-m", "pip", "freeze"], timeout=600,
         text=True
     )
 
@@ -269,6 +269,7 @@ def clone_environment_to_venv(python_bin):
     subprocess.run(
         [python_bin, "-m", "pip", "install", "-r", "-"],
         input=reqs,
+        timeout=600,
         text=True,
         check=False
     )
