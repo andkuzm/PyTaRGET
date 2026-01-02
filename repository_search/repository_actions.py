@@ -213,7 +213,7 @@ class RepositoryActions:
             dest_dir = str(self.repo_dir)
 
             if not self.git_checkout_with_retry(dest_dir, parent_commit):
-                print(f"Error checking out parent commit {parent_commit}. Ending iteration.", flush=True)
+                print(f"Error checking out parent commit {parent_commit}. Ending iteration. (outer)", flush=True)
                 break
 
             self.current_hash = parent_commit
