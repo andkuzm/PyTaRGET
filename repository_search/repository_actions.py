@@ -5,6 +5,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 from difflib import SequenceMatcher
 from pathlib import Path
 import re
@@ -330,68 +331,75 @@ class RepositoryActions:
         Before moving, saves the current commit as previous_hash.
         Raises an exception if a cycle is detected.
         """
-        print(str(self.commit_counter)+"th commit")
+
         if self.commit_counter >= 300:
-            print("Commit counter limit reached. Stopping further processing of commits in this repository.")
+            print("Commit counter limit reached.")
             return "Error"
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
-        print(f"Current repository directory: {dest_dir}")
-
-        # Save the current commit as the child commit (for later reversal)
         self.previous_hash = self.current_hash
 
-        # Get the parent commit hash (HEAD^)
-        cmd_parent = ["git", "rev-parse", "HEAD^"]
-        proc_parent = subprocess.run(cmd_parent, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
+        proc_parent = subprocess.run(
+            ["git", "rev-parse", "HEAD^"],
+            cwd=dest_dir,
+            capture_output=True,
+            text=True
+        )
         if proc_parent.returncode != 0:
             return "Error"
+
         parent_hash = proc_parent.stdout.strip()
-
-        # Check for a cycle:
-        # if parent_hash == self.current_hash:
-        #     raise Exception("Cycle detected: parent commit is the same as current commit.")
-        # if parent_hash in self.visited_commits:
-        #     raise Exception("Cycle detected: commit has already been visited.")
-        # self.visited_commits.add(parent_hash)
-
-        subprocess.check_call(["git", "reset", "--hard"], cwd=self.repo_dir)
-        subprocess.check_call(["git", "clean", "-fdx"], cwd=self.repo_dir)
         print(f"Parent commit hash: {parent_hash}")
-        print("moving to parent commit")
-        # Checkout the parent commit
-        cmd_checkout = ["git", "checkout", parent_hash]
-        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
-        if proc_checkout.returncode != 0:
+
+        if not self.git_checkout_with_retry(dest_dir, parent_hash):
+            print(f"Error checking out parent commit {parent_hash}. Ending iteration.")
             return "Error"
+
         self.current_hash = parent_hash
-        self.commit_counter += 1  # Increment commit counter for every successful commit move.
+        self.commit_counter += 1
         self.set_full_permissions()
-        print(f"Repository is now at commit: {self.current_hash}, previously invoked move_to_earlier_commit: {self.commit_counter} times")
+
+        print(
+            f"Repository is now at commit: {self.current_hash}, previously invoked move_to_earlier_commit: {self.commit_counter} times")
         return parent_hash
 
     def move_to_later_commit(self):
         """
         Moves the repository checkout back to the child commit.
         """
+
         if self.previous_hash is None:
             print("Either attempting to reverse second time, or first commit")
             return "Error"
+
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
-        subprocess.check_call(["git", "reset", "--hard"], cwd=self.repo_dir)
-        subprocess.check_call(["git", "clean", "-fdx"], cwd=self.repo_dir)
-        print(f"Current repository directory: {dest_dir}")
-        print("moving to child commit")
-        cmd_checkout = ["git", "checkout", self.previous_hash]
-        proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
-        if proc_checkout.returncode != 0:
-            print("Error checking out child commit:", proc_checkout.stderr)
+
+        if not self.git_checkout_with_retry(dest_dir, self.previous_hash):
+            print("Error checking out child commit.")
             return "Error"
+
         self.current_hash = self.previous_hash
-        self.previous_hash = None  # Clear previous hash after moving back.
+        self.previous_hash = None
         self.set_full_permissions()
+
         print(f"Repository is now at commit: {self.current_hash}")
         return self.current_hash
+
+    def git_checkout_with_retry(self, dest_dir, target_hash, retries=3):
+        for attempt in range(1, retries + 1):
+            subprocess.run(["git", "reset", "--hard"], cwd=dest_dir)
+            subprocess.run(["git", "clean", "-fdx"], cwd=dest_dir)
+
+            proc = subprocess.run(["git", "checkout", target_hash], cwd=dest_dir, capture_output=True, text=True)
+
+            if proc.returncode == 0:
+                return True
+
+            print(f"Checkout to {target_hash} failed (attempt {attempt}): {proc.stderr}")
+
+            time.sleep(1)
+
+        return False
 
     def find_test_methods(self, test_rel_path):
         print("Finding test methods")
