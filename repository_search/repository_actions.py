@@ -128,96 +128,81 @@ class RepositoryActions:
           A set of Broken_to_repaired objects representing detected repaired test cases.
         """
         repaired_cases = set()
-        
 
         while True:
-            # Save current commit as child commit for this pair.
             child_commit = self.current_hash
 
-            # Attempt to move to the parent commit.
             parent_commit = self.move_to_earlier_commit()
             if parent_commit == "Error":
-                print("No further commits or stop condition reached. Ending iteration.")
                 break
 
             print(f"Processing commit pair: Parent: {parent_commit} | Child: {child_commit}")
 
-            # --- Extract test methods in the parent commit ---
+            # --- collect parent tests ---
             parent_methods = {}
             for file in self.list_test_files():
                 rel_path = str(file.relative_to(self.repo_dir))
-                test_methods = self.find_test_methods(rel_path)
-                print("test methods: "+str(test_methods))
-                for (_, test_method) in test_methods:
+                for (_, test_method) in self.find_test_methods(rel_path):
                     code = self.extract_method_code(rel_path, test_method)
                     if code:
                         parent_methods[(rel_path, test_method)] = code
 
-            # --- Switch back to the child commit and extract test methods ---
+            # --- back to child ---
             if self.move_to_later_commit() == "Error":
-                print("Error moving back to child commit.")
                 break
 
             child_methods = {}
             for file in self.list_test_files():
                 rel_path = str(file.relative_to(self.repo_dir))
-                test_methods = self.find_test_methods(rel_path)
-                for (_, test_method) in test_methods:
+                for (_, test_method) in self.find_test_methods(rel_path):
                     code = self.extract_method_code(rel_path, test_method)
                     if code:
                         child_methods[(rel_path, test_method)] = code
 
-            # --- Identify test methods that have changed ---
-            changed_tests = set()
-            for key in parent_methods:
-                if key in child_methods:
-                    if self.is_test_method_changed(parent_methods[key], child_methods[key]):
-                        changed_tests.add(key)
-                    else:
-                        print(f"Test {key} unchanged; skipping.")
-                else:
-                    print(f"Test {key} not found in child commit; skipping.")
+            # --- detect changed tests ---
+            changed_tests = {
+                k for k in parent_methods
+                if k in child_methods
+                   and self.is_test_method_changed(parent_methods[k], child_methods[k])
+            }
 
-            # --- For each changed test, verify test results and run override ---
             for key in changed_tests:
                 rel_path, test_method = key
 
-                # Verify the test passes in the parent commit.
+                # ---------- parent must PASS ----------
                 if self.move_to_earlier_commit() == "Error":
-                    print("Error moving to parent commit for verification.")
                     continue
-                parent_result = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
-                if parent_result.status != TestVerdict.SUCCESS:
-                    print(f"Test {key} does not pass in parent commit; skipping.")
-                    if self.move_to_later_commit() == "Error":
-                        continue
+                parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+
+                if parent.status != TestVerdict.SUCCESS:
+                    print(f"Skipping {key}: parent does not PASS ({parent.status})")
+                    self.move_to_later_commit()
                     continue
 
-                # Switch back to the child commit.
+                # ---------- child must PASS ----------
                 if self.move_to_later_commit() == "Error":
-                    print("Error moving back to child commit for verification.")
                     continue
-                child_result = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
-                if child_result.status != TestVerdict.SUCCESS:
-                    print(f"Test {key} does not pass in child commit; skipping.")
+                child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+
+                if child.status != TestVerdict.SUCCESS:
+                    print(f"Skipping {key}: child does not PASS ({child.status})")
                     continue
 
-                # Run the override: inject parent's test code into child's source.
-                result = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
-                if result.status != TestVerdict.SUCCESS:
+                # ---------- override must FAIL ----------
+                overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
+
+                if overridden.status == TestVerdict.FAILURE:
                     print(f"Repaired test detected: {key}")
-                    repaired_case = Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path, result.log)
-                    repaired_cases.add(repaired_case)
+                    repaired_cases.add(
+                        Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path, overridden.log)
+                    )
 
-            # --- Update current commit to parent's commit for the next iteration ---
+            # --- move history pointer backward ---
             dest_dir = str(self.repo_dir)
-
             if not self.git_checkout_with_retry(dest_dir, parent_commit):
-                print(f"Error checking out parent commit {parent_commit}. Ending iteration. (outer)", flush=True)
                 break
 
             self.current_hash = parent_commit
-            print(f"Updated current commit to {self.current_hash} for next iteration.", flush=True)
 
         return repaired_cases
 

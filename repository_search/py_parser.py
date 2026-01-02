@@ -108,7 +108,6 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     if not test_file.exists():
         raise FileNotFoundError(f"Test file does not exist: {test_file}")
 
-    # Build a pytest command using the nodeid format: <file>::<test_method>
     nodeid = f"{test_file.as_posix()}::{test_method}"
     cmd = [
         sys.executable, "-m", "pytest",
@@ -116,45 +115,27 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
         nodeid
     ]
 
-    # Run the command and capture output.
     returncode, log = run_cmd(cmd, timeout=timeout, cwd=project_path, env=os.environ)
 
-    print("compiling and running")
-    # if save_logs:
-    #     log_path.mkdir(parents=True, exist_ok=True)
-    #     log_file.write_text(log)
-
-    # If the test passed, return success.
+    # --- PASS ---
     if returncode == 0:
-        print("test passed")
-        print(log)
-        return parse_successful_execution_py(log)
+        return TestVerdict(TestVerdict.SUCCESS, None, log)
 
-    # At this point, returncode != 0.
-    # Check if the log contains error indicators.
-    error_indicators = ["E   ", "FAILED", "ERROR"]
-    if not any(indicator in log for indicator in error_indicators):
-        # If no error markers are present, assume it's just warnings.
-        print("Only warnings detected; treating test as passed.")
-        print(log)
-        return parse_successful_execution_py(log)
-
-    print("test failed")
-    print(log)
+    # --- TIMEOUT ---
     if returncode == 124:
         return TestVerdict(TestVerdict.TIMEOUT, None, log)
 
-    # Try to parse a conventional failure.
+    # --- CLEAR FAILURE ---
     failure = parse_test_failure_py(log, test_file.stem, test_method)
     if failure is not None:
         return failure
 
-    # Fallback: parse invalid execution.
-    invalid = parse_invalid_execution_py(log)
-    if invalid.status == TestVerdict.UNKNOWN:
-        # Mark as "unconventional" if the output doesn't match known patterns.
-        return TestVerdict(TestVerdict.UNCONVENTIONAL, None, log)
-    return invalid
+    # --- SYNTAX ERROR ---
+    if "SyntaxError" in log:
+        return TestVerdict(TestVerdict.SYNTAX_ERR, None, log)
+
+    # --- UNKNOWN (infra / import / crash etc.) ---
+    return TestVerdict(TestVerdict.UNKNOWN, None, log)
 
 # Example usage:
 if __name__ == "__main__":
