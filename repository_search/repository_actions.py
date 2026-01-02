@@ -606,7 +606,7 @@ class RepositoryActions:
 
         # Run the test via coverage in parallel mode.
         cmd = [
-            "python", "-m", "coverage", "run", "--parallel-mode", "-m", "pytest",
+            sys.executable, "-m", "coverage", "run", "--parallel-mode", "-m", "pytest",
             "--maxfail=1", "--disable-warnings", "--quiet", nodeid
         ]
         returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
@@ -614,7 +614,7 @@ class RepositoryActions:
         print("Log output:", log)
 
         # Combine coverage data from subprocesses.
-        combine_cmd = ["python", "-m", "coverage", "combine"]
+        combine_cmd = [sys.executable, "-m", "coverage", "combine"]
         combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
         print("Coverage combine returned:", combine_return)
         print("Coverage combine log:", combine_log)
