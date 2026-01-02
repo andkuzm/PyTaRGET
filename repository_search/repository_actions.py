@@ -210,13 +210,14 @@ class RepositoryActions:
                     repaired_cases.add(repaired_case)
 
             # --- Update current commit to parent's commit for the next iteration ---
-            checkout_cmd = ["git", "checkout", parent_commit]
-            proc = subprocess.run(checkout_cmd, cwd=str(self.repo_dir), capture_output=True, text=True, env=os.environ)
-            if proc.returncode != 0:
-                print(f"Error checking out parent commit {parent_commit}. Ending iteration.")
+            dest_dir = str(self.repo_dir)
+
+            if not self.git_checkout_with_retry(dest_dir, parent_commit):
+                print(f"Error checking out parent commit {parent_commit}. Ending iteration.", flush=True)
                 break
+
             self.current_hash = parent_commit
-            print(f"Updated current commit to {self.current_hash} for next iteration.")
+            print(f"Updated current commit to {self.current_hash} for next iteration.", flush=True)
 
         return repaired_cases
 
@@ -385,7 +386,7 @@ class RepositoryActions:
         print(f"Repository is now at commit: {self.current_hash}")
         return self.current_hash
 
-    def git_checkout_with_retry(self, dest_dir, target_hash, retries=3):
+    def git_checkout_with_retry(self, dest_dir, target_hash, retries=1000):
         print("retrying")
         for attempt in range(1, retries + 1):
             subprocess.run(["git", "reset", "--hard"], cwd=dest_dir)
