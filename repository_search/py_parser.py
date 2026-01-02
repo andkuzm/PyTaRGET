@@ -2,6 +2,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 from subprocess import TimeoutExpired
 
 
@@ -46,16 +47,21 @@ def run_cmd(cmd, timeout, cwd, env):
     """Run a command using subprocess and return returncode and output."""
     try:
         # Use shlex.join if available (Python 3.8+), otherwise " ".join(cmd) works if there are no special characters.
-        proc = subprocess.Popen(shlex.split(" ".join(cmd)), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=cwd)
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            cwd=cwd
+        )
         stdout, stderr = proc.communicate(timeout=timeout)
         # Combine stdout and stderr for complete output
         output = stdout.decode("utf-8", errors="ignore") + "\n" + stderr.decode("utf-8", errors="ignore")
         return proc.returncode, output
-    except TimeoutExpired as e:
+    except TimeoutExpired:
         proc.kill()
         stdout, stderr = proc.communicate()
-        output = stdout.decode("utf-8", errors="ignore") + "\n" + stderr.decode("utf-8", errors="ignore")
-        return 124, output
+        return 124, (stdout + stderr).decode("utf-8", errors="ignore")
 
 def parse_successful_execution_py(log):
     # For pytest, if returncode is 0, we assume the test passed.
@@ -104,7 +110,11 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
 
     # Build a pytest command using the nodeid format: <file>::<test_method>
     nodeid = f"{test_file.as_posix()}::{test_method}"
-    cmd = ["pytest", "--maxfail=1", "--disable-warnings", "--quiet", nodeid]
+    cmd = [
+        sys.executable, "-m", "pytest",
+        "--maxfail=1", "--disable-warnings", "--quiet",
+        nodeid
+    ]
 
     # Run the command and capture output.
     returncode, log = run_cmd(cmd, timeout=timeout, cwd=project_path, env=os.environ)
@@ -122,7 +132,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
 
     # At this point, returncode != 0.
     # Check if the log contains error indicators.
-    error_indicators = ["error"]
+    error_indicators = ["E   ", "FAILED", "ERROR"]
     if not any(indicator in log for indicator in error_indicators):
         # If no error markers are present, assume it's just warnings.
         print("Only warnings detected; treating test as passed.")
