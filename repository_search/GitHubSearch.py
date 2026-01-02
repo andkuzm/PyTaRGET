@@ -194,6 +194,9 @@ class GitHubSearch:
 
         print("Finished processing repositories.")
 
+    def worker(self, full_name, repo_path, out_path, venv_dir):
+        run_processor_in_venv(full_name, repo_path, out_path, venv_dir)
+
     def process_repository_with_timeout(self, full_name):
         """
         Runs the repository miner in an isolated virtualenv with a hard timeout.
@@ -204,10 +207,10 @@ class GitHubSearch:
         venv_dir = tempfile.mkdtemp(prefix=f"repo_venv_{full_name.replace('/', '_')}_")
         create_virtualenv(venv_dir)
 
-        def target():
-            run_processor_in_venv(full_name, self.repository_path, self.out_path, venv_dir)
-
-        p = multiprocessing.Process(target=target)
+        p = multiprocessing.Process(
+            target=self.worker,
+            args=(full_name, self.repository_path, self.out_path, venv_dir)
+        )
 
         start = time.time()
         p.start()

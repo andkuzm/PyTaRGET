@@ -386,6 +386,7 @@ class RepositoryActions:
         return self.current_hash
 
     def git_checkout_with_retry(self, dest_dir, target_hash, retries=3):
+        print("retrying")
         for attempt in range(1, retries + 1):
             subprocess.run(["git", "reset", "--hard"], cwd=dest_dir)
             subprocess.run(["git", "clean", "-fdx"], cwd=dest_dir)
