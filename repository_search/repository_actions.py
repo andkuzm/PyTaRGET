@@ -636,6 +636,7 @@ class RepositoryActions:
 
         try:
             source_code = test_file_path.read_text(encoding="utf-8")
+            lines = source_code.splitlines()
             tree = ast.parse(source_code)
         except Exception:
             return ""
@@ -648,19 +649,32 @@ class RepositoryActions:
             def __init__(self):
                 self.found = ""
 
+            def _extract_with_decorators(self, node):
+                # skip parametrized tests (produce unstable repairs)
+                for d in node.decorator_list:
+                    dec_src = ast.get_source_segment(source_code, d)
+                    if dec_src and "parametrize" in dec_src:
+                        return ""
+
+                # include decorators if present
+                decorator_lines = [d.lineno for d in node.decorator_list] if node.decorator_list else []
+                start = min(decorator_lines + [node.lineno]) - 1
+                end = node.end_lineno
+                return "\n".join(lines[start:end])
+
             def visit_FunctionDef(self, node):
                 if want_class is None and node.name == want_method:
-                    self.found = ast.get_source_segment(source_code, node)
+                    self.found = self._extract_with_decorators(node)
 
             def visit_AsyncFunctionDef(self, node):
                 if want_class is None and node.name == want_method:
-                    self.found = ast.get_source_segment(source_code, node)
+                    self.found = self._extract_with_decorators(node)
 
             def visit_ClassDef(self, node):
                 if want_class and node.name == want_class:
                     for item in node.body:
                         if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == want_method:
-                            self.found = ast.get_source_segment(source_code, item)
+                            self.found = self._extract_with_decorators(item)
 
         fx = FunctionExtractor()
         fx.visit(tree)
