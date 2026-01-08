@@ -389,7 +389,6 @@ class RepositoryActions:
         return False
 
     def find_test_methods(self, test_rel_path):
-        print("Finding test methods")
         full_test_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / test_rel_path
         try:
             source = full_test_path.read_text(encoding="utf-8")
