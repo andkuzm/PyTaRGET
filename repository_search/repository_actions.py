@@ -318,9 +318,9 @@ class RepositoryActions:
         Raises an exception if a cycle is detected.
         """
 
-        if self.commit_counter >= 300:
-            print("Commit counter limit reached.")
-            return "Error"
+        # if self.commit_counter >= 300:
+        #     print("Commit counter limit reached.")
+        #     return "Error"
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         self.previous_hash = self.current_hash
