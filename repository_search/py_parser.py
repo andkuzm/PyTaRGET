@@ -135,6 +135,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
         return TestVerdict(TestVerdict.SYNTAX_ERR, None, log)
 
     # --- UNKNOWN (infra / import / crash etc.) ---
+    print("Test verdict - unknown, returncode: ", returncode, os.linesep, os.linesep, "logs: ", log)
     return TestVerdict(TestVerdict.UNKNOWN, None, log)
 
 # Example usage:
