@@ -93,20 +93,31 @@ class RepositoryActions:
         If the change in test code is deemed unimportant (i.e. nearly identical to the current test code),
         the method returns a dummy success result immediately.
         """
+
         test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
         original_content = test_file_path.read_text(encoding="utf-8")
 
-        # Extract the current test code from the file.
-        current_test_code = self.extract_method_code(rel_path, test_method)
+        # Extract imports once
+        imports = self.extract_test_imports(rel_path)
+
+        # Replace only the method body
+        current_method_code = self.extract_method_code(rel_path, test_method)
+        if not current_method_code:
+            return TestVerdict(TestVerdict.UNKNOWN, None, "Target test method not found")
+
+        patched_test_code = imports + "\n\n" + overridden_test_code
 
         try:
-            # Write the overridden (parent's) test code.
-            test_file_path.write_text(overridden_test_code, encoding="utf-8")
+            new_content = original_content.replace(current_method_code, patched_test_code)
+            test_file_path.write_text(new_content, encoding="utf-8")
+
             self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
-            result = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+            result = compile_and_run_test_python(
+                self.repo_dir, rel_path, test_method, self.repo_dir.parent
+            )
         finally:
-            # Always restore the original content.
             test_file_path.write_text(original_content, encoding="utf-8")
+
         return result
 
     def find_repaired_test_cases(self):
@@ -236,57 +247,55 @@ class RepositoryActions:
             broken_to_repaired_instance.repaired
         )
 
-        annotated_code = self.annotate_code(broken_test, repaired_test, source_code)
+        annotated_code = self.annotate_code(broken_test, repaired_test, source_code, broken_to_repaired_instance.rel_path)
         return annotated_code
 
-    def annotate_code(self, broken_test, repaired_test, source_code):
-        print("Annotating code")
+    def annotate_code(self, broken_test, repaired_test, source_code, rel_path):
         broken_lines = broken_test.splitlines()
         repaired_lines = repaired_test.splitlines()
-        print(broken_lines, "broken lines in annotated code")
-        print(repaired_lines, "repaired lines in annotated code")
 
-        # Compute the diff
         diff_lines = list(
-            difflib.unified_diff(broken_lines, repaired_lines, fromfile="Broken Test", tofile="Repaired Test",
-                                 lineterm="", n=len(broken_lines)+len(repaired_lines))
+            difflib.unified_diff(
+                broken_lines,
+                repaired_lines,
+                fromfile="Broken Test",
+                tofile="Repaired Test",
+                lineterm="",
+                n=len(broken_lines) + len(repaired_lines),
+            )
         )
-        print("diff lines before filtering: ", diff_lines)
-        diff_lines = self.filter_diff_lines(diff_lines)
 
+        diff_lines = self.filter_diff_lines(diff_lines)
         if not diff_lines:
             return ""
 
-        print("after: ", diff_lines)
-
-        # Initialize sections
         unchanged_before = []
         breakage_lines = []
         unchanged_after = []
         repaired_lines_only = []
 
-        # Track where we are in the diff
         in_change_block = False
 
         for line in diff_lines:
-            if line.startswith('@@'):
-                continue  # Skip the hunk header, no need to track
-            elif line.startswith('-'):
-                breakage_lines.append(line[1:])  # Capture broken lines
+            if line.startswith("@@"):
+                continue
+            elif line.startswith("-"):
+                breakage_lines.append(line[1:])
                 in_change_block = True
-            elif line.startswith('+'):
-                repaired_lines_only.append(line[1:])  # Capture repaired lines
+            elif line.startswith("+"):
+                repaired_lines_only.append(line[1:])
                 in_change_block = True
             else:
-                # Handle context lines
                 if in_change_block:
                     unchanged_after.append(line)
                 else:
                     unchanged_before.append(line)
 
-        # Build the annotated output
+        imports = self.extract_test_imports(rel_path)
+
         annotated_string = (
                 "[<TESTCONTEXT>]\n"
+                + imports + "\n\n"
                 + "\n".join(unchanged_before) + "\n"
                 + "[<BREAKAGE>]\n"
                 + "\n".join(breakage_lines) + "\n"
@@ -300,6 +309,7 @@ class RepositoryActions:
                 + source_code + "\n"
                 + "[</REPAIRCONTEXT>]"
         )
+
         return annotated_string
 
 
@@ -416,6 +426,23 @@ class RepositoryActions:
                         if isinstance(item, ast.FunctionDef) and item.name.startswith("test_"):
                             test_methods.append([test_rel_path, f"{node.name}.{item.name}"])
         return test_methods
+
+    def extract_test_imports(self, rel_path):
+        test_file_path = self.repo_dir / rel_path
+        try:
+            source = test_file_path.read_text(encoding="utf-8")
+            tree = ast.parse(source)
+        except Exception:
+            return ""
+
+        imports = []
+        for node in tree.body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                segment = ast.get_source_segment(source, node)
+                if segment:
+                    imports.append(segment)
+
+        return "\n".join(imports)
 
     def extract_executed_methods(self, source_code, rel_path):
         """
