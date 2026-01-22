@@ -444,7 +444,7 @@ class RepositoryActions:
 
         return "\n".join(imports)
 
-    def extract_executed_methods(self, source_code, rel_path):
+    def extract_executed_methods(self, source_code, rel_path): #fallback only
         """
         Extracts full methods that were executed during the test.
         Parses the executed source, finds the full method definitions from the full file,
@@ -486,55 +486,92 @@ class RepositoryActions:
         Extractor().visit(tree)
         return executed_methods
 
-    def extract_covered_source_coverage(self, rel_path, test_method, broken_hash, repaired_hash):
-        print("Extracting dynamic covered source code for both versions")
+    def extract_executed_methods_from_file(self, filename, executed_lines):
+        executed_methods = {}
 
-        # Extract the full executed source for both commits.
-        broken_source = self.get_covered_source(rel_path, test_method, broken_hash)
-        print("broken source ecsc 503: " + broken_source)
-        repaired_source = self.get_covered_source(rel_path, test_method, repaired_hash)
-        print("broken source ecsc 505: "+ repaired_source)
-        if not broken_source and not repaired_source:
-            print("No coverage data found for either version.")
+        try:
+            full_source = Path(filename).read_text(encoding="utf-8")
+            tree = ast.parse(full_source)
+        except Exception:
+            return executed_methods
+
+        class Extractor(ast.NodeVisitor):
+            def __init__(self):
+                self.current_class = None
+
+            def visit_ClassDef(self, node):
+                prev = self.current_class
+                self.current_class = node.name
+                self.generic_visit(node)
+                self.current_class = prev
+
+            def visit_FunctionDef(self, node):
+                start = node.lineno
+                end = getattr(node, "end_lineno", start)
+
+                if any(l in executed_lines for l in range(start, end + 1)):
+                    name = f"{self.current_class}.{node.name}" if self.current_class else f"Global.{node.name}"
+                    executed_methods[name] = ast.get_source_segment(full_source, node)
+
+        Extractor().visit(tree)
+        return executed_methods
+
+    def extract_covered_source_coverage(self, rel_path, test_method, broken_hash, repaired_hash):
+        dest_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+
+        # --- BROKEN ---
+        subprocess.run(["git", "checkout", broken_hash], cwd=dest_dir)
+        broken_data = self.get_covered_source(rel_path, test_method, broken_hash)
+
+        executed_methods_broken = {}
+        for filename in broken_data.measured_files():
+            if not filename.endswith(".py") or "tests" in filename:
+                continue
+            lines = broken_data.lines(filename)
+            if lines:
+                executed_methods_broken.update(
+                    self.extract_executed_methods_from_file(filename, lines)
+                )
+
+        # --- REPAIRED ---
+        subprocess.run(["git", "checkout", repaired_hash], cwd=dest_dir)
+        repaired_data = self.get_covered_source(rel_path, test_method, repaired_hash)
+
+        executed_methods_repaired = {}
+        for filename in repaired_data.measured_files():
+            if not filename.endswith(".py") or "tests" in filename:
+                continue
+            lines = repaired_data.lines(filename)
+            if lines:
+                executed_methods_repaired.update(
+                    self.extract_executed_methods_from_file(filename, lines)
+                )
+
+        if not executed_methods_broken and not executed_methods_repaired:
             return ""
 
-        executed_methods_broken = self.extract_executed_methods(broken_source, rel_path)
-        executed_methods_repaired = self.extract_executed_methods(repaired_source, rel_path)
-        print("executed methods in ecsc 511", executed_methods_broken)
-        print("executed methods in ecsc 512", executed_methods_repaired)
-
-        # Fallback: if executed methods are empty, use the full method source from the file.
-        if not executed_methods_broken:
-            fallback = self.extract_method_code(rel_path, test_method)
-            if fallback:
-                executed_methods_broken = {"fallback ecsc 520" + test_method: fallback}
-        if not executed_methods_repaired:
-            fallback = self.extract_method_code(rel_path, test_method)
-            if fallback:
-                executed_methods_repaired = {"fallback ecsc 522" + test_method: fallback}
-
         result = []
-        # Compute the union of all method keys.
-        all_method_names = set(executed_methods_broken.keys()).union(executed_methods_repaired.keys())
+        all_method_names = set(executed_methods_broken) | set(executed_methods_repaired)
 
         for method_name in sorted(all_method_names):
-            broken_code = executed_methods_broken.get(method_name, '')
-            print("broken code: ecsc 531 " + broken_code)
-            repaired_code = executed_methods_repaired.get(method_name, '')
-            print("repaired code: ecsc 533 " + repaired_code)
-            diff = list(difflib.unified_diff(broken_code.splitlines(), repaired_code.splitlines(), lineterm=""))
-            print("raw diff: " + " ".join(diff))
+            broken_code = executed_methods_broken.get(method_name, "")
+            repaired_code = executed_methods_repaired.get(method_name, "")
+
+            diff = list(difflib.unified_diff(
+                broken_code.splitlines(),
+                repaired_code.splitlines(),
+                lineterm=""
+            ))
             diff = self.filter_diff_lines(diff)
-            print("filtered diff: " + " ".join(diff))
+
             if diff:
-                formatted_hunk = self.format_inline_diff(method_name, diff)
+                hunk = self.format_inline_diff(method_name, diff)
             else:
-                # Even if there is no diff, output the full repaired method code wrapped in a hunk.
-                formatted_hunk = f"[<HUNK>] {method_name}\n{repaired_code}\n[</HUNK>]"
-            # Prepend the class header based on the method key (format: "Class.method")
+                hunk = f"[<HUNK>] {method_name}\n{repaired_code}\n[</HUNK>]"
+
             class_name = method_name.split(".")[0]
-            result.append(f'class {class_name}:')
-            result.append(formatted_hunk)
+            result.append(f"class {class_name}:")
+            result.append(hunk)
 
         return "\n\n".join(result)
 
@@ -636,19 +673,7 @@ class RepositoryActions:
         cov.load()
         data = cov.get_data()
 
-        covered_source = ""
-        for filename in sorted(data.measured_files()):
-            executed_lines = data.lines(filename)
-            if executed_lines:
-                try:
-                    with open(filename, encoding="utf-8") as f:
-                        source_lines = f.readlines()
-                    # Coverage reports lines 1-indexed.
-                    executed_source = "".join(source_lines[i - 1] for i in sorted(executed_lines))
-                    covered_source += f"{executed_source}\n"
-                except Exception as e:
-                    print(f"Error reading file {filename}: {e}")
-        return covered_source
+        return data
 
     def extract_method_code(self, rel_path, test_method):
         """
