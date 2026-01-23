@@ -261,7 +261,7 @@ def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
     subprocess.check_call([
         python_bin, "-u", str(miner),
         full_name, repository_path, out_path
-    ], timeout=600, env=env)
+    ], timeout=60*2000, env=env)
 
 def clone_environment_to_venv(python_bin):
     # 1. freeze current environment
