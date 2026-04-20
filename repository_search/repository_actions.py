@@ -49,7 +49,10 @@ class RepositoryActions:
 
         print(f"Cloning repository from {repo_url} to {dest_dir}...")
         cmd = ["git", "clone", repo_url, dest_dir]
-        subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
+        clone_result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
+        if clone_result.returncode != 0:
+            print(f"Failed to clone {repo_url}: {clone_result.stderr}")
+            raise Exception(f"git clone failed for {self.repository_name}")
 
         cmd = [sys.executable, "-m", "pip", "install", "."]
         result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
@@ -207,7 +210,7 @@ class RepositoryActions:
 
                 # ---------- child must PASS ----------
                 if self.move_to_later_commit() == "Error":
-                    continue
+                    break
                 child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
 
                 if child.status != TestVerdict.SUCCESS:
@@ -684,6 +687,13 @@ class RepositoryActions:
         test_file_path = self.repo_dir / rel_path
         nodeid = f"{test_file_path.as_posix()}::{test_method}"
 
+        # Remove stale coverage files from previous runs before starting.
+        for stale in self.repo_dir.glob(".coverage*"):
+            try:
+                stale.unlink()
+            except Exception:
+                pass
+
         # Run the test via coverage in parallel mode.
         cmd = [
             sys.executable, "-m", "coverage", "run", "--parallel-mode", "-m", "pytest",
@@ -698,6 +708,10 @@ class RepositoryActions:
         combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
         print("Coverage combine returned:", combine_return)
         print("Coverage combine log:", combine_log)
+
+        if combine_return != 0:
+            print(f"Coverage combine failed (return code {combine_return}). Skipping coverage load.")
+            return None
 
         # Load the combined coverage data.
         cov_data_file = self.repo_dir / ".coverage"
