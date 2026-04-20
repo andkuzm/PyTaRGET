@@ -30,7 +30,7 @@ class GitHubSearch:
         commits_url = f"https://api.github.com/repos/{full_name}/commits"
         headers = {}
         if self.github_token:
-            headers['Authorization'] = f'token {self.github_token}'
+            headers['Authorization'] = f'Bearer {self.github_token}'
         params = {"per_page": 1}
         response = requests.get(commits_url, headers=headers, params=params)
         if response.status_code == 200:
@@ -202,6 +202,10 @@ class GitHubSearch:
             if page > 1:
                 response = self._github_search_request(headers, {**params, "page": page})
                 if response is None:
+                    print(
+                        f"Warning: GitHub API returned no response at page {page} of size range "
+                        f"[{size_start}, {size_end}). Successfully retrieved {page - 1} page(s) before failure."
+                    )
                     break
                 data = response.json()
 
@@ -213,6 +217,7 @@ class GitHubSearch:
                 full_name = repo.get("full_name")
                 if full_name in processed_repos:
                     continue
+                processed_repos.add(full_name)
                 print(f"Processing repository: {full_name}")
                 success = self.process_repository_with_timeout(full_name)
                 if not success:
@@ -221,7 +226,6 @@ class GitHubSearch:
                 latest_commit = self.get_latest_commit(full_name)
                 with self.processed_file.open("a", encoding="utf-8") as f:
                     f.write(f"{full_name}|{latest_commit}\n")
-                processed_repos.add(full_name)
 
                 self.run_pytest_check(full_name)
 
@@ -253,7 +257,7 @@ class GitHubSearch:
 
         headers = {}
         if self.github_token:
-            headers['Authorization'] = f'token {self.github_token}'
+            headers['Authorization'] = f'Bearer {self.github_token}'
 
         license_filters = [
             f"license:mit language:python stars:>={stars}",
@@ -289,7 +293,10 @@ class GitHubSearch:
         if p.is_alive():
             print(f"Timeout while processing {full_name}. Killing process.")
             p.terminate()
-            p.join()
+            p.join(timeout=30)
+            if p.is_alive():
+                p.kill()
+                p.join()
             timed_out = True
 
         duration = time.time() - start
@@ -326,10 +333,17 @@ def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
 
     subprocess.run([python_bin, "-m", "pip", "install", "pytest", "coverage"], timeout=600, check=False)
 
-    subprocess.check_call([
-        python_bin, "-u", str(miner),
-        full_name, repository_path, out_path
-    ], timeout=PROCESS_TIMEOUT + 60, env=env)
+    try:
+        subprocess.check_call([
+            python_bin, "-u", str(miner),
+            full_name, repository_path, out_path
+        ], timeout=PROCESS_TIMEOUT + 60, env=env)
+    except subprocess.TimeoutExpired:
+        print(f"Subprocess timed out while processing {full_name}.")
+        raise
+    except subprocess.CalledProcessError as e:
+        print(f"Subprocess failed for {full_name} with exit code {e.returncode}.")
+        raise
 
 
 if __name__ == "__main__":

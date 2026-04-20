@@ -1,4 +1,5 @@
 import csv
+import fcntl
 import os
 import shutil
 import stat
@@ -49,13 +50,17 @@ class Main:
 
     def save_case(self, repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log):
         output_file = Path(self.out_path) / "annotated_cases.csv"
-        file_exists = output_file.exists()
 
         with output_file.open("a", newline='', encoding="utf-8") as csvfile:
-            writer = csv.writer(csvfile, delimiter='|')
-            if not file_exists:
-                writer.writerow(["repository_name", "annotated_code", "relative_path", "broken_hash", "repaired_hash", "outdated_test_log"])
-            writer.writerow([repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log])
+            fcntl.flock(csvfile, fcntl.LOCK_EX)
+            try:
+                write_header = output_file.stat().st_size == 0
+                writer = csv.writer(csvfile, delimiter='|', quoting=csv.QUOTE_ALL)
+                if write_header:
+                    writer.writerow(["repository_name", "annotated_code", "relative_path", "broken_hash", "repaired_hash", "outdated_test_log"])
+                writer.writerow([repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log])
+            finally:
+                fcntl.flock(csvfile, fcntl.LOCK_UN)
 
         print(f"Saved annotated case for repository '{repository_name}' to {output_file}")
         
