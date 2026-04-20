@@ -52,7 +52,10 @@ class RepositoryActions:
         subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
 
         cmd = [sys.executable, "-m", "pip", "install", "."]
-        print(subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir))
+        result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
+        if result.returncode != 0:
+            print(f"Warning: pip install failed for {self.repository_name}:\n{result.stderr}")
+            raise Exception("pip install failed; skipping repository")
 
         hash_cmd = ["git", "rev-parse", "HEAD"]
         hash_result = subprocess.run(hash_cmd, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
@@ -97,15 +100,16 @@ class RepositoryActions:
         test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
         original_content = test_file_path.read_text(encoding="utf-8")
 
-        # Replace only the method body
-        current_method_code = self.extract_method_code(rel_path, test_method)
-        if not current_method_code:
+        line_range = self._get_method_line_range(rel_path, test_method)
+        if line_range is None:
             return TestVerdict(TestVerdict.UNKNOWN, None, "Target test method not found")
 
-        patched_test_code = overridden_test_code
+        start, end = line_range
 
         try:
-            new_content = original_content.replace(current_method_code, patched_test_code)
+            lines = original_content.splitlines(keepends=True)
+            new_lines = lines[:start] + [overridden_test_code + "\n"] + lines[end:]
+            new_content = "".join(new_lines)
             test_file_path.write_text(new_content, encoding="utf-8")
 
             self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
@@ -137,12 +141,26 @@ class RepositoryActions:
         """
         repaired_cases = set()
 
+        result = subprocess.run(
+            ["git", "log", "--format=%H", "--diff-filter=M", "--", "*/test_*.py", "*/tests/*.py"],
+            cwd=self.repo_dir, capture_output=True, text=True
+        )
+        relevant_commits = set(result.stdout.splitlines())
+
         while True:
             child_commit = self.current_hash
 
             parent_commit = self.move_to_earlier_commit()
             if parent_commit == "Error":
                 break
+
+            if child_commit not in relevant_commits and parent_commit not in relevant_commits:
+                print(f"Skipping commit pair {parent_commit[:8]}..{child_commit[:8]}: no test file changes")
+                dest_dir = str(self.repo_dir)
+                if not self.git_checkout_with_retry(dest_dir, parent_commit):
+                    break
+                self.current_hash = parent_commit
+                continue
 
             print(f"Processing commit pair: Parent: {parent_commit} | Child: {child_commit}")
 
@@ -271,9 +289,14 @@ class RepositoryActions:
         unchanged_after = []
         repaired_lines_only = []
 
+        last_change_idx = -1
+        for i, line in enumerate(diff_lines):
+            if line.startswith("-") or line.startswith("+"):
+                last_change_idx = i
+
         in_change_block = False
 
-        for line in diff_lines:
+        for i, line in enumerate(diff_lines):
             if line.startswith("@@"):
                 continue
             elif line.startswith("-"):
@@ -283,10 +306,14 @@ class RepositoryActions:
                 repaired_lines_only.append(line[1:])
                 in_change_block = True
             else:
-                if in_change_block:
+                if not in_change_block:
+                    unchanged_before.append(line)
+                elif i > last_change_idx:
                     unchanged_after.append(line)
                 else:
-                    unchanged_before.append(line)
+                    # inter-hunk context: present in both broken and repaired versions
+                    breakage_lines.append(line)
+                    repaired_lines_only.append(line)
 
         imports = self.extract_test_imports(rel_path)
 
@@ -344,6 +371,11 @@ class RepositoryActions:
 
         parent_hash = proc_parent.stdout.strip()
         print(f"Parent commit hash: {parent_hash}")
+
+        if parent_hash in self.visited_commits:
+            print(f"Cycle detected at {parent_hash}. Stopping traversal.")
+            return "Error"
+        self.visited_commits.add(parent_hash)
 
         if not self.git_checkout_with_retry(dest_dir, parent_hash):
             print(f"Error checking out parent commit {parent_hash}. Ending iteration.")
@@ -515,6 +547,8 @@ class RepositoryActions:
     def extract_covered_source_coverage(self, rel_path, test_method, broken_hash, repaired_hash):
         dest_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
 
+        test_file_abs = str((self.repo_dir / rel_path).resolve())
+
         # --- BROKEN ---
         subprocess.run(["git", "checkout", broken_hash], cwd=dest_dir)
         broken_data = self.get_covered_source(rel_path, test_method, broken_hash)
@@ -522,7 +556,7 @@ class RepositoryActions:
         executed_methods_broken = {}
         if broken_data is not None:
             for filename in broken_data.measured_files():
-                if not filename.endswith(".py") or "tests" in filename:
+                if not filename.endswith(".py") or os.path.abspath(filename) == test_file_abs:
                     continue
                 lines = broken_data.lines(filename)
                 if lines:
@@ -537,7 +571,7 @@ class RepositoryActions:
         executed_methods_repaired = {}
         if repaired_data is not None:
             for filename in repaired_data.measured_files():
-                if not filename.endswith(".py") or "tests" in filename:
+                if not filename.endswith(".py") or os.path.abspath(filename) == test_file_abs:
                     continue
                 lines = repaired_data.lines(filename)
                 if lines:
@@ -672,6 +706,49 @@ class RepositoryActions:
         data = cov.get_data()
 
         return data
+
+    def _get_method_line_range(self, rel_path, test_method):
+        """Returns (start, end) as 0-indexed line indices for slicing, or None if not found."""
+        test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
+        if not test_file_path.exists():
+            return None
+        try:
+            source_code = test_file_path.read_text(encoding="utf-8")
+            tree = ast.parse(source_code)
+        except Exception:
+            return None
+
+        target = test_method.split(".")
+        want_class = target[0] if len(target) == 2 else None
+        want_method = target[-1]
+
+        class RangeFinder(ast.NodeVisitor):
+            def __init__(self):
+                self.result = None
+
+            def _range(self, node):
+                decorator_lines = [d.lineno for d in node.decorator_list] if node.decorator_list else []
+                start = min(decorator_lines + [node.lineno]) - 1
+                end = node.end_lineno
+                self.result = (start, end)
+
+            def visit_FunctionDef(self, node):
+                if want_class is None and node.name == want_method:
+                    self._range(node)
+
+            def visit_AsyncFunctionDef(self, node):
+                if want_class is None and node.name == want_method:
+                    self._range(node)
+
+            def visit_ClassDef(self, node):
+                if want_class and node.name == want_class:
+                    for item in node.body:
+                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == want_method:
+                            self._range(item)
+
+        finder = RangeFinder()
+        finder.visit(tree)
+        return finder.result
 
     def extract_method_code(self, rel_path, test_method):
         """
