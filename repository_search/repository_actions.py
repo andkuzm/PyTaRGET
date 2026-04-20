@@ -97,15 +97,12 @@ class RepositoryActions:
         test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
         original_content = test_file_path.read_text(encoding="utf-8")
 
-        # Extract imports once
-        imports = self.extract_test_imports(rel_path)
-
         # Replace only the method body
         current_method_code = self.extract_method_code(rel_path, test_method)
         if not current_method_code:
             return TestVerdict(TestVerdict.UNKNOWN, None, "Target test method not found")
 
-        patched_test_code = imports + "\n\n" + overridden_test_code
+        patched_test_code = overridden_test_code
 
         try:
             new_content = original_content.replace(current_method_code, patched_test_code)
@@ -328,9 +325,10 @@ class RepositoryActions:
         Raises an exception if a cycle is detected.
         """
 
-        # if self.commit_counter >= 300:
-        #     print("Commit counter limit reached.")
-        #     return "Error"
+        MAX_COMMITS = 300
+        if self.commit_counter >= MAX_COMMITS:
+            print(f"Commit counter limit ({MAX_COMMITS}) reached.")
+            return "Error"
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         self.previous_hash = self.current_hash
@@ -381,8 +379,7 @@ class RepositoryActions:
         print(f"Repository is now at commit: {self.current_hash}")
         return self.current_hash
 
-    def git_checkout_with_retry(self, dest_dir, target_hash, retries=1000):
-        print("retrying")
+    def git_checkout_with_retry(self, dest_dir, target_hash, retries=5):
         for attempt in range(1, retries + 1):
             subprocess.run(["git", "reset", "--hard"], cwd=dest_dir)
             subprocess.run(["git", "clean", "-fdx"], cwd=dest_dir)
@@ -392,9 +389,8 @@ class RepositoryActions:
             if proc.returncode == 0:
                 return True
 
-            print(f"Checkout to {target_hash} failed (attempt {attempt}): {proc.stderr}")
-
-            time.sleep(1)
+            print(f"Checkout to {target_hash} failed (attempt {attempt}/{retries}): {proc.stderr}")
+            time.sleep(2 ** attempt)
 
         return False
 
@@ -524,28 +520,30 @@ class RepositoryActions:
         broken_data = self.get_covered_source(rel_path, test_method, broken_hash)
 
         executed_methods_broken = {}
-        for filename in broken_data.measured_files():
-            if not filename.endswith(".py") or "tests" in filename:
-                continue
-            lines = broken_data.lines(filename)
-            if lines:
-                executed_methods_broken.update(
-                    self.extract_executed_methods_from_file(filename, lines)
-                )
+        if broken_data is not None:
+            for filename in broken_data.measured_files():
+                if not filename.endswith(".py") or "tests" in filename:
+                    continue
+                lines = broken_data.lines(filename)
+                if lines:
+                    executed_methods_broken.update(
+                        self.extract_executed_methods_from_file(filename, lines)
+                    )
 
         # --- REPAIRED ---
         subprocess.run(["git", "checkout", repaired_hash], cwd=dest_dir)
         repaired_data = self.get_covered_source(rel_path, test_method, repaired_hash)
 
         executed_methods_repaired = {}
-        for filename in repaired_data.measured_files():
-            if not filename.endswith(".py") or "tests" in filename:
-                continue
-            lines = repaired_data.lines(filename)
-            if lines:
-                executed_methods_repaired.update(
-                    self.extract_executed_methods_from_file(filename, lines)
-                )
+        if repaired_data is not None:
+            for filename in repaired_data.measured_files():
+                if not filename.endswith(".py") or "tests" in filename:
+                    continue
+                lines = repaired_data.lines(filename)
+                if lines:
+                    executed_methods_repaired.update(
+                        self.extract_executed_methods_from_file(filename, lines)
+                    )
 
         if not executed_methods_broken and not executed_methods_repaired:
             return ""
@@ -632,7 +630,7 @@ class RepositoryActions:
         )
         if proc.returncode != 0:
             print(f"Git checkout failed: {proc.stderr}")
-            return ""
+            return None
 
         # Ensure a .coveragerc file exists.
         coveragerc_path = self.repo_dir / ".coveragerc"
