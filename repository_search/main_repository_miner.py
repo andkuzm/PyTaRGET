@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import repository_actions
-print(">>> main_repository_miner started", flush=True)
+
 class Main:
     def __init__(self, repository_name, repository_path, out_path):
         self.repository_name = repository_name
@@ -33,13 +33,6 @@ class Main:
             else:
                 print("Repository does not contain tests.")
 
-            # Cleanup: remove the cloned repository folder and uninstall the package.
-            def handle_remove_readonly(func, path, exc_info):
-                os.chmod(path, stat.S_IWRITE)
-                func(path)
-
-            dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
-            shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
             try:
                 subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", self.repository_name.split("/")[-1]],
                                capture_output=True, text=True, check=True, env=os.environ)
@@ -67,6 +60,7 @@ class Main:
         print(f"Saved annotated case for repository '{repository_name}' to {output_file}")
         
 if __name__ == "__main__":
+    print(">>> main_repository_miner started", flush=True)
     import sys
     repository_name = sys.argv[1]
     repository_path = sys.argv[2]

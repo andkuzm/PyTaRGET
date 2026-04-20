@@ -1,5 +1,6 @@
 import os
 import re
+import signal
 import shlex
 import subprocess
 import sys
@@ -52,14 +53,14 @@ def run_cmd(cmd, timeout, cwd, env):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
-            cwd=cwd
+            cwd=cwd,
+            start_new_session=True
         )
         stdout, stderr = proc.communicate(timeout=timeout)
-        # Combine stdout and stderr for complete output
         output = stdout.decode("utf-8", errors="ignore") + "\n" + stderr.decode("utf-8", errors="ignore")
         return proc.returncode, output
     except TimeoutExpired:
-        proc.kill()
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
         stdout, stderr = proc.communicate()
         return 124, (stdout + stderr).decode("utf-8", errors="ignore")
 
@@ -89,7 +90,7 @@ def parse_invalid_execution_py(log):
     return TestVerdict(TestVerdict.UNKNOWN, None, log)
 
 
-def compile_and_run_test_python(project_path, test_rel_path, test_method, log_path, save_logs=True, timeout=15 * 60):
+def compile_and_run_test_python(project_path, test_rel_path, test_method, log_path, timeout=15 * 60):
     """
     Run a single Python test using pytest.
     - project_path: Path object to the project root.
