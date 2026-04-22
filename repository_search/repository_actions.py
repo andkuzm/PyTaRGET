@@ -209,7 +209,7 @@ class RepositoryActions:
                 # ---------- override must FAIL ----------
                 overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
 
-                if overridden.status == TestVerdict.FAILURE:
+                if overridden.status in (TestVerdict.FAILURE, TestVerdict.SYNTAX_ERR):
                     repaired_cases.add(
                         Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path, overridden.log)
                     )
@@ -247,6 +247,9 @@ class RepositoryActions:
             broken_to_repaired_instance.broken,
             broken_to_repaired_instance.repaired
         )
+
+        if not source_code:
+            return "Error"
 
         annotated_code = self.annotate_code(broken_test, repaired_test, source_code, broken_to_repaired_instance.rel_path)
         return annotated_code
@@ -418,6 +421,8 @@ class RepositoryActions:
         test_methods = []
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+                if any("parametrize" in (ast.get_source_segment(source, d) or "") for d in node.decorator_list):
+                    continue
                 test_methods.append([test_rel_path, node.name])
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
