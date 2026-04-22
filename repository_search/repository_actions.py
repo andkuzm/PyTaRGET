@@ -41,13 +41,11 @@ class RepositoryActions:
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
 
         if os.path.exists(dest_dir):
-            print(f"Repository already exists at {dest_dir}. Removing it...")
             def handle_remove_readonly(func, path, exc_info):
                 os.chmod(path, stat.S_IWRITE)
                 func(path)
             shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
 
-        print(f"Cloning repository from {repo_url} to {dest_dir}...")
         cmd = ["git", "clone", repo_url, dest_dir]
         clone_result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
         if clone_result.returncode != 0:
@@ -66,7 +64,6 @@ class RepositoryActions:
             latest_hash = hash_result.stdout.strip()
             self.set_current_hash(latest_hash)
             self.visited_commits.add(latest_hash)
-            print(f"Current commit hash set to: {self.current_hash}")
         else:
             print("Error obtaining latest commit hash:", hash_result.stderr)
             raise Exception("Failed to obtain commit hash")
@@ -74,7 +71,6 @@ class RepositoryActions:
         return dest_dir
 
     def has_tests(self):
-        print("Checking if tests exist")
         test_patterns = [r"def\s+test_"]
         for root, dirs, files in os.walk(self.repo_dir):
             for file in files:
@@ -84,11 +80,9 @@ class RepositoryActions:
                         content = file_path.read_text(encoding="utf-8").splitlines()
                         for line in content:
                             if any(re.search(pattern, line) for pattern in test_patterns):
-                                print(f"Test file found: {file_path}")
                                 return True
                     except Exception as e:
                         continue
-        print("Tests not found")
         return False
 
 
@@ -158,14 +152,11 @@ class RepositoryActions:
                 break
 
             if child_commit not in relevant_commits and parent_commit not in relevant_commits:
-                print(f"Skipping commit pair {parent_commit[:8]}..{child_commit[:8]}: no test file changes")
                 dest_dir = str(self.repo_dir)
                 if not self.git_checkout_with_retry(dest_dir, parent_commit):
                     break
                 self.current_hash = parent_commit
                 continue
-
-            print(f"Processing commit pair: Parent: {parent_commit} | Child: {child_commit}")
 
             # --- collect parent tests ---
             parent_methods = {}
@@ -204,7 +195,6 @@ class RepositoryActions:
                 parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
 
                 if parent.status != TestVerdict.SUCCESS:
-                    print(f"Skipping {key}: parent does not PASS ({parent.status})")
                     self.move_to_later_commit()
                     continue
 
@@ -214,14 +204,12 @@ class RepositoryActions:
                 child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
 
                 if child.status != TestVerdict.SUCCESS:
-                    print(f"Skipping {key}: child does not PASS ({child.status})")
                     continue
 
                 # ---------- override must FAIL ----------
                 overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
 
                 if overridden.status == TestVerdict.FAILURE:
-                    print(f"Repaired test detected: {key}")
                     repaired_cases.add(
                         Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path, overridden.log)
                     )
@@ -236,24 +224,19 @@ class RepositoryActions:
         return repaired_cases
 
     def extract_and_annotate_code(self, broken_to_repaired_instance):
-        print("Attempting to extract and annotate code")
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
 
-        # Checkout to the parent's commit (broken test).
         if not self.checkout_commit(broken_to_repaired_instance.broken, dest_dir):
             return "Error"
         self.current_hash = broken_to_repaired_instance.broken
         self.set_full_permissions()
-        print(f"Repository at broken commit: {self.current_hash}")
         broken_test = self.extract_method_code(broken_to_repaired_instance.rel_path,
                                                broken_to_repaired_instance.test_name)
 
-        # Checkout to the child's commit (repaired test).
         if not self.checkout_commit(broken_to_repaired_instance.repaired, dest_dir):
             return "Error"
         self.current_hash = broken_to_repaired_instance.repaired
         self.set_full_permissions()
-        print(f"Repository at repaired commit: {self.current_hash}")
         repaired_test = self.extract_method_code(broken_to_repaired_instance.rel_path,
                                                  broken_to_repaired_instance.test_name)
 
@@ -357,7 +340,6 @@ class RepositoryActions:
 
         MAX_COMMITS = 300
         if self.commit_counter >= MAX_COMMITS:
-            print(f"Commit counter limit ({MAX_COMMITS}) reached.")
             return "Error"
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
@@ -373,23 +355,18 @@ class RepositoryActions:
             return "Error"
 
         parent_hash = proc_parent.stdout.strip()
-        print(f"Parent commit hash: {parent_hash}")
 
         if parent_hash in self.visited_commits:
-            print(f"Cycle detected at {parent_hash}. Stopping traversal.")
             return "Error"
         self.visited_commits.add(parent_hash)
 
         if not self.git_checkout_with_retry(dest_dir, parent_hash):
-            print(f"Error checking out parent commit {parent_hash}. Ending iteration.")
+            print(f"Error checking out parent commit {parent_hash}.")
             return "Error"
 
         self.current_hash = parent_hash
         self.commit_counter += 1
         self.set_full_permissions()
-
-        print(
-            f"Repository is now at commit: {self.current_hash}, previously invoked move_to_earlier_commit: {self.commit_counter} times")
         return parent_hash
 
     def move_to_later_commit(self):
@@ -398,7 +375,6 @@ class RepositoryActions:
         """
 
         if self.previous_hash is None:
-            print("Either attempting to reverse second time, or first commit")
             return "Error"
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
@@ -410,8 +386,6 @@ class RepositoryActions:
         self.current_hash = self.previous_hash
         self.previous_hash = None
         self.set_full_permissions()
-
-        print(f"Repository is now at commit: {self.current_hash}")
         return self.current_hash
 
     def git_checkout_with_retry(self, dest_dir, target_hash, retries=5):
@@ -700,17 +674,11 @@ class RepositoryActions:
             "--maxfail=1", "--disable-warnings", "--quiet", nodeid
         ]
         returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
-        print("pytest/coverage run returned:", returncode)
-        print("Log output:", log)
 
-        # Combine coverage data from subprocesses.
         combine_cmd = [sys.executable, "-m", "coverage", "combine"]
         combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
-        print("Coverage combine returned:", combine_return)
-        print("Coverage combine log:", combine_log)
 
         if combine_return != 0:
-            print(f"Coverage combine failed (return code {combine_return}). Skipping coverage load.")
             return None
 
         # Load the combined coverage data.
@@ -852,7 +820,6 @@ class RepositoryActions:
         return any(line.startswith(('+', '-')) and meaningful(line) for line in diff)
 
     def list_test_files(self):
-        print("Listing test files")
         self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         files_paths = []
         test_patterns = [r"def\s+test_"]
