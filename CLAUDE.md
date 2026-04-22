@@ -85,20 +85,33 @@ experiment.get_metrics_llm()
 
 ## Dataset Mining
 
+**Interactive CLI (primary usage):** run the file directly from any working directory:
+
+```bash
+python repository_search/GitHubSearch.py
+```
+
+It prompts for a GitHub token and a version name, then derives all paths from the CWD:
+- `annotated_cases_{version}.csv` — output dataset
+- `processed_repositories_{version}.txt` — blacklist (resume file)
+- `repos_{version}/` — temporary clone directory
+
+If those files already exist the run resumes automatically, skipping already-processed repos.
+
+**Programmatic use:**
+
 ```python
-# repository_search/GitHubSearch.py (run the file directly or import)
 from repository_search.GitHubSearch import GitHubSearch
 
 searcher = GitHubSearch(
     github_token="<token with public read>",
-    repository_path="<dir to clone repos into>",
-    out_path="<path to annotated_cases.csv or parent dir>",
+    version="v1",    # all paths derived from CWD + version name
 )
 searcher.find_and_process_repositories()
 ```
 
-- Searches ~3,000 repos (3 queries × 1,000, sorted by stars). To go beyond that, tighten the size bounds at `GitHubSearch.py:76-78`.
-- `repository_search/processed_repositories.txt` is a blacklist (`owner/repo|commit` or `owner/repo`). Entries prevent re-processing and guard against repos that break installed modules via `pip install -e .` side-effects.
+- Searches ~3,000 repos (3 queries × 1,000, sorted by stars). To go beyond that, tighten the size bounds in `find_and_process_repositories` at `GitHubSearch.py:197`.
+- `processed_repositories_{version}.txt` (written to CWD) is a blacklist (`owner/repo|commit` or `owner/repo`). Entries prevent re-processing and guard against repos that break installed modules via `pip install -e .` side-effects.
 - Tests inside repos are run via subprocess. To resolve PYTHONPATH inside the subprocess, every repo is installed with `pip install -e .`; this can corrupt packages in the outer environment — the blacklist exists partly for this reason.
 
 ---

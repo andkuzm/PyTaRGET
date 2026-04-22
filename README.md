@@ -135,28 +135,17 @@ For instruction-tuned models, there is a ref results, where an already reannotat
 
 **Python dataset collection**
 
-Dataset collection process was conducted in PyCharm IDE, by creating an instance of GitHubSearch:
+Dataset collection is done by running GitHubSearch.py directly from any directory:
 ```
-GitHubSearch(
-    github_token="",
-    repository_path="",
-    out_path=""
-)
+python repository_search/GitHubSearch.py
 ```
-class, there GitHub token needs to grant ability to read public repositories, repository_path is a path to folder into which searched repositories will be cloned, and out_path is either a path to existing annotated_cases.csv file, or a path to folder in which it will be created during the run.
+It will ask for a GitHub token (needs public read access) and a version name. The version name is used to name all output files, for example with version name "v1":
+- `annotated_cases_v1.csv` — the collected dataset, written to the current directory
+- `processed_repositories_v1.txt` — list of already-processed repositories, also in the current directory
+- `repos_v1/` — temporary directory where repositories are cloned during processing
 
-in the GitHubSearch.py there is this code at the bottom:
-```
-searcher = GitHubSearch(
-    github_token="",
-    repository_path="",
-    out_path=""
-)
-searcher.find_and_process_repositories()
-```
-Easiest way to continue the process is to fill the parameters and run this file.
+If those files already exist the run resumes from where it left off, skipping repositories that were already processed.
 
+Right now the tool will search through up to a thousand repositories per query (there are 3 queries for different licenses), sorted by stars, so up to 3000 total. If it is desired to process more, the easiest way is to set tighter size boundaries by passing smaller `size_start`/`size_end` values to `find_and_process_repositories` and running multiple passes. The parameters and their defaults are in `GitHubSearch.py` on line 197.
 
-Right now the way it is done, it will only search through first thousand repositories that are of acceptable licenses, has python as their language and are of sizes within allowed boundaries, sorted by number of stars for each query (there are 3 of them), so if it is desired to process more than 3000, the easiest way to do so, is to set smaller boundries within GitHubSearch.py 76-78 lines, and move them processing 3000 for each query.
-
-repository_search/processed_repositories.txt file contains all repositories that were processed  during this research to get annotated_cases.csv, most contain repositories in format: repository_owner/repository_name|latest_commit_at_the_time_of_processing, but at the top there are some repositories written in a repository_owner/repository_name format, This can be seen as a kind of blacklist in a way, to prevent GitHubSearch class from  attempting to process them as it could for some of them lead to infinite loop or second variant - it could break some modules, which will be explained next. To run pytest inside the main python process, subprocess module was used, and when using subprocess to run pytest it is necessary to resolve problem of imports. Usually when running Python IDE solves the PYTHONPATH without user intervention, allowing Python to import necessary modules from within projects, but subprocess as it is currently implemented has problems doing it, so instead in the subprocess environment every repository was installed, using ```pip install -e .``` allowing PYTHONPATH to be resolved automatically, but this process can also break some of the installed modules that were used in the environment, preventing them from working correctly.
+The `processed_repositories_{version}.txt` file acts as a blacklist: entries in the format `repository_owner/repository_name|latest_commit_hash` prevent the same repository from being processed twice. It also guards against repositories that could break installed packages — to run pytest inside each repository a subprocess is used, and to resolve imports in that subprocess every repository is installed with `pip install -e .`, which can occasionally corrupt packages in the outer environment. Repositories known to cause this can be added to the file manually.
