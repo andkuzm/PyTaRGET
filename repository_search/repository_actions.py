@@ -341,7 +341,7 @@ class RepositoryActions:
         Raises an exception if a cycle is detected.
         """
 
-        MAX_COMMITS = 300
+        MAX_COMMITS = 500
         if self.commit_counter >= MAX_COMMITS:
             return "Error"
 
