@@ -220,6 +220,12 @@ class GitHubSearch:
             f"license:mit language:python stars:>={stars}",
             f"license:apache-2.0 language:python stars:>={stars}",
             f"license:Unlicense language:python stars:>={stars}",
+            f"license:bsd-2-clause language:python stars:>={stars}",
+            f"license:bsd-3-clause language:python stars:>={stars}",
+            f"license:isc language:python stars:>={stars}",
+            f"license:lgpl-2.1 language:python stars:>={stars}",
+            f"license:gpl-2.0 language:python stars:>={stars}",
+            f"license:gpl-3.0 language:python stars:>={stars}",
         ]
 
         for query_base in license_filters:

@@ -6,6 +6,7 @@ import stat
 import subprocess
 import sys
 import time
+from collections import deque
 from difflib import SequenceMatcher
 from pathlib import Path
 import re
@@ -120,106 +121,129 @@ class RepositoryActions:
 
     def find_repaired_test_cases(self):
         """
-        Revised approach iterating over commit pairs:
-          The method iterates over commit pairs (child and its immediate parent) until it reaches
-          the beginning of the commit history or a stop condition from move_to_earlier_commit.
-          For each pair:
-             1. In the parent commit, extract test methods' source code.
-             2. Switch back to the child commit and extract test methods' source code.
-             3. For each test method present in both commits, if the parent's and child's code differ
-                (determined at hunk-level using difflib), then:
-                 a. Verify the test passes in the parent commit.
-                 b. Verify the test passes in the child commit.
-                 c. Run the parent's test code on the child's source using run_test_with_overridden_test_code.
-                 d. If the override test fails, record it as a repaired test case.
-          After processing the pair, update the current commit to the parent commit for the next iteration.
-        Returns:
-          A set of Broken_to_repaired objects representing detected repaired test cases.
+        BFS over the full commit DAG, following all parents of every merge commit.
+        This surfaces repair commits that live on non-first-parent (feature-branch)
+        history, which the previous linear HEAD^ walk missed entirely.
+
+        For each (child, parent) pair:
+          1. Collect test method source in the parent commit.
+          2. Collect test method source in the child commit.
+          3. For methods present in both that changed (difflib hunk-level):
+             a. Parent must PASS.
+             b. Child must PASS.
+             c. Override (child source + parent test code) must FAIL.
+             d. Record as a repaired test case.
+
+        commit_counter is incremented globally across all branches; once
+        MAX_COMMITS is reached the traversal stops.
         """
+        MAX_COMMITS = 500
         repaired_cases = set()
 
         result = subprocess.run(
-            ["git", "log", "--format=%H", "--diff-filter=M", "--", "*/test_*.py", "*/tests/*.py"],
+            ["git", "log", "--format=%H", "--diff-filter=M", "--", "*/test_*.py", "*_test.py", "*/tests/*.py"],
             cwd=self.repo_dir, capture_output=True, text=True
         )
         relevant_commits = set(result.stdout.splitlines())
 
-        while True:
-            child_commit = self.current_hash
+        queue = deque([self.current_hash])
+        dest_dir = str(self.repo_dir)
 
-            parent_commit = self.move_to_earlier_commit()
-            if parent_commit == "Error":
+        while queue:
+            if self.commit_counter >= MAX_COMMITS:
                 break
 
-            if child_commit not in relevant_commits and parent_commit not in relevant_commits:
-                dest_dir = str(self.repo_dir)
-                if not self.git_checkout_with_retry(dest_dir, parent_commit):
-                    break
-                self.current_hash = parent_commit
+            child_commit = queue.popleft()
+
+            proc = subprocess.run(
+                ["git", "cat-file", "-p", child_commit],
+                cwd=dest_dir, capture_output=True, text=True
+            )
+            if proc.returncode != 0:
                 continue
 
-            # --- collect parent tests ---
-            parent_methods = {}
-            for file in self.list_test_files():
-                rel_path = str(file.relative_to(self.repo_dir))
-                for (_, test_method) in self.find_test_methods(rel_path):
-                    code = self.extract_method_code(rel_path, test_method)
-                    if code:
-                        parent_methods[(rel_path, test_method)] = code
+            parents = [
+                line.split()[1]
+                for line in proc.stdout.splitlines()
+                if line.startswith("parent ")
+            ]
+            if not parents:
+                continue  # root commit
 
-            # --- back to child ---
-            if self.move_to_later_commit() == "Error":
-                break
-
-            child_methods = {}
-            for file in self.list_test_files():
-                rel_path = str(file.relative_to(self.repo_dir))
-                for (_, test_method) in self.find_test_methods(rel_path):
-                    code = self.extract_method_code(rel_path, test_method)
-                    if code:
-                        child_methods[(rel_path, test_method)] = code
-
-            # --- detect changed tests ---
-            changed_tests = {
-                k for k in parent_methods
-                if k in child_methods
-                   and self.is_test_method_changed(parent_methods[k], child_methods[k])
-            }
-
-            for key in changed_tests:
-                rel_path, test_method = key
-
-                # ---------- parent must PASS ----------
-                if self.move_to_earlier_commit() == "Error":
+            for parent_commit in parents:
+                if parent_commit in self.visited_commits:
                     continue
-                parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
-
-                if parent.status != TestVerdict.SUCCESS:
-                    self.move_to_later_commit()
-                    continue
-
-                # ---------- child must PASS ----------
-                if self.move_to_later_commit() == "Error":
+                if self.commit_counter >= MAX_COMMITS:
                     break
-                child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
 
-                if child.status != TestVerdict.SUCCESS:
+                self.visited_commits.add(parent_commit)
+                self.commit_counter += 1
+                queue.append(parent_commit)
+
+                if child_commit not in relevant_commits and parent_commit not in relevant_commits:
                     continue
 
-                # ---------- override must FAIL ----------
-                overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
+                # --- collect parent tests ---
+                if not self.git_checkout_with_retry(dest_dir, parent_commit):
+                    continue
+                self.set_full_permissions()
 
-                if overridden.status in (TestVerdict.FAILURE, TestVerdict.SYNTAX_ERR):
-                    repaired_cases.add(
-                        Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path, overridden.log)
-                    )
+                parent_methods = {}
+                for file in self.list_test_files():
+                    rel_path = str(file.relative_to(self.repo_dir))
+                    for (_, test_method) in self.find_test_methods(rel_path):
+                        code = self.extract_method_code(rel_path, test_method)
+                        if code:
+                            parent_methods[(rel_path, test_method)] = code
 
-            # --- move history pointer backward ---
-            dest_dir = str(self.repo_dir)
-            if not self.git_checkout_with_retry(dest_dir, parent_commit):
-                break
+                # --- collect child tests ---
+                if not self.git_checkout_with_retry(dest_dir, child_commit):
+                    continue
+                self.set_full_permissions()
 
-            self.current_hash = parent_commit
+                child_methods = {}
+                for file in self.list_test_files():
+                    rel_path = str(file.relative_to(self.repo_dir))
+                    for (_, test_method) in self.find_test_methods(rel_path):
+                        code = self.extract_method_code(rel_path, test_method)
+                        if code:
+                            child_methods[(rel_path, test_method)] = code
+
+                # --- detect changed tests ---
+                changed_tests = {
+                    k for k in parent_methods
+                    if k in child_methods
+                       and self.is_test_method_changed(parent_methods[k], child_methods[k])
+                }
+
+                for key in changed_tests:
+                    rel_path, test_method = key
+
+                    # ---------- parent must PASS ----------
+                    if not self.git_checkout_with_retry(dest_dir, parent_commit):
+                        continue
+                    self.set_full_permissions()
+                    parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+
+                    if parent.status != TestVerdict.SUCCESS:
+                        continue
+
+                    # ---------- child must PASS ----------
+                    if not self.git_checkout_with_retry(dest_dir, child_commit):
+                        continue
+                    self.set_full_permissions()
+                    child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+
+                    if child.status != TestVerdict.SUCCESS:
+                        continue
+
+                    # ---------- override must FAIL ----------
+                    overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
+
+                    if overridden.status in (TestVerdict.FAILURE, TestVerdict.SYNTAX_ERR):
+                        repaired_cases.add(
+                            Broken_to_repaired(parent_commit, child_commit, test_method, rel_path, overridden.log)
+                        )
 
         return repaired_cases
 
@@ -341,7 +365,7 @@ class RepositoryActions:
         Raises an exception if a cycle is detected.
         """
 
-        MAX_COMMITS = 300
+        MAX_COMMITS = 500
         if self.commit_counter >= MAX_COMMITS:
             return "Error"
 
@@ -431,9 +455,9 @@ class RepositoryActions:
                     (isinstance(base, ast.Attribute) and base.attr == "TestCase")
                     for base in node.bases
                 )
-                if inherits_testcase:
+                if inherits_testcase or node.name.startswith("Test"):
                     for item in node.body:
-                        if isinstance(item, ast.FunctionDef) and item.name.startswith("test_"):
+                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name.startswith("test_"):
                             test_methods.append([test_rel_path, f"{node.name}.{item.name}"])
         return test_methods
 
