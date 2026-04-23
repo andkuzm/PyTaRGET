@@ -431,7 +431,7 @@ class RepositoryActions:
                     (isinstance(base, ast.Attribute) and base.attr == "TestCase")
                     for base in node.bases
                 )
-                if inherits_testcase:
+                if inherits_testcase or node.name.startswith("Test"):
                     for item in node.body:
                         if isinstance(item, ast.FunctionDef) and item.name.startswith("test_"):
                             test_methods.append([test_rel_path, f"{node.name}.{item.name}"])
