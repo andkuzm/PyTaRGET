@@ -139,7 +139,7 @@ class RepositoryActions:
         repaired_cases = set()
 
         result = subprocess.run(
-            ["git", "log", "--format=%H", "--diff-filter=M", "--", "*/test_*.py", "*/tests/*.py"],
+            ["git", "log", "--format=%H", "--diff-filter=M", "--", "*/test_*.py", "*_test.py", "*/tests/*.py"],
             cwd=self.repo_dir, capture_output=True, text=True
         )
         relevant_commits = set(result.stdout.splitlines())
