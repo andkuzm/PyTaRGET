@@ -256,7 +256,12 @@ def run_processor_in_venv(full_name, repository_path, out_path, venv_path):
 
     miner = root / "repository_search" / "main_repository_miner.py"
 
-    subprocess.run([python_bin, "-m", "pip", "install", "pytest", "coverage"], timeout=600, check=False)
+    subprocess.run(
+        [python_bin, "-m", "pip", "install", "-q", "--disable-pip-version-check", "pytest", "coverage"],
+        timeout=600,
+        check=False,
+        capture_output=True,
+    )
 
     subprocess.check_call([
         python_bin, "-u", str(miner),

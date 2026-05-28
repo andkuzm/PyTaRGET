@@ -51,8 +51,10 @@ class RepositoryActions:
         cmd = ["git", "clone", repo_url, dest_dir]
         subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
 
-        cmd = [sys.executable, "-m", "pip", "install", "."]
-        print(subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir))
+        cmd = [sys.executable, "-m", "pip", "install", "-q", "--disable-pip-version-check", "."]
+        result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
+        if result.returncode != 0:
+            print(f"Warning: pip install failed for {self.repository_name}:\n{result.stderr.strip()}")
 
         hash_cmd = ["git", "rev-parse", "HEAD"]
         hash_result = subprocess.run(hash_cmd, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
