@@ -111,13 +111,33 @@ class RepositoryActions:
             test_file_path.write_text(new_content, encoding="utf-8")
 
             self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+            # Invalidate cached bytecode before running. The overridden test is
+            # frequently the same byte-size as the child test it replaces and is
+            # written within the same wall-clock second, so the .pyc header
+            # (source mtime at second resolution + size) still matches the
+            # stale, child-version bytecode. Without this, Python/pytest reuse
+            # that stale bytecode and the override spuriously *passes*, causing
+            # every genuine repaired case to be silently discarded.
+            self._invalidate_bytecode_cache()
             result = compile_and_run_test_python(
                 self.repo_dir, rel_path, test_method, self.repo_dir.parent
             )
         finally:
             test_file_path.write_text(original_content, encoding="utf-8")
+            self._invalidate_bytecode_cache()
 
         return result
+
+    def _invalidate_bytecode_cache(self):
+        """Remove cached bytecode under the repo so freshly written test source
+        is always recompiled (see run_test_with_overridden_test_code)."""
+        for cache_dir in self.repo_dir.rglob("__pycache__"):
+            shutil.rmtree(cache_dir, ignore_errors=True)
+        for pyc in self.repo_dir.rglob("*.pyc"):
+            try:
+                pyc.unlink()
+            except OSError:
+                pass
 
     def find_repaired_test_cases(self):
         """
@@ -671,6 +691,12 @@ class RepositoryActions:
         if proc.returncode != 0:
             print(f"Git checkout failed: {proc.stderr}")
             return None
+
+        # Checking out broken/repaired commits in place can leave stale .pyc
+        # files whose header (source mtime at second resolution + size) still
+        # matches the just-checked-out source, so coverage would measure the
+        # previous commit's bytecode and yield wrong/empty covered source.
+        self._invalidate_bytecode_cache()
 
         # Ensure a .coveragerc file exists.
         coveragerc_path = self.repo_dir / ".coveragerc"
