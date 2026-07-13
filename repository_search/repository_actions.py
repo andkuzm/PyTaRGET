@@ -13,7 +13,7 @@ import re
 import coverage
 
 from data_types.Broken_to_repaired import Broken_to_repaired
-from py_parser import compile_and_run_test_python, TestVerdict, run_cmd
+from py_parser import compile_and_run_test_python, TestVerdict, run_cmd, to_pytest_nodeid_part
 
 class RepositoryActions:
     def __init__(self, repository_name, repository_path, current_hash=None, previous_hash=None):
@@ -463,7 +463,11 @@ class RepositoryActions:
             print(f"Error parsing {full_test_path}: {e}")
             return []
         test_methods = []
-        for node in ast.walk(tree):
+        # Only module-level functions here; ast.walk() would also descend into
+        # class bodies and re-add class methods a second time under their bare
+        # (unqualified) name, producing bogus entries that can never be
+        # collected by pytest. Class methods are handled separately below.
+        for node in ast.iter_child_nodes(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
                 if any("parametrize" in (ast.get_source_segment(source, d) or "") for d in node.decorator_list):
                     continue
@@ -714,7 +718,7 @@ class RepositoryActions:
 
         # Build the test node id (using the absolute path of the test file).
         test_file_path = self.repo_dir / rel_path
-        nodeid = f"{test_file_path.as_posix()}::{test_method}"
+        nodeid = f"{test_file_path.as_posix()}::{to_pytest_nodeid_part(test_method)}"
 
         # Remove stale coverage files from previous runs before starting.
         for stale in self.repo_dir.glob(".coverage*"):

@@ -69,10 +69,21 @@ def parse_successful_execution_py(log):
     # You could further parse the log for additional information.
     return TestVerdict(TestVerdict.SUCCESS, None, log)
 
+def to_pytest_nodeid_part(test_method):
+    """Convert an internal test-method identifier ('test_foo' or the
+    class-qualified 'MyTestCase.test_foo') into pytest node-ID syntax
+    ('test_foo' or 'MyTestCase::test_foo'). Pytest node IDs separate every
+    component - file, class, method - with '::', not '.'."""
+    return test_method.replace(".", "::")
+
+
 def parse_test_failure_py(log, test_class, test_method):
     # Attempt to capture line numbers from a typical pytest traceback.
     # This regex might need adjustment based on your pytest configuration.
-    regex = rf"File \".+{test_class}.py\", line (\d+), in {test_method}"
+    # Tracebacks report only the bare method name ("in test_foo"), never the
+    # class-qualified form, so strip any class prefix before matching.
+    method_name = test_method.rsplit(".", 1)[-1]
+    regex = rf"File \".+{test_class}.py\", line (\d+), in {method_name}"
     matches = re.compile(regex).findall(log)
     if matches:
         error_lines = set([int(m) for m in matches])
@@ -109,7 +120,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     if not test_file.exists():
         raise FileNotFoundError(f"Test file does not exist: {test_file}")
 
-    nodeid = f"{test_file.as_posix()}::{test_method}"
+    nodeid = f"{test_file.as_posix()}::{to_pytest_nodeid_part(test_method)}"
     cmd = [
         sys.executable, "-m", "pytest",
         "--maxfail=1", "--disable-warnings", "--quiet",

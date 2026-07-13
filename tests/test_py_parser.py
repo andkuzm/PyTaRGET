@@ -18,6 +18,7 @@ from py_parser import (
     parse_successful_execution_py,
     parse_test_failure_py,
     run_cmd,
+    to_pytest_nodeid_part,
 )
 
 # TestVerdict is a production class (not a pytest test class); tell pytest to
@@ -70,6 +71,20 @@ class TestTestVerdict:
 
 
 # --------------------------------------------------------------------------- #
+#  to_pytest_nodeid_part                                                 #
+# --------------------------------------------------------------------------- #
+class TestMethodToNodeidPart:
+    def test_bare_function_unchanged(self):
+        assert to_pytest_nodeid_part("test_foo") == "test_foo"
+
+    def test_class_qualified_uses_double_colon(self):
+        # Pytest node IDs need "::" between every component (file, class,
+        # method); a "." here would fail to collect ("MyClass.test_foo" is
+        # not a valid node ID, only "MyClass::test_foo" is).
+        assert to_pytest_nodeid_part("MyTestCase.test_foo") == "MyTestCase::test_foo"
+
+
+# --------------------------------------------------------------------------- #
 #  Log parsers                                                                 #
 # --------------------------------------------------------------------------- #
 class TestParsers:
@@ -80,6 +95,15 @@ class TestParsers:
     def test_parse_failure_extracts_line_numbers(self):
         log = 'File "/x/test_mod.py", line 42, in test_thing\n  assert False'
         v = parse_test_failure_py(log, "test_mod", "test_thing")
+        assert v.status == TestVerdict.FAILURE
+        assert v.error_lines == {42}
+
+    def test_parse_failure_extracts_line_numbers_for_class_method(self):
+        # Tracebacks report only the bare method name even for class-based
+        # tests ("in test_thing", never "in MyTestCase.test_thing"), so the
+        # class-qualified identifier must still match.
+        log = 'File "/x/test_mod.py", line 42, in test_thing\n  assert False'
+        v = parse_test_failure_py(log, "test_mod", "MyTestCase.test_thing")
         assert v.status == TestVerdict.FAILURE
         assert v.error_lines == {42}
 
@@ -150,3 +174,43 @@ class TestCompileAndRun:
         proj = self._project(tmp_path, "import time\ndef test_slow():\n    time.sleep(30)\n")
         v = compile_and_run_test_python(proj, "test_mod.py", "test_slow", tmp_path, timeout=1)
         assert v.status == TestVerdict.TIMEOUT
+
+    def test_passing_class_based_test_is_success(self, tmp_path):
+        # Regression test: a class-qualified test_method ("MyCase.test_ok")
+        # previously produced an invalid pytest node ID ("...::MyCase.test_ok"
+        # instead of "...::MyCase::test_ok"), which pytest can't collect. That
+        # collection error was misclassified as TestVerdict.UNKNOWN, so every
+        # class-based test in the dataset-mining pipeline was silently
+        # discarded regardless of whether it actually passed or failed.
+        proj = self._project(
+            tmp_path,
+            "import unittest\n"
+            "class MyCase(unittest.TestCase):\n"
+            "    def test_ok(self):\n"
+            "        self.assertEqual(1, 1)\n",
+        )
+        v = compile_and_run_test_python(proj, "test_mod.py", "MyCase.test_ok", tmp_path)
+        assert v.status == TestVerdict.SUCCESS
+
+    def test_failing_class_based_test_is_failure(self, tmp_path):
+        proj = self._project(
+            tmp_path,
+            "import unittest\n"
+            "class MyCase(unittest.TestCase):\n"
+            "    def test_bad(self):\n"
+            "        self.assertEqual(1, 2)\n",
+        )
+        v = compile_and_run_test_python(proj, "test_mod.py", "MyCase.test_bad", tmp_path)
+        assert v.status == TestVerdict.FAILURE
+
+    def test_class_based_test_without_testcase_base_is_success(self, tmp_path):
+        # Plain pytest-style "class Test*" (no unittest.TestCase base) hits
+        # the same node-ID path.
+        proj = self._project(
+            tmp_path,
+            "class TestThing:\n"
+            "    def test_ok(self):\n"
+            "        assert 1 + 1 == 2\n",
+        )
+        v = compile_and_run_test_python(proj, "test_mod.py", "TestThing.test_ok", tmp_path)
+        assert v.status == TestVerdict.SUCCESS
