@@ -64,6 +64,16 @@ class TestFindTestMethods:
         a = make_actions({"tests/test_x.py": self.SRC})
         assert ("tests/test_x.py", "TestThing.helper") not in self._names(a)
 
+    def test_no_bare_duplicate_for_class_methods(self, make_actions):
+        # ast.walk() previously also descended into class bodies, re-adding
+        # each class method a second time under its bare (unqualified) name.
+        # That bare entry can never be collected by pytest (there is no
+        # module-level "test_in_class" function), so it must not appear.
+        a = make_actions({"tests/test_x.py": self.SRC})
+        names = self._names(a)
+        assert ("tests/test_x.py", "test_in_class") not in names
+        assert ("tests/test_x.py", "test_case_method") not in names
+
     def test_unreadable_file_returns_empty(self, make_actions):
         a = make_actions({})  # file not created
         assert a.find_test_methods("tests/missing.py") == []
