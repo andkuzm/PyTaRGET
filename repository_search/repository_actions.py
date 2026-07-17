@@ -157,11 +157,20 @@ class RepositoryActions:
         commit_counter is incremented globally across all branches; once
         MAX_COMMITS is reached the traversal stops.
         """
-        MAX_COMMITS = 500
+        MAX_COMMITS = 1000
         repaired_cases = set()
 
+        # Git pathspecs without a leading "*/" only match at the repo root,
+        # and "*/tests/*.py" needs a directory *before* "tests/" — so without
+        # the bare "test_*.py" / "tests/*.py" / "test/*.py" variants below,
+        # root-level test files (very common in small repos) never mark a
+        # commit as relevant and their repairs are silently skipped.
         result = subprocess.run(
-            ["git", "log", "--format=%H", "--diff-filter=M", "--", "*/test_*.py", "*_test.py", "*/tests/*.py"],
+            ["git", "log", "--format=%H", "--diff-filter=M", "--",
+             "test_*.py", "*/test_*.py",
+             "*_test.py",
+             "tests/*.py", "*/tests/*.py",
+             "test/*.py", "*/test/*.py"],
             cwd=self.repo_dir, capture_output=True, text=True
         )
         relevant_commits = set(result.stdout.splitlines())
