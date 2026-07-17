@@ -6,6 +6,7 @@ import stat
 import subprocess
 import sys
 import time
+import tomllib
 from collections import deque
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -14,6 +15,24 @@ import coverage
 
 from data_types.Broken_to_repaired import Broken_to_repaired
 from py_parser import compile_and_run_test_python, TestVerdict, run_cmd, to_pytest_nodeid_part
+
+
+def _flatten_dependency_group(groups_table, name, _seen=None):
+    """Resolve a PEP 735 [dependency-groups] entry into a flat list of
+    requirement strings, following {"include-group": "..."} references."""
+    if _seen is None:
+        _seen = set()
+    if name in _seen or name not in groups_table:
+        return []
+    _seen.add(name)
+    reqs = []
+    for item in groups_table[name]:
+        if isinstance(item, str):
+            reqs.append(item)
+        elif isinstance(item, dict) and "include-group" in item:
+            reqs.extend(_flatten_dependency_group(groups_table, item["include-group"], _seen))
+    return reqs
+
 
 class RepositoryActions:
     def __init__(self, repository_name, repository_path, current_hash=None, previous_hash=None):
@@ -59,6 +78,8 @@ class RepositoryActions:
             print(f"Warning: pip install failed for {self.repository_name}:\n{result.stderr}")
             raise Exception("pip install failed; skipping repository")
 
+        self._install_test_dependencies(dest_dir)
+
         hash_cmd = ["git", "rev-parse", "HEAD"]
         hash_result = subprocess.run(hash_cmd, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if hash_result.returncode == 0:
@@ -70,6 +91,76 @@ class RepositoryActions:
             raise Exception("Failed to obtain commit hash")
 
         return dest_dir
+
+    def _install_test_dependencies(self, dest_dir):
+        """`pip install .` only pulls a project's *runtime* dependencies, but
+        most test suites also need test-only extras (e.g. fastapi's TestClient
+        needs httpx, which only ships under the "all"/"standard" extras) or a
+        dev/test requirements file. Without them, every test in the suite
+        fails to even collect (ImportError), so parent/child never reach a
+        PASS verdict and no repairs are ever found. This is best-effort: each
+        candidate is installed independently and failures are swallowed, so a
+        missing/broken extra never blocks the (already-successful) base
+        install or the rest of the candidates.
+        """
+        extra_names = set()
+        dependency_groups = {}
+        pyproject = Path(dest_dir) / "pyproject.toml"
+        if pyproject.exists():
+            try:
+                data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+                extra_names.update(data.get("project", {}).get("optional-dependencies", {}).keys())
+                extra_names.update(data.get("tool", {}).get("poetry", {}).get("extras", {}).keys())
+                dependency_groups = data.get("dependency-groups", {})
+            except Exception:
+                pass
+
+        # PEP 735 [dependency-groups] (e.g. modern uv-managed projects) is a
+        # separate mechanism from [project.optional-dependencies] and is not
+        # installable via `pip install .[name]`. Only "test"-named groups are
+        # flattened (not "dev"), since "dev" groups commonly pull in large,
+        # unrelated tooling (docs builders, browsers for e2e tests, type
+        # checkers) that costs a lot of install time for no benefit here.
+        test_group_reqs = set()
+        for name in dependency_groups:
+            if "test" in name.lower():
+                test_group_reqs.update(_flatten_dependency_group(dependency_groups, name))
+        if test_group_reqs:
+            try:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", *sorted(test_group_reqs)],
+                    capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=900
+                )
+            except Exception:
+                pass
+
+        keywords = ("test", "dev", "all", "full")
+        for extra in sorted(extra_names):
+            if any(k in extra.lower() for k in keywords):
+                try:
+                    subprocess.run(
+                        [sys.executable, "-m", "pip", "install", f".[{extra}]"],
+                        capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=600
+                    )
+                except Exception:
+                    pass
+
+        requirements_candidates = [
+            "requirements-test.txt", "requirements_test.txt", "test-requirements.txt",
+            "requirements-tests.txt", "requirements-dev.txt", "requirements_dev.txt",
+            "dev-requirements.txt", "requirements/test.txt", "requirements/tests.txt",
+            "requirements/dev.txt", "tests/requirements.txt",
+        ]
+        for rel in requirements_candidates:
+            req_file = Path(dest_dir) / rel
+            if req_file.exists():
+                try:
+                    subprocess.run(
+                        [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
+                        capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=600
+                    )
+                except Exception:
+                    pass
 
     def has_tests(self):
         test_patterns = [r"def\s+test_"]
