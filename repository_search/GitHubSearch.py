@@ -1,3 +1,4 @@
+import csv
 import multiprocessing
 import os
 import shutil
@@ -12,6 +13,10 @@ import requests
 import time
 
 PROCESS_TIMEOUT = 90 * 60   # 90 minutes
+
+# Must match the header written by main_repository_miner.Main.save_case.
+CSV_HEADER = ["repository_name", "annotated_code", "relative_path",
+              "broken_hash", "repaired_hash", "outdated_test_log"]
 
 
 class GitHubSearch:
@@ -41,6 +46,20 @@ class GitHubSearch:
             self.out_path = out_path or ""
             self.output_csv = Path(out_path) / "annotated_cases.csv" if out_path else Path("annotated_cases.csv")
             self.processed_file = Path(__file__).resolve().parent / "processed_repositories.txt"
+
+    def ensure_output_csv_initialized(self):
+        """Write the output CSV with just the header row up front, before any
+        searching happens, so a broken path/permission would surface
+        immediately instead of silently discarding hours of search results
+        later (the miner only writes the header lazily, alongside the first
+        found case)."""
+        if self.output_csv.exists() and self.output_csv.stat().st_size > 0:
+            return
+        self.output_csv.parent.mkdir(parents=True, exist_ok=True)
+        with self.output_csv.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, delimiter='|', quoting=csv.QUOTE_ALL)
+            writer.writerow(CSV_HEADER)
+        print(f"Initialized output CSV (header only): {self.output_csv}")
 
     def get_latest_commit(self, full_name):
         commits_url = f"https://api.github.com/repos/{full_name}/commits"
@@ -194,8 +213,10 @@ class GitHubSearch:
             page += 1
             self._rate_limit_sleep(response)
 
-    def find_and_process_repositories(self, stars=50, size_start=0, size_end=1_000_000):
+    def find_and_process_repositories(self, stars=10, size_start=0, size_end=1_000_000):
         self._run_count = 0
+
+        self.ensure_output_csv_initialized()
 
         processed_repos = set()
         if self.processed_file.exists():
