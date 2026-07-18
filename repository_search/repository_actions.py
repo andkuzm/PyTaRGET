@@ -93,15 +93,19 @@ class RepositoryActions:
         return dest_dir
 
     def _install_test_dependencies(self, dest_dir):
-        """`pip install .` only pulls a project's *runtime* dependencies, but
-        most test suites also need test-only extras (e.g. fastapi's TestClient
-        needs httpx, which only ships under the "all"/"standard" extras) or a
-        dev/test requirements file. Without them, every test in the suite
-        fails to even collect (ImportError), so parent/child never reach a
-        PASS verdict and no repairs are ever found. This is best-effort: each
-        candidate is installed independently and failures are swallowed, so a
-        missing/broken extra never blocks the (already-successful) base
-        install or the rest of the candidates.
+        """`pip install .` only pulls a project's *runtime* dependencies from
+        its packaging metadata - and plenty of repos (especially ones without
+        proper install_requires/[project] metadata, relying on a bare
+        requirements.txt instead) declare none at all there, so `pip install .`
+        silently installs nothing. On top of that, most test suites also need
+        test-only extras (e.g. fastapi's TestClient needs httpx, which only
+        ships under the "all"/"standard" extras) or a dev/test requirements
+        file. Either way the result is the same: imports fail during test
+        collection, parent/child never reach a PASS verdict, and no repairs
+        are ever found. This is best-effort: each candidate is installed
+        independently and failures are swallowed, so a missing/broken extra
+        never blocks the (already-successful) base install or the rest of the
+        candidates.
         """
         extra_names = set()
         dependency_groups = {}
@@ -146,21 +150,56 @@ class RepositoryActions:
                     pass
 
         requirements_candidates = [
+            # Plain requirements.txt first: for repos with no install_requires
+            # in their packaging metadata (see docstring), this is the *only*
+            # place their actual runtime dependencies are declared at all.
+            "requirements.txt",
             "requirements-test.txt", "requirements_test.txt", "test-requirements.txt",
             "requirements-tests.txt", "requirements-dev.txt", "requirements_dev.txt",
             "dev-requirements.txt", "requirements/test.txt", "requirements/tests.txt",
-            "requirements/dev.txt", "tests/requirements.txt",
+            "requirements/dev.txt", "requirements/base.txt", "requirements/requirements.txt",
+            "tests/requirements.txt",
         ]
         for rel in requirements_candidates:
             req_file = Path(dest_dir) / rel
             if req_file.exists():
-                try:
-                    subprocess.run(
-                        [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
-                        capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=600
-                    )
-                except Exception:
-                    pass
+                self._pip_install_requirements_file(req_file, dest_dir)
+
+    def _pip_install_requirements_file(self, req_file, dest_dir):
+        """Install a requirements file, falling back to installing its lines
+        one at a time if the batched install fails. pip resolves a
+        requirements file as a whole and installs nothing at all if any
+        single line is unresolvable (e.g. a stale pin, a platform-specific
+        package); going line-by-line on failure salvages every dependency
+        that *is* installable instead of losing all of them over one bad
+        line."""
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
+                capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=900
+            )
+        except Exception:
+            return
+
+        if result.returncode == 0:
+            return
+
+        try:
+            lines = req_file.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except Exception:
+            return
+
+        for line in lines:
+            line = line.split("#", 1)[0].strip()
+            if not line or line.startswith(("-", "git+", "http://", "https://")):
+                continue
+            try:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", line],
+                    capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=120
+                )
+            except Exception:
+                continue
 
     def has_tests(self):
         test_patterns = [r"def\s+test_"]
