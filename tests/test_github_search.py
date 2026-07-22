@@ -43,9 +43,10 @@ def make_searcher(tmp_path, version="v1"):
 class TestInit:
     def test_version_mode_paths(self, tmp_path):
         s = make_searcher(tmp_path, "exp")
-        assert s.output_csv == tmp_path / "annotated_cases_exp.csv"
-        assert s.processed_file == tmp_path / "processed_repositories_exp.txt"
-        assert s.repository_path == str(tmp_path / "repos_exp")
+        rev = GitHubSearch.PIPELINE_FIX_REVISION
+        assert s.output_csv == tmp_path / f"annotated_cases_exp_{rev}.csv"
+        assert s.processed_file == tmp_path / f"processed_repositories_exp_{rev}.txt"
+        assert s.repository_path == str(tmp_path / f"repos_exp_{rev}")
 
     def test_deprecated_mode_warns(self, tmp_path):
         with pytest.warns(DeprecationWarning):
