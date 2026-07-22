@@ -72,8 +72,22 @@ class RepositoryActions:
             print(f"Failed to clone {repo_url}: {clone_result.stderr}")
             raise Exception(f"git clone failed for {self.repository_name}")
 
-        cmd = [sys.executable, "-m", "pip", "install", "."]
+        # Editable install: a regular `pip install .` copies the package into
+        # site-packages as it exists at HEAD *right now* and never touches
+        # that copy again. Every later `git checkout <historical commit>` in
+        # find_repaired_test_cases()/extract_and_annotate_code() only changes
+        # files in dest_dir - the installed copy stays frozen at today's
+        # HEAD. So "run the test at the parent/child commit" actually runs
+        # today's HEAD code against historical test code, which fails almost
+        # every genuine PASS check and silently zeroes out this repo's yield.
+        # An editable install re-reads from dest_dir on every import, so it
+        # tracks whatever commit is currently checked out. Fall back to a
+        # regular install only if editable isn't supported for this repo.
+        cmd = [sys.executable, "-m", "pip", "install", "-e", "."]
         result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
+        if result.returncode != 0:
+            cmd = [sys.executable, "-m", "pip", "install", "."]
+            result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
         if result.returncode != 0:
             print(f"Warning: pip install failed for {self.repository_name}:\n{result.stderr}")
             raise Exception("pip install failed; skipping repository")
@@ -510,6 +524,15 @@ class RepositoryActions:
 
 
     def checkout_commit(self, commit_hash, dest_dir):
+        # set_full_permissions() chmods every tracked file to 0o777, which
+        # flips the executable bit on ordinarily non-executable files and
+        # leaves the working tree with mode-only "modifications". A plain
+        # `git checkout` then refuses to switch commits ("local changes
+        # would be overwritten"), so every checkout after the first one in a
+        # sequence (e.g. the broken->repaired pair in
+        # extract_and_annotate_code) fails. Reset first to discard that
+        # self-inflicted noise, exactly like git_checkout_with_retry does.
+        subprocess.run(["git", "reset", "--hard"], cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         cmd_checkout = ["git", "checkout", commit_hash]
         proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
@@ -719,6 +742,10 @@ class RepositoryActions:
         test_file_abs = str((self.repo_dir / rel_path).resolve())
 
         # --- BROKEN ---
+        # reset first: set_full_permissions() leaves mode-only "modifications"
+        # that make a plain `git checkout` refuse to switch commits (see
+        # checkout_commit() above).
+        subprocess.run(["git", "reset", "--hard"], cwd=dest_dir, capture_output=True, text=True)
         subprocess.run(["git", "checkout", broken_hash], cwd=dest_dir)
         broken_data = self.get_covered_source(rel_path, test_method, broken_hash)
 
@@ -734,6 +761,7 @@ class RepositoryActions:
                     )
 
         # --- REPAIRED ---
+        subprocess.run(["git", "reset", "--hard"], cwd=dest_dir, capture_output=True, text=True)
         subprocess.run(["git", "checkout", repaired_hash], cwd=dest_dir)
         repaired_data = self.get_covered_source(rel_path, test_method, repaired_hash)
 
@@ -822,6 +850,11 @@ class RepositoryActions:
 
     def get_covered_source(self, rel_path, test_method, commit_hash):
         self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+
+        # Reset first: set_full_permissions() leaves mode-only "modifications"
+        # that make a plain `git checkout` refuse to switch commits (see
+        # checkout_commit() above).
+        subprocess.run(["git", "reset", "--hard"], cwd=str(self.repo_dir), capture_output=True, text=True)
 
         # Checkout the specified commit.
         proc = subprocess.run(
