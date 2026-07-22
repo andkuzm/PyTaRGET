@@ -18,6 +18,16 @@ PROCESS_TIMEOUT = 90 * 60   # 90 minutes
 CSV_HEADER = ["repository_name", "annotated_code", "relative_path",
               "broken_hash", "repaired_hash", "outdated_test_log"]
 
+# Bump this to the latest merged PR number whenever a change lands that
+# affects mining/repair-detection behavior (repository_actions.py,
+# main_repository_miner.py, py_parser.py, or the search logic here). It's
+# baked into the output CSV/blacklist/clone-dir names below so a run's
+# filenames always show exactly which fixes produced it - no need to
+# remember whether `git pull` happened before starting a run, and a repo
+# blacklisted by an older, buggier revision gets retried automatically
+# under a new one instead of staying skipped forever.
+PIPELINE_FIX_REVISION = "pr57"
+
 
 class GitHubSearch:
 
@@ -28,10 +38,12 @@ class GitHubSearch:
         if version is not None:
             self.version = version
             self.cwd = Path(cwd) if cwd else Path.cwd()
-            self.repository_path = str(self.cwd / f"repos_{version}")
+            run_id = f"{version}_{PIPELINE_FIX_REVISION}"
+            self.repository_path = str(self.cwd / f"repos_{run_id}")
             self.out_path = str(self.cwd)
-            self.output_csv = self.cwd / f"annotated_cases_{version}.csv"
-            self.processed_file = self.cwd / f"processed_repositories_{version}.txt"
+            self.output_csv = self.cwd / f"annotated_cases_{run_id}.csv"
+            self.processed_file = self.cwd / f"processed_repositories_{run_id}.txt"
+            print(f"Pipeline fix revision: {PIPELINE_FIX_REVISION}")
             print(f"Output CSV:  {self.output_csv}")
             print(f"Blacklist:   {self.processed_file}")
             print(f"Clone dir:   {self.repository_path}")
@@ -329,6 +341,9 @@ def run_processor_in_venv(full_name, repository_path, output_csv, venv_path):
 if __name__ == "__main__":
     cwd = Path.cwd()
 
+    print(f"Pipeline fix revision: {PIPELINE_FIX_REVISION}")
+    print()
+
     # --- Discover existing versioned runs ---
     existing_csvs = sorted(cwd.glob("annotated_cases_*.csv"))
     legacy_csv = cwd / "annotated_cases.csv"
@@ -350,7 +365,12 @@ if __name__ == "__main__":
                     processed_count = "?"
             else:
                 processed_count = 0
-            print(f"  [{version_label}]  {row_count} test cases, {processed_count} repos processed")
+            # The filename always ends in the revision that produced it
+            # (see PIPELINE_FIX_REVISION), so a stale checkout is visible
+            # right here instead of something you have to remember to check.
+            is_current = version_label.endswith(f"_{PIPELINE_FIX_REVISION}")
+            tag = "current revision" if is_current else "OLDER revision - a fresh run will not resume this one"
+            print(f"  [{version_label}]  {row_count} test cases, {processed_count} repos processed  ({tag})")
         print()
 
     if legacy_csv.exists():
@@ -389,14 +409,18 @@ if __name__ == "__main__":
         break
 
     # --- Show paths ---
-    output_csv_path = cwd / f"annotated_cases_{version}.csv"
-    blacklist_path = cwd / f"processed_repositories_{version}.txt"
-    clone_dir = cwd / f"repos_{version}"
-
+    # Constructed once here (instead of re-deriving the filename formula) so
+    # the paths shown below always match, byte for byte, what the run
+    # actually uses - the revision suffix is set in exactly one place.
     print()
-    print(f"Output CSV:  {output_csv_path}")
-    print(f"Blacklist:   {blacklist_path}")
-    print(f"Clone dir:   {clone_dir}")
+    searcher = GitHubSearch(
+        github_token=github_token,
+        version=version,
+        cwd=str(cwd),
+    )
+    output_csv_path = searcher.output_csv
+    blacklist_path = searcher.processed_file
+    clone_dir = Path(searcher.repository_path)
 
     if output_csv_path.exists():
         try:
@@ -415,9 +439,4 @@ if __name__ == "__main__":
 
     clone_dir.mkdir(parents=True, exist_ok=True)
 
-    searcher = GitHubSearch(
-        github_token=github_token,
-        version=version,
-        cwd=str(cwd),
-    )
     searcher.find_and_process_repositories(size_start=0, size_end=1_000_000)
