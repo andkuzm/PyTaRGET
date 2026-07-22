@@ -135,14 +135,23 @@ class RepositoryActions:
 
         # PEP 735 [dependency-groups] (e.g. modern uv-managed projects) is a
         # separate mechanism from [project.optional-dependencies] and is not
-        # installable via `pip install .[name]`. Only "test"-named groups are
-        # flattened (not "dev"), since "dev" groups commonly pull in large,
-        # unrelated tooling (docs builders, browsers for e2e tests, type
-        # checkers) that costs a lot of install time for no benefit here.
+        # installable via `pip install .[name]`. Prefer "test"-named groups
+        # over "dev" (a "dev" group commonly pulls in large, unrelated
+        # tooling - docs builders, browsers for e2e tests, type checkers -
+        # that costs a lot of install time for no benefit here). But some
+        # projects (e.g. langflow) never split a "tests" group out at all and
+        # dump every dev/test tool - including the ones tests actually import,
+        # like asgi-lifespan or pytest itself - into a single "dev" group. In
+        # that case "dev" is the *only* place the test deps exist, so fall
+        # back to it rather than silently getting nothing.
         test_group_reqs = set()
         for name in dependency_groups:
             if "test" in name.lower():
                 test_group_reqs.update(_flatten_dependency_group(dependency_groups, name))
+        if not test_group_reqs:
+            for name in dependency_groups:
+                if "dev" in name.lower():
+                    test_group_reqs.update(_flatten_dependency_group(dependency_groups, name))
         if test_group_reqs:
             try:
                 subprocess.run(
