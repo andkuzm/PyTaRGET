@@ -53,6 +53,11 @@ class Tester_llm:
             "Output ONLY the repaired lines.\n"
             "Wrap the repaired lines inside [REPAIR] brackets, and do not add anything else."
         )
+        if "REPAIREDTEST" in row["input"]:
+            raise ValueError(
+                "Test input contains a REPAIREDTEST block (ground-truth leak). "
+                "Re-run reannotate() on this test.json to strip it."
+            )
         test_context, broken_lines, helpful_hunks = self.extract_relevant_code(row["input"])
         return (
             f"### Instruction:\n{instruction}\n\n### Full Test Context:\n{test_context}\n\n### Broken Lines:\n{broken_lines}\n\n### Source Code Changes:\n{helpful_hunks}\n\n### Repaired Code:\n"

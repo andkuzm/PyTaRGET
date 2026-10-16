@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from tqdm import tqdm
 
@@ -33,11 +34,11 @@ class Re_encoder:
             if "[<BREAKAGE>]" in input_text and "[</BREAKAGE>]" not in input_text:
                 input_text = input_text.replace("[<BREAKAGE>]", "[<BREAKAGE>]") + "[</BREAKAGE>]"
 
-            # Insert output into REPAIREDTEST block if BREAKAGE exists
-            if "[<BREAKAGE>]" in input_text:
-                test_insert = f"[<REPAIREDTEST>]{output_text}[/REPAIREDTEST>]"
-                if "[<REPAIREDTEST>]" not in input_text:
-                    input_text = input_text.replace("[</BREAKAGE>]", f"[</BREAKAGE>]{test_insert}")
+            # Strip any ground-truth repair block left by earlier versions of this method
+            # (it leaked the expected output into the prompt; the closing tag was also malformed).
+            input_text = re.sub(r"\[<REPAIREDTEST>].*?\[<?/REPAIREDTEST>]", "", input_text, flags=re.DOTALL)
+            if "REPAIREDTEST" in input_text:
+                raise ValueError("Ground-truth REPAIREDTEST block found in model input after reannotation")
 
             # Store back as input/output pair
             reannotated_data.append({
