@@ -122,7 +122,7 @@ class Eftt:
                 )
                 self.create_tokenizer_llm()
             self.dataset_class = LLMSeqDataset
-        self.is_llm=model in {"deepseek", "qwen", "llama", "gemma"}
+        self.is_llm=model in {"deepseek", "qwen", "qwen3", "llama", "gemma"}
 
         # Gemini and Claude are API-based (not HuggingFace-hosted), so you’ll need API wrappers instead
         # if model == "gemini":

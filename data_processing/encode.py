@@ -23,7 +23,7 @@ class Encoder:
         if len(ds) <= 1:
             print("No data found")
             sys.exit()
-        prioritizer = HunkPrioritizer(self.tokenizer, ds)
+        prioritizer = HunkPrioritizer(self.tokenizer, ds, self.is_llm)
         ds = prioritizer.prioritize_hunks_prep()
         ds = ds[ds["prioritized_changes"].apply(lambda x: len(x) > 0)].reset_index(drop=True)
         print("dropped rows with empty coverage, remaining rows:", len(ds))
@@ -48,9 +48,20 @@ class Encoder:
         pickle.dump(valid_ds, open(str(valid_file), "wb"))
         pickle.dump(test_ds, open(str(test_file), "wb"))
 
+    def order_by_commit_time(self, ds):
+        """Oldest commits first. Needs a `broken_date` column (see commit_dates.py)."""
+        if "broken_date" in ds.columns:
+            ds = ds.assign(_time=pd.to_datetime(ds["broken_date"], utc=True))
+            ds = ds.sort_values(["_time", "broken_hash"], kind="stable")
+            return ds.drop(columns="_time").reset_index(drop=True)
+        print(
+            "WARNING: no 'broken_date' column in the dataset, splitting in broken_hash order, "
+            "which is NOT chronological. Run data_processing/commit_dates.py to add commit dates."
+        )
+        return ds.sort_values("broken_hash").reset_index(drop=True)
+
     def split(self, ds):
-        # Ensure dataset is sorted by commit order (older commits first)
-        ds = ds.sort_values("broken_hash").reset_index(drop=True)
+        ds = self.order_by_commit_time(ds)
 
         # Compute absolute number of training samples based on fraction
         num_train_samples = int(len(ds) * self.train_size)
@@ -70,6 +81,10 @@ class Encoder:
         # Assign entries based on commit inclusion
         train_ds = ds[ds["broken_hash"].isin(train_commits)]
         eval_ds = ds[~ds["broken_hash"].isin(train_commits)]
+
+        if self.train_size == 0 or eval_ds.empty:
+            # Evaluation-only run (instruction-tuned models): everything is test data
+            return train_ds, eval_ds.iloc[0:0].reset_index(drop=True), eval_ds.reset_index(drop=True)
 
         # Stratified split for validation & test sets
         grouped = eval_ds.groupby("broken_hash")
@@ -95,8 +110,10 @@ class Encoder:
         ds = ds.dropna()
         print("empty values dropped, remaining dataset length:", len(ds))
 
-        # Remove rows with invalid characters (this assumes that all rows should be valid UTF-8)
-        ds = ds[ds.apply(lambda row: row.astype(str).apply(lambda x: x.isascii()).all(), axis=1)]
+        # Remove rows whose code is not pure ASCII (the tokenizers' <TAB>/<NL> handling assumes it).
+        # Metadata such as repository names and test logs may contain anything.
+        code_columns = [c for c in ("annotated_code",) if c in ds.columns]
+        ds = ds[ds[code_columns].apply(lambda col: col.astype(str).map(str.isascii)).all(axis=1)]
         print("incorrectly formatted rows dropped, remaining dataset length:", len(ds))
 
         pattern = r"(?s)\[<TESTCONTEXT>\](.*?)\[</TESTCONTEXT>\]"
