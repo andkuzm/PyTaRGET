@@ -70,7 +70,7 @@ After the datasets are ready, fine tuning can be performed for the modelduring f
 
 Finally to test the model ```experiment.validate()``` can be used. it will take checkpoint of the models created during training, make predictions with it on the test set, and then get BLEU, CodeBLEU and Exact Match metrics for the predictions. For validation of fine-tuned models beam_size parameter will be used, it determines how many predictions will be made for every target, higher values require more VRAM.
 
-If it is required to get metrics from the predictions make this can be used: ```experiment.get_metrics()```, under the assumption that the file with predictions the model made is not moved, nor renamed.
+If it is required to get metrics from the predictions make this can be used: ```experiment.get_metrics()```, under the assumption that the file with predictions the model made is not moved, nor renamed. Besides BLEU, CodeBLEU and Exact Match (EM) it reports an indentation-normalized EM, which ignores trailing whitespace and the margin shared by all lines of a repair but still requires identical relative indentation (tabs are not converted to spaces); the same applies to ```get_metrics_llm()```.
 
 **Instruction-tuned models**
 
@@ -88,7 +88,7 @@ experiment = Eftt(annotated_cases_path, out_path, model, train_size, beam_size, 
 Here HuggingFace is required to be passed as hftoken parameter, for gemma token should belong to an account with access to it.
 Encoding once again should be done with ```experiment.encode()```, which will again create three datasets, but the only one important for instruction-tuned models is test dataset, so train_fraction parameter can simple be used to determine proportion of the dataset that would be used for testing (1-train_fraction).
 
-After encoding is done testing can be started, for that ```experiment.validate_llm()``` should be used, it will load chosen model, tokenize inputs, insert instructions and pass it to the model, then it will append predictions it gave to the results file, fine-tuned models create file with instructions only after the whole dataset is tested, instruction-tuned models append them as they are produced, so validation can be divided into several sessions.
+After encoding is done testing can be started, for that ```experiment.validate_llm()``` should be used, it will load chosen model, tokenize inputs, insert instructions and pass it to the model, then it will append predictions it gave to the results file, fine-tuned models create file with instructions only after the whole dataset is tested, instruction-tuned models append them as they are produced, so validation can be divided into several sessions. Decoding can be changed with the generation parameter, e.g. ```experiment.validate_llm(generation={"do_sample": False})``` for plain beam search (default is beam search with sampling at temperature 1.5; other keys: num_beams, num_return_sequences, temperature, seed).
 
 If it is required to get metrics from the predictions make this can be used: ```experiment.get_metrics_llm()```, under the assumption that the file with predictions the model made is not moved, nor renamed.
 

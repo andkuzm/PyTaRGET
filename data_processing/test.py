@@ -6,6 +6,7 @@ from accelerate import Accelerator
 from datetime import datetime
 from tqdm import tqdm
 
+from data_processing.metrics import exact_match_flags
 from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
@@ -33,33 +34,35 @@ class Tester:
         pad_id = self.tokenizer.pad_token_id
         eos_id = self.tokenizer.eos_token_id
 
-        # Safely get decoder_start_token_id
-        if hasattr(model.config, "decoder_start_token_id") and model.config.decoder_start_token_id is not None:
-            decoder_sid = model.config.decoder_start_token_id
-        else:
-            try:
-                decoder_sid = self.tokenizer.convert_tokens_to_ids("__python__")
-            except:
-                decoder_sid = self.tokenizer.pad_token_id  # fallback
-        print("decoder_start_token_id:", decoder_sid)
-        print("vocab_size:", model.config.vocab_size)
-        assert decoder_sid < model.config.vocab_size
+        generation_args = dict(
+            max_length=self.tokenizer.model_max_length,
+            num_beams=int(self.beam_size),
+            num_return_sequences=int(self.beam_size),
+            early_stopping=True,
+            pad_token_id=pad_id,
+            eos_token_id=eos_id,
+        )
+        if model.config.is_encoder_decoder:
+            # Safely get decoder_start_token_id
+            if hasattr(model.config, "decoder_start_token_id") and model.config.decoder_start_token_id is not None:
+                decoder_sid = model.config.decoder_start_token_id
+            else:
+                try:
+                    decoder_sid = self.tokenizer.convert_tokens_to_ids("__python__")
+                except:
+                    decoder_sid = self.tokenizer.pad_token_id  # fallback
+            print("decoder_start_token_id:", decoder_sid)
+            print("vocab_size:", model.config.vocab_size)
+            assert decoder_sid < model.config.vocab_size
+            generation_args["decoder_start_token_id"] = decoder_sid
 
         predictions = []
         for idx, row in tqdm(df.iterrows(), total=len(df), desc="Generating predictions"):
             input_ids = self.tokenizer(row["input"], return_tensors="pt", truncation=True, padding=True).input_ids.to(
                 accelerator.device)
 
-            outputs = model.generate(
-                input_ids=input_ids,
-                max_length=self.tokenizer.model_max_length,
-                num_beams=int(self.beam_size),
-                num_return_sequences=int(self.beam_size),
-                early_stopping=True,
-                pad_token_id=pad_id,
-                eos_token_id=eos_id,
-                decoder_start_token_id=decoder_sid
-            )
+            outputs = model.generate(input_ids=input_ids, **generation_args)
+            outputs = self.new_tokens(model, outputs, input_ids)
             decoded = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
             predictions.append({
                 "ID": idx,
@@ -70,13 +73,21 @@ class Tester:
         pred_df = pd.DataFrame(predictions)
         pred_df.to_json(self.out_path / self.model / str(self.train_fraction) / "test_predictions.json", indent=2)
 
-        bleu_score, code_bleu_score, em = self.compute_scores(pred_df)
-        print(f"BLEU: {bleu_score} | CodeBLEU: {code_bleu_score} | EM: {em}")
+        bleu_score, code_bleu_score, em, norm_em = self.compute_scores(pred_df)
+        print(f"BLEU: {bleu_score} | CodeBLEU: {code_bleu_score} | EM: {em} | EM (indentation-normalized): {norm_em}")
+
+    @staticmethod
+    def new_tokens(model, outputs, input_ids):
+        """Decoder-only models (CodeGen) return prompt + continuation; keep only the continuation."""
+        if model.config.is_encoder_decoder:
+            return outputs
+        return outputs[:, input_ids.shape[1]:]
 
     def compute_scores(self, pred_df):
         pred_df = pd.DataFrame(pred_df)
         eval_size = len(pred_df["ID"])
         em_size = 0
+        norm_em_size = 0
         best_preds = []
         targets = []
 
@@ -89,10 +100,12 @@ class Tester:
                     em_size += 1
                     best_pred = output
                     break
+            norm_em_size += exact_match_flags(beam_outputs, target)[1]
             best_preds.append(best_pred)
             targets.append(target)
 
         em = round(em_size / eval_size * 100, 2)
+        norm_em = round(norm_em_size / eval_size * 100, 2)
         bleu_score = corpus_bleu([[t.split()] for t in targets], [p.split() for p in best_preds])
         code_bleu_score = calc_code_bleu([targets], best_preds, lang="python")
-        return round(bleu_score * 100, 2), round(code_bleu_score * 100, 2), em
+        return round(bleu_score * 100, 2), round(code_bleu_score * 100, 2), em, norm_em
