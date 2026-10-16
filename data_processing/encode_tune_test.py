@@ -14,7 +14,7 @@ from data_processing.llm_test import Tester_llm
 from data_processing.reference_reencoder import Re_encoder
 from data_processing.test import Tester
 from data_processing.train import Trainer
-from dataset_types import EncDecDataset, PLBARTDataset, CodeGenDataset, LLMSeqDataset
+from data_processing.dataset_types import EncDecDataset, PLBARTDataset, CodeGenDataset, LLMSeqDataset
 
 
 class Tokens:

@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from accelerate import Accelerator
 from torch.nn.utils.rnn import pad_sequence
-from torch.optim._multi_tensor import AdamW
+from torch.optim import AdamW
 from transformers import get_cosine_schedule_with_warmup, DataCollatorWithPadding
 from transformers.models.bart.modeling_bart import shift_tokens_right
 
