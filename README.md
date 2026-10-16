@@ -133,6 +133,10 @@ To reproduce the processes using methods described previously, results.zip file 
 
 For instruction-tuned models, there is a ref results, where an already reannotated and reduced test.json file for Java dataset is located, so for ref only ```.validate_llm()``` should be done, and the only other train_fraction used is 0.0, which conversively means test.json is the whole Python dataset. Predictions with which the metrics referred to in the paper were received are in data_processing/results/model_name/train_fraction/model_name_llm_test_predictions.json file. It is important to notice that instruction-tuned LLMs do not have random_seed parameter, or its analog, and thus when generating predictions receiving the same results is highly unlikely, but the ones that are present in the compressed results can be validated, and evaluated with ```.get_metrics_llm()``` ,method as described previously.
 
+**Plausibility of the repairs**
+
+To check whether predicted repairs actually pass, ```experiment.plausibility(workdir="plausibility", k=5)``` swaps each of the top-k predictions into the real test at the repaired commit and runs that test with pytest (see data_processing/plausibility_test.py, the same can be run from the command line). Cases whose reference repair cannot be located in the test, or for which the unmodified repaired test does not pass in the fresh environment, are reported separately and not counted. It clones the dataset repositories and executes their code and the generated code, so it should be run in a disposable environment.
+
 **Python dataset collection**
 
 Dataset collection process was conducted in PyCharm IDE, by creating an instance of GitHubSearch:

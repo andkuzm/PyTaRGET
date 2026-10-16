@@ -11,6 +11,7 @@ from transformers import (
 
 from data_processing.encode import Encoder
 from data_processing.llm_test import Tester_llm
+from data_processing.plausibility_test import PlausibilityTester
 from data_processing.reference_reencoder import Re_encoder
 from data_processing.test import Tester
 from data_processing.train import Trainer
@@ -197,6 +198,14 @@ class Eftt:
         bleu, codebleu, em, norm_em = tester.compute_scores(preds)
         print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em} | EM (indentation-normalized)={norm_em}")
         return bleu, codebleu, em, norm_em
+
+    def plausibility(self, workdir, k=5, timeout=120, use_venv=True):
+        """Execute the top-k predicted repairs against the repaired projects, see plausibility_test.py."""
+        experiment_dir = self.out_path / self.model / str(self.train_size)
+        predictions = experiment_dir / (f"{self.model}_llm_test_predictions.json" if self.is_llm
+                                        else "test_predictions.json")
+        return PlausibilityTester(workdir, k, timeout, use_venv).run(
+            experiment_dir / "splits" / "test.json", predictions, experiment_dir / f"{self.model}_plausibility.json")
 
     def create_tokenizer(self):
         new_special_tokens = {
