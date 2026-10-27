@@ -95,7 +95,52 @@ def render(stages, buckets):
     return "\n".join(lines)
 
 
+def summarize_repos(rows):
+    """{repository: Counter of every counter}, summed over its history buckets and attempts."""
+    repos = defaultdict(Counter)
+    for row in rows:
+        if row["bucket"] == "repo":
+            continue
+        counts = repos[row["repository_name"]]
+        for column in MAIN:
+            counts[column] += int(row.get(column) or 0)
+        for key, value in json.loads(row.get("details") or "{}").items():
+            counts[key] += int(value)
+    return repos
+
+
+def render_repos(repos, limit=40):
+    """One line per repository, most changed tests first: where it loses its tests, and the main reason."""
+    if not repos:
+        return "no search rows yet"
+    table = [["repository", "planned", "looked_at", "tests", "parent_ok", "child_ok", "CASES", "main reason it is lost"]]
+    ordered = sorted(repos.items(), key=lambda item: (-item[1]["changed_tests"], item[0]))
+    for name, counts in ordered[:limit]:
+        reasons = Counter({k[4:]: v for k, v in counts.items() if k.startswith("why:")})
+        if not reasons:  # funnels written before the reasons were recorded: fall back to the verdict counters
+            reasons = Counter({k: v for k, v in counts.items()
+                               if k.startswith(("parent_", "child_", "override_")) and not k.endswith("_success")})
+        top = f"{reasons.most_common(1)[0][0]} ({reasons.most_common(1)[0][1]})" if reasons else "-"
+        table.append([name, str(counts["relevant_pairs"]), str(counts["visited_pairs"]), str(counts["changed_tests"]),
+                      str(counts["parent_success"]), str(counts["child_success"]), str(counts["cases"]), top])
+    widths = [max(len(row[i]) for row in table) for i in range(len(table[0]))]
+    lines = []
+    for n, row in enumerate(table):
+        lines.append("  ".join(cell.ljust(widths[i]) if i in (0, 7) else cell.rjust(widths[i])
+                               for i, cell in enumerate(row)))
+        if n == 0:
+            lines.append("  ".join("-" * width for width in widths))
+    if len(ordered) > limit:
+        lines.append(f"... and {len(ordered) - limit} more repositories")
+    return "\n".join(lines)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        sys.exit("usage: python funnel_report.py <dataset name>_funnel.csv")
-    print(render(*summarize(load(sys.argv[1]))))
+    arguments = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if len(arguments) != 1 or any(a.startswith("--") and a != "--repos" for a in sys.argv[1:]):
+        sys.exit("usage: python funnel_report.py <dataset name>_funnel.csv [--repos]")
+    funnel_rows = load(arguments[0])
+    if "--repos" in sys.argv:
+        print(render_repos(summarize_repos(funnel_rows)))
+    else:
+        print(render(*summarize(funnel_rows)))

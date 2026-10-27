@@ -98,3 +98,41 @@ def test_reasons_are_ranked_and_do_not_become_table_columns(tmp_path):
     ranking = text.split("why tests ended 'unknown'")[1]
     assert ranking.index("parent:missing_module:numpy") < ranking.index("parent:setup_error") < ranking.index("child:other")
     assert "     6  parent:missing_module:numpy" in ranking
+
+
+REPO_ROWS = [
+    repo("big/monorepo", "started"),
+    bucket("big/monorepo", 3, relevant_pairs=40, visited_pairs=40, changed_tests=30, parent_success=0,
+           details=json.dumps({"parent_unknown": 30, "why:parent:missing_module:langchain_tests": 28,
+                               "why:parent:setup_error": 2})),
+    bucket("big/monorepo", 9, relevant_pairs=10, visited_pairs=10, changed_tests=10, parent_success=0,
+           details=json.dumps({"parent_unknown": 10, "why:parent:missing_module:langchain_tests": 9})),
+    repo("big/monorepo", "searched"),
+    repo("small/good", "started"),
+    bucket("small/good", 5, relevant_pairs=6, visited_pairs=6, changed_tests=4, parent_success=4, child_success=3,
+           cases=2),
+    repo("small/good", "searched"),
+    repo("old/format", "started"),  # a funnel written before the reasons were recorded
+    bucket("old/format", 1, relevant_pairs=3, visited_pairs=3, changed_tests=2,
+           details=json.dumps({"parent_failure": 2})),
+    repo("old/format", "searched"),
+]
+
+
+def test_the_per_repository_view_ranks_by_tests_and_names_the_main_reason(tmp_path):
+    write(tmp_path / "f.csv", REPO_ROWS)
+    repos = funnel_report.summarize_repos(funnel_report.load(tmp_path / "f.csv"))
+    lines = funnel_report.render_repos(repos).splitlines()
+    assert lines[2].startswith("big/monorepo") and lines[3].startswith("small/good") and lines[4].startswith("old/format")
+    assert "missing_module:langchain_tests (37)" in lines[2] and "50" in lines[2].split()  # planned 40 + 10
+    assert lines[3].rstrip().endswith("-")  # nothing lost, no reason
+    assert "parent_failure (2)" in lines[4]  # falls back to the verdict counter
+
+
+def test_the_per_repository_view_works_from_the_command_line(tmp_path):
+    write(tmp_path / "f.csv", REPO_ROWS)
+    script = os.path.join(os.path.dirname(funnel_report.__file__), "funnel_report.py")
+    result = subprocess.run([sys.executable, script, str(tmp_path / "f.csv"), "--repos"], capture_output=True, text=True)
+    assert result.returncode == 0 and "big/monorepo" in result.stdout and "main reason" in result.stdout
+    wrong = subprocess.run([sys.executable, script, str(tmp_path / "f.csv"), "--nonsense"], capture_output=True, text=True)
+    assert wrong.returncode != 0
