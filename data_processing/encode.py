@@ -110,11 +110,10 @@ class Encoder:
         ds = ds.dropna()
         print("empty values dropped, remaining dataset length:", len(ds))
 
-        # Remove rows whose code is not pure ASCII (the tokenizers' <TAB>/<NL> handling assumes it).
-        # Metadata such as repository names and test logs may contain anything.
-        code_columns = [c for c in ("annotated_code",) if c in ds.columns]
-        ds = ds[ds[code_columns].apply(lambda col: col.astype(str).map(str.isascii)).all(axis=1)]
-        print("incorrectly formatted rows dropped, remaining dataset length:", len(ds))
+        # Non-ASCII text (string literals, docstrings, comments) is normal in real code and stays. Only rows with
+        # U+FFFD, the replacement character that marks bytes lost to a wrong decoding, are damaged copies.
+        ds = ds[~ds["annotated_code"].str.contains("�", regex=False)]
+        print("rows with decoding damage dropped, remaining dataset length:", len(ds))
 
         pattern = r"(?s)\[<TESTCONTEXT>\](.*?)\[</TESTCONTEXT>\]"
         ds = ds[ds['annotated_code'].str.contains(pattern, regex=True, na=False)]
