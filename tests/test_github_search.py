@@ -576,3 +576,52 @@ class TestImportedAsAPackage:
         result = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, cwd=str(tmp_path))
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip().endswith("2")
+
+
+class TestInterruption:
+    def test_an_interrupted_repository_is_not_closed_as_failed(self, tmp_path, monkeypatch):
+        s = make_searcher(tmp_path)
+
+        def killed_before_any_progress(name, *rest):
+            processed_log.mark_started(s.processed_file, name, "head")
+            s._interrupted = True
+            return False
+        monkeypatch.setattr(s, "process_repository_with_timeout", killed_before_any_progress)
+        s._process_and_record("o/r")
+        # without the interruption this would count as "no progress" and be closed
+        assert processed_log.resume_state(s.processed_file, "o/r") == processed_log.Entry("o/r", "head", "", True)
+
+    def test_a_repository_the_miner_never_reached_stays_unwritten_when_interrupted(self, tmp_path, monkeypatch):
+        s = make_searcher(tmp_path)
+
+        def killed_at_once(name, *rest):
+            s._interrupted = True
+            return False
+        monkeypatch.setattr(s, "process_repository_with_timeout", killed_at_once)
+        s._process_and_record("o/r")
+        assert not s.processed_file.exists() or "o/r" not in s.processed_file.read_text()
+
+    def test_stopping_the_workers_mid_run_keeps_every_unfinished_repository_resumable(self, tmp_path, monkeypatch):
+        s = GHS(github_token="tok", version="intr", cwd=str(tmp_path), workers=3)
+        started, release = threading.Barrier(4, timeout=10), threading.Event()
+
+        def fake(name, repository_path=None):
+            processed_log.mark_started(s.processed_file, name, "head-" + name[-1])
+            started.wait()          # three workers and the test are inside
+            release.wait(10)        # "running" until the user interrupts
+            return False            # killed
+        monkeypatch.setattr(s, "process_repository_with_timeout", fake)
+        monkeypatch.setattr(s, "run_pytest_check", lambda name: None)
+        monkeypatch.setattr(s, "get_latest_commit", lambda name: "latest")
+        s._run_count = 0
+        s._start_pool()
+        for n in range(3):
+            s._dispatch(f"o/r{n}")
+        started.wait()
+        s._stop_workers()           # what Ctrl-C does
+        release.set()
+        s._finish_pool()
+
+        entries = processed_log.read_entries(s.processed_file)
+        assert sorted(entries) == ["o/r0", "o/r1", "o/r2"]
+        assert all(entry.in_progress for entry in entries.values())

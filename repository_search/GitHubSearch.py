@@ -56,6 +56,7 @@ class GitHubSearch:
         self._active = set()
         self._dispatched = 0
         self._abort = False
+        self._interrupted = False
 
         if version is not None:
             self.version = version
@@ -241,6 +242,7 @@ class GitHubSearch:
         self._run_count = 0
         self._dispatched = 0
         self._abort = False
+        self._interrupted = False
 
         self.ensure_output_csv_initialized()
 
@@ -320,6 +322,7 @@ class GitHubSearch:
 
     def _stop_workers(self):
         """Kill what the workers started (the miners and the tests under them), e.g. after Ctrl-C."""
+        self._interrupted = True  # the workers must not treat the kills below as failed attempts
         if self._pool is not None:
             self._pool.shutdown(wait=False, cancel_futures=True)
         for process in list(self._active):
@@ -375,6 +378,11 @@ class GitHubSearch:
 
         finished = (self.process_repository_with_timeout(full_name) if repository_path is None
                     else self.process_repository_with_timeout(full_name, repository_path))
+        if self._interrupted:
+            # stopped by the user, not a failed attempt: the line stays as the miner left it (in progress, or absent
+            # if it had not got that far) and the repository is picked up again next time
+            print(f"{full_name}: interrupted, it continues next time")
+            return
         if not finished:
             print(f"Failed or timed out: {full_name}")
 
