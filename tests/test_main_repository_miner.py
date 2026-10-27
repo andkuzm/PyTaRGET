@@ -88,6 +88,7 @@ class FakeRA:
     crash_after = None      # raise after this many cases (and their progress reports)
     missing_commits = ()    # commits that are no longer in the cloned history
     searches = []           # (start commit, resume_after) of every search
+    options = {}            # max_pairs / require_source_change of the last search
 
     def clone_repository_last(self):
         self.cloned = True
@@ -101,8 +102,10 @@ class FakeRA:
     def has_tests(self):
         return self.has_tests_value
 
-    def find_repaired_test_cases(self, on_case=None, on_progress=None, resume_after=None):
+    def find_repaired_test_cases(self, on_case=None, on_progress=None, resume_after=None, max_pairs=None,
+                                 require_source_change=False):
         FakeRA.searches.append((self.current_hash, resume_after))
+        FakeRA.options = {"max_pairs": max_pairs, "require_source_change": require_source_change}
         for done, case in enumerate(self.repaired_cases, 1):
             if on_case is not None:
                 on_case(case)
@@ -297,3 +300,27 @@ class TestProgressAndResume:
         monkeypatch.setattr(FakeRA, "extract_and_annotate_code", flaky)
         assert self._run(tmp_path) == ["owner/proj|fresh-head"]
         assert [r["test_name"] for r in self._rows(tmp_path)] == ["test_2"]
+
+
+class TestSearchLimits:
+    def _run(self, tmp_path):
+        Main("owner/proj", str(tmp_path), str(tmp_path / "out.csv")).process_repository()
+
+    def test_no_limits_by_default(self, patch_ra, tmp_path, monkeypatch):
+        monkeypatch.delenv("PYTARGET_MAX_PAIRS", raising=False)
+        monkeypatch.delenv("PYTARGET_REQUIRE_SOURCE_CHANGE", raising=False)
+        self._run(tmp_path)
+        assert patch_ra.options == {"max_pairs": None, "require_source_change": False}
+
+    def test_limits_come_from_the_environment(self, patch_ra, tmp_path, monkeypatch):
+        monkeypatch.setenv("PYTARGET_MAX_PAIRS", "250")
+        monkeypatch.setenv("PYTARGET_REQUIRE_SOURCE_CHANGE", "1")
+        self._run(tmp_path)
+        assert patch_ra.options == {"max_pairs": 250, "require_source_change": True}
+
+    def test_a_pair_marker_is_checked_against_its_child_commit(self, patch_ra, tmp_path):
+        patch_ra.missing_commits = ("gone-child",)
+        processed = tmp_path / "processed.txt"
+        processed.write_text("owner/proj|pinned-head|gone-child:its-parent\n", encoding="utf-8")
+        Main("owner/proj", str(tmp_path), str(tmp_path / "out.csv"), str(processed)).process_repository()
+        assert patch_ra.searches == [("pinned-head", None)]

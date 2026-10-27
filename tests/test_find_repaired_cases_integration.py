@@ -227,26 +227,31 @@ def _search(repository_path, head, **kwargs):
 def test_cases_are_reported_as_they_are_found_and_progress_follows_each_pair(three_repairs_repo):
     repository_path, shas = three_repairs_repo
     events = _search(repository_path, shas[-1])
-    # newest pair first; a case is always reported before the pair is declared done
-    assert events == [("case", shas[3]), ("done", shas[2]),
-                      ("case", shas[2]), ("done", shas[1]),
-                      ("case", shas[1]), ("done", shas[0])]
+    # newest pair first; a case is always reported before the pair is declared done; a pair is "child:parent"
+    assert events == [("case", shas[3]), ("done", f"{shas[3]}:{shas[2]}"),
+                      ("case", shas[2]), ("done", f"{shas[2]}:{shas[1]}"),
+                      ("case", shas[1]), ("done", f"{shas[1]}:{shas[0]}")]
 
 
 def test_resuming_after_a_pair_does_only_the_remaining_work(three_repairs_repo):
     repository_path, shas = three_repairs_repo
-    events = _search(repository_path, shas[-1], resume_after=shas[2])
-    assert events == [("case", shas[2]), ("done", shas[1]), ("case", shas[1]), ("done", shas[0])]
+    events = _search(repository_path, shas[-1], resume_after=f"{shas[3]}:{shas[2]}")
+    assert events == [("case", shas[2]), ("done", f"{shas[2]}:{shas[1]}"),
+                      ("case", shas[1]), ("done", f"{shas[1]}:{shas[0]}")]
 
-    events = _search(repository_path, shas[-1], resume_after=shas[0])  # everything was done
+    events = _search(repository_path, shas[-1], resume_after=f"{shas[1]}:{shas[0]}")  # everything was done
     assert events == []
+
+    # a bare parent hash (the marker format of the first version) still means "the first pair with this parent"
+    assert _search(repository_path, shas[-1], resume_after=shas[2]) == _search(
+        repository_path, shas[-1], resume_after=f"{shas[3]}:{shas[2]}")
 
 
 def test_resumed_and_uninterrupted_searches_find_the_same_cases(three_repairs_repo):
     repository_path, shas = three_repairs_repo
     full = [e for e in _search(repository_path, shas[-1]) if e[0] == "case"]
     first = [e for e in _search(repository_path, shas[-1]) if e[0] == "case"][:1]  # run killed after one pair
-    rest = [e for e in _search(repository_path, shas[-1], resume_after=shas[2]) if e[0] == "case"]
+    rest = [e for e in _search(repository_path, shas[-1], resume_after=f"{shas[3]}:{shas[2]}") if e[0] == "case"]
     assert first + rest == full
 
 
@@ -272,3 +277,108 @@ def test_the_search_does_not_depend_on_what_is_currently_checked_out(three_repai
     first = _search(repository_path, shas[-1])
     second = _search(repository_path, shas[-1])
     assert first == second and len([e for e in first if e[0] == "case"]) == 3
+
+
+# --------------------------------------------------------------------------- #
+#  scheduling over the whole history                                          #
+# --------------------------------------------------------------------------- #
+def _fast_import(work, commits):
+    """Create commits quickly: `commits` is a list of {path: text}; every commit sets the files it lists."""
+    stream = []
+    for i, files in enumerate(commits, 1):
+        message = f"c{i}"
+        stream.append(f"commit refs/heads/main\ncommitter T <t@example.com> {1700000000 + i} +0000\n"
+                      f"data {len(message)}\n{message}\n")
+        for path, text in files.items():
+            stream.append(f"M 100644 inline {path}\ndata {len(text.encode())}\n{text}\n")
+    # bytes, not text: text mode would turn every "\n" into "\r\n" on Windows and git rejects that
+    subprocess.run(["git", "fast-import", "--quiet"], cwd=str(work), input="".join(stream).encode("utf-8"), check=True)
+    _git(["checkout", "-q", "-f", "main"], cwd=work)
+    return _git(["rev-parse", "HEAD"], cwd=work).stdout.strip()
+
+
+def _init(tmp_path):
+    work = tmp_path / "proj"
+    work.mkdir()
+    _git(["init", "-q", "-b", "main"], cwd=work)
+    _git(["config", "user.email", "t@example.com"], cwd=work)
+    _git(["config", "user.name", "Tester"], cwd=work)
+    _git(["config", "commit.gpgsign", "false"], cwd=work)
+    return work
+
+
+def test_a_repair_at_the_very_start_of_a_long_history_is_found(git_available, tmp_path):
+    # Regression for the old cap of 1000 visited commits, counted from the newest, which never reached it.
+    work = _init(tmp_path)
+    commits = [{"lib.py": f"def f():\n    return {v}\n",
+                "test_mod.py": f"from lib import f\n\n\ndef test_f():\n    assert f() == {v}\n"} for v in (1, 2)]
+    commits += [{"notes.txt": f"note {n}\n"} for n in range(1100)]
+    head = _fast_import(work, commits)
+    assert int(_git(["rev-list", "--count", "HEAD"], cwd=work).stdout) == 1102
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = head
+    cases = a.find_repaired_test_cases()
+    assert [c.test_name for c in cases] == ["test_f"]
+    assert _totals(a.funnel_rows())["cases"] == 1
+
+
+def _burst_repo(tmp_path):
+    """21 commits; commit i appends i lines to a test file and i lines to a source file (co-change score i)."""
+    work = _init(tmp_path)
+    lib, test, commits = "", "from lib import f\n", []
+    for i in range(21):
+        lib += "".join(f"x{i}_{k} = {i}\n" for k in range(i))
+        test += "".join(f"# t{i}_{k}\n" for k in range(i))
+        commits.append({"lib.py": lib + "def f():\n    return 1\n", "test_mod.py": test})
+    return work, _fast_import(work, commits)
+
+
+def test_the_plan_reaches_every_part_of_the_history_before_going_deeper(git_available, tmp_path):
+    work, head = _burst_repo(tmp_path)
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    relevant = set(_git(["log", "--format=%H", "--diff-filter=M", head], cwd=work).stdout.split())
+    plan, buckets, skipped = a.plan_pairs(head, relevant)
+
+    assert len(plan) == 20 and not skipped
+    first_round = [buckets[child] for child, _ in plan[:10]]
+    assert first_round == [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]  # one per bucket, the newest part of the history first
+
+    # inside a bucket the biggest co-change goes first: commit i has score i, so a larger index comes earlier
+    order = {commit: n for n, commit in enumerate(_git(["rev-list", "--reverse", head], cwd=work).stdout.split())}
+    for bucket in range(10):
+        members = [order[child] for child, _ in plan if buckets[child] == bucket]
+        assert members == sorted(members, reverse=True)
+
+
+def test_the_plan_is_the_same_every_time(git_available, tmp_path):
+    work, head = _burst_repo(tmp_path)
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    relevant = set(_git(["log", "--format=%H", "--diff-filter=M", head], cwd=work).stdout.split())
+    assert a.plan_pairs(head, relevant)[0] == a.plan_pairs(head, relevant)[0]
+
+
+def test_max_pairs_limits_the_work_and_takes_the_plan_in_order(three_repairs_repo):
+    repository_path, shas = three_repairs_repo
+    events = _search(repository_path, shas[-1], max_pairs=1)
+    assert events == [("case", shas[3]), ("done", f"{shas[3]}:{shas[2]}")]
+
+
+def test_require_source_change_leaves_out_test_only_pairs(git_available, tmp_path):
+    work = _init(tmp_path)
+    test = "from lib import f\n\n\ndef test_f():\n    assert f() == {v}\n"
+    head = _fast_import(work, [
+        {"lib.py": "def f():\n    return 1\n", "test_mod.py": test.format(v=1)},
+        {"test_mod.py": test.format(v=1) + "# a comment, no source change\n"},   # test only
+        {"lib.py": "def f():\n    return 2\n", "test_mod.py": test.format(v=2)},  # test and source
+    ])
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    relevant = set(_git(["log", "--format=%H", "--diff-filter=M", head], cwd=work).stdout.split())
+
+    everything = a.plan_pairs(head, relevant)[0]
+    plan, buckets, skipped = a.plan_pairs(head, relevant, require_source_change=True)
+    assert len(everything) == 2 and len(plan) == 1 and sum(skipped.values()) == 1
+
+    a.current_hash = head
+    a.find_repaired_test_cases(require_source_change=True)
+    assert _totals(a.funnel_rows())["skipped_no_source"] == 1

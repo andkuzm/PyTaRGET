@@ -10,7 +10,7 @@ import time
 import tomllib
 from collections import Counter, defaultdict, deque
 from difflib import SequenceMatcher
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import coverage
 
@@ -33,6 +33,29 @@ def _flatten_dependency_group(groups_table, name, _seen=None):
         elif isinstance(item, dict) and "include-group" in item:
             reqs.extend(_flatten_dependency_group(groups_table, item["include-group"], _seen))
     return reqs
+
+
+def _is_test_path(path):
+    """Same notion of "test file" as the pathspecs that select the relevant commits."""
+    parts = PurePosixPath(path.strip('"')).parts
+    if not parts:
+        return False
+    name = parts[-1]
+    return name.startswith("test_") or name.endswith("_test.py") or any(part in ("tests", "test") for part in parts[:-1])
+
+
+def _round_robin(groups):
+    """Interleave lists: the first item of every group, then the second of every group, and so on."""
+    order, index = [], 0
+    while True:
+        took = False
+        for group in groups:
+            if index < len(group):
+                order.append(group[index])
+                took = True
+        if not took:
+            return order
+        index += 1
 
 
 def _find_test_methods(tree, source, rel_path):
@@ -366,35 +389,39 @@ class RepositoryActions:
             except OSError:
                 pass
 
-    def find_repaired_test_cases(self, on_case=None, on_progress=None, resume_after=None):
+    def find_repaired_test_cases(self, on_case=None, on_progress=None, resume_after=None, max_pairs=None,
+                                 require_source_change=False):
         """
-        BFS over the full commit DAG, following all parents of every merge commit.
-        This surfaces repair commits that live on non-first-parent (feature-branch)
-        history, which the previous linear HEAD^ walk missed entirely.
+        Mine repaired tests from the whole history reachable from self.current_hash.
 
-        For each (child, parent) pair:
-          1. Collect test method source in the parent commit.
-          2. Collect test method source in the child commit.
-          3. For methods present in both that changed (difflib hunk-level):
+        Plan: every (child, parent) pair of the history, of every parent of a merge too, where either commit
+        touches a test file. The plan is cheap to build (two git commands). It is ordered so that every part of
+        the history is reached early: the history is cut into ten buckets by position, inside a bucket the pairs
+        with the biggest co-change (min of the lines changed in test files and in other .py files by the child
+        commit) come first, and the buckets are interleaved, newest first. A run that is stopped, budgeted or
+        killed has therefore looked at the beginning, the middle and the end of the history alike.
+
+        For each pair of the plan, in that order:
+          1. The tests that changed between the two commits are read from the git diff (no checkout).
+          2. For each changed test:
              a. Parent must PASS.
              b. Child must PASS.
              c. Override (child source + parent test code) must FAIL.
              d. Record as a repaired test case.
 
-        commit_counter is incremented globally across all branches; once
-        MAX_COMMITS is reached the traversal stops.
-
         on_case(case)       called the moment a case is verified, so it can be annotated and saved right away
                             instead of at the very end (a killed run then keeps what it found).
-        on_progress(commit) called after a pair that needed real work is completely done; `commit` is that pair's
-                            parent commit.
-        resume_after        a commit previously reported to on_progress. The walk is deterministic, so it is run
-                            again from the same start but the pairs up to and including that commit are only
-                            walked over, not processed.
+        on_progress(pair)   called after a pair that needed real work is completely done; `pair` is "child:parent".
+        resume_after        a pair previously reported to on_progress. The plan is deterministic, so it is built
+                            again and the pairs up to and including that one are skipped. (A bare parent hash is
+                            accepted too and means the first pair with that parent.)
+        max_pairs           stop after this many pairs of the plan were looked at (None = all of them).
+        require_source_change  leave out pairs whose child commit changes no non-test .py file, since a test
+                            cannot break without one; merge commits are kept, their diff is not known cheaply.
         """
-        MAX_COMMITS = 1000
         repaired_cases = set()
         skipping = resume_after is not None
+        dest_dir = str(self.repo_dir)
 
         # Git pathspecs without a leading "*/" only match at the repo root,
         # and "*/tests/*.py" needs a directory *before* "tests/" — so without
@@ -411,126 +438,140 @@ class RepositoryActions:
         )
         relevant_commits = set(result.stdout.splitlines())
 
+        plan, buckets, skipped = self.plan_pairs(self.current_hash, relevant_commits, require_source_change)
+
         # Funnel: how many commit pairs survive each step, per tenth of the repository's history (0 = oldest).
         # Purely diagnostic, it does not influence what is mined.
-        buckets = self._history_buckets(self.current_hash)
         self.funnel = defaultdict(Counter)
         for commit, bucket in buckets.items():
             self.funnel[bucket]["commits"] += 1
             if commit in relevant_commits:
                 self.funnel[bucket]["relevant_commits"] += 1
+        for child_commit, _ in plan:
+            self.funnel[buckets.get(child_commit, -1)]["relevant_pairs"] += 1
+        for bucket, count in skipped.items():
+            self.funnel[bucket]["skipped_no_source"] += count
 
         def tally(commit, key, n=1):
             self.funnel[buckets.get(commit, -1)][key] += n
 
-        queue = deque([self.current_hash])
-        dest_dir = str(self.repo_dir)
+        looked_at = 0
+        for child_commit, parent_commit in plan:
+            pair = f"{child_commit}:{parent_commit}"
 
-        while queue:
-            if self.commit_counter >= MAX_COMMITS:
-                break
-
-            child_commit = queue.popleft()
-
-            proc = subprocess.run(
-                ["git", "cat-file", "-p", child_commit],
-                cwd=dest_dir, capture_output=True, text=True
-            )
-            if proc.returncode != 0:
+            if skipping:  # finished in an earlier run
+                if resume_after == pair or (":" not in resume_after and resume_after == parent_commit):
+                    skipping = False
                 continue
 
-            parents = [
-                line.split()[1]
-                for line in proc.stdout.splitlines()
-                if line.startswith("parent ")
-            ]
-            if not parents:
-                continue  # root commit
+            if max_pairs is not None and looked_at >= max_pairs:
+                break
+            looked_at += 1
+            tally(child_commit, "visited_pairs")
 
-            for parent_commit in parents:
-                if parent_commit in self.visited_commits:
+            # --- changed tests, straight from the diff (no checkout, no scan of the working tree) ---
+            parent_methods = self.changed_test_methods(parent_commit, child_commit)
+            if not parent_methods:
+                continue
+            changed_tests = set(parent_methods)
+            tally(child_commit, "pairs_with_changed_test")
+            tally(child_commit, "changed_tests", len(changed_tests))
+
+            for key in changed_tests:
+                rel_path, test_method = key
+
+                # ---------- parent must PASS ----------
+                if not self.git_checkout_with_retry(dest_dir, parent_commit):
+                    tally(child_commit, "checkout_failed")
                     continue
-                if self.commit_counter >= MAX_COMMITS:
-                    break
+                self.set_full_permissions()
+                parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
 
-                self.visited_commits.add(parent_commit)
-                self.commit_counter += 1
-                queue.append(parent_commit)
-
-                if skipping:  # finished in an earlier run: keep the walk identical, do no work
-                    if parent_commit == resume_after:
-                        skipping = False
+                if parent.status != TestVerdict.SUCCESS:
+                    tally(child_commit, f"parent_{parent.status}")
                     continue
+                tally(child_commit, "parent_success")
 
-                tally(child_commit, "visited_pairs")
-
-                if child_commit not in relevant_commits and parent_commit not in relevant_commits:
+                # ---------- child must PASS ----------
+                if not self.git_checkout_with_retry(dest_dir, child_commit):
+                    tally(child_commit, "checkout_failed")
                     continue
-                tally(child_commit, "relevant_pairs")
+                self.set_full_permissions()
+                child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
 
-                # --- changed tests, straight from the diff (no checkout, no scan of the working tree) ---
-                parent_methods = self.changed_test_methods(parent_commit, child_commit)
-                if not parent_methods:
+                if child.status != TestVerdict.SUCCESS:
+                    tally(child_commit, f"child_{child.status}")
                     continue
-                changed_tests = set(parent_methods)
-                tally(child_commit, "pairs_with_changed_test")
-                tally(child_commit, "changed_tests", len(changed_tests))
+                tally(child_commit, "child_success")
 
-                for key in changed_tests:
-                    rel_path, test_method = key
+                # ---------- override must FAIL ----------
+                overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
 
-                    # ---------- parent must PASS ----------
-                    if not self.git_checkout_with_retry(dest_dir, parent_commit):
-                        tally(child_commit, "checkout_failed")
-                        continue
-                    self.set_full_permissions()
-                    parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+                if overridden.status in (TestVerdict.FAILURE, TestVerdict.SYNTAX_ERR):
+                    case = Broken_to_repaired(parent_commit, child_commit, test_method, rel_path, overridden.log)
+                    repaired_cases.add(case)
+                    tally(child_commit, "cases")
+                    if on_case is not None:
+                        on_case(case)
+                else:
+                    tally(child_commit, f"override_{overridden.status}")
 
-                    if parent.status != TestVerdict.SUCCESS:
-                        tally(child_commit, f"parent_{parent.status}")
-                        continue
-                    tally(child_commit, "parent_success")
-
-                    # ---------- child must PASS ----------
-                    if not self.git_checkout_with_retry(dest_dir, child_commit):
-                        tally(child_commit, "checkout_failed")
-                        continue
-                    self.set_full_permissions()
-                    child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
-
-                    if child.status != TestVerdict.SUCCESS:
-                        tally(child_commit, f"child_{child.status}")
-                        continue
-                    tally(child_commit, "child_success")
-
-                    # ---------- override must FAIL ----------
-                    overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
-
-                    if overridden.status in (TestVerdict.FAILURE, TestVerdict.SYNTAX_ERR):
-                        case = Broken_to_repaired(parent_commit, child_commit, test_method, rel_path, overridden.log)
-                        repaired_cases.add(case)
-                        tally(child_commit, "cases")
-                        if on_case is not None:
-                            on_case(case)
-                    else:
-                        tally(child_commit, f"override_{overridden.status}")
-
-                if on_progress is not None:
-                    on_progress(parent_commit)
+            if on_progress is not None:
+                on_progress(pair)
 
         return repaired_cases
 
     FUNNEL_BUCKETS = 10
-    FUNNEL_MAIN_COLUMNS = ("commits", "relevant_commits", "visited_pairs", "relevant_pairs",
+    FUNNEL_MAIN_COLUMNS = ("commits", "relevant_commits", "relevant_pairs", "visited_pairs",
                            "pairs_with_changed_test", "changed_tests", "parent_success", "child_success", "cases")
 
-    def _history_buckets(self, start):
-        """{commit: tenth of the history it falls in}, 0 = oldest. Position is the topological order up to `start`."""
-        proc = subprocess.run(["git", "rev-list", "--topo-order", "--reverse", start], cwd=self.repo_dir,
+    def _commit_line_counts(self, start):
+        """{commit: (lines changed in test files, lines changed in other .py files)} for the non-merge commits."""
+        proc = subprocess.run(
+            ["git", "log", "--topo-order", "--no-merges", "--no-renames", "--numstat", "--format=%x01%H", start,
+             "--", "*.py"],
+            cwd=self.repo_dir, capture_output=True)
+        counts, current = {}, None
+        for line in proc.stdout.decode("utf-8", errors="replace").splitlines():
+            if line.startswith("\x01"):
+                current = line[1:]
+                counts[current] = [0, 0]
+            elif current is not None and "\t" in line:
+                added, deleted, path = line.split("\t", 2)
+                if added == "-" or deleted == "-":  # binary
+                    continue
+                counts[current][0 if _is_test_path(path) else 1] += int(added) + int(deleted)
+        return {commit: tuple(values) for commit, values in counts.items()}
+
+    def plan_pairs(self, start, relevant_commits, require_source_change=False):
+        """
+        ([(child, parent), ...] in the order they are to be processed, {commit: history bucket}, {bucket: pairs
+        left out for lack of a source change}). Deterministic for a given start commit, which resuming relies on.
+        """
+        proc = subprocess.run(["git", "log", "--topo-order", "--format=%H %P", start], cwd=self.repo_dir,
                               capture_output=True, text=True)
-        commits = proc.stdout.split()
+        commits = [line.split() for line in proc.stdout.splitlines() if line.strip()]  # newest first
         total = max(len(commits), 1)
-        return {c: min(self.FUNNEL_BUCKETS - 1, i * self.FUNNEL_BUCKETS // total) for i, c in enumerate(commits)}
+        buckets = {commit: min(self.FUNNEL_BUCKETS - 1, (total - 1 - index) * self.FUNNEL_BUCKETS // total)
+                   for index, (commit, *_) in enumerate(commits)}
+
+        counts = self._commit_line_counts(start)
+        groups, skipped = defaultdict(list), Counter()
+        for commit, *parents in commits:
+            # a merge's diff is not part of the counts; a non-merge commit with no .py change simply has none
+            test_lines, source_lines = (None, None) if len(parents) > 1 else counts.get(commit, (0, 0))
+            for parent in parents:
+                if commit not in relevant_commits and parent not in relevant_commits:
+                    continue
+                if require_source_change and source_lines == 0:
+                    skipped[buckets[commit]] += 1
+                    continue
+                score = 0 if test_lines is None else min(test_lines, source_lines)
+                groups[buckets[commit]].append((-score, commit, parent))
+
+        ordered = [[(commit, parent) for _, commit, parent in sorted(groups[bucket])]
+                   for bucket in sorted(groups, reverse=True)]
+        return _round_robin(ordered), buckets, skipped
 
     def funnel_rows(self):
         """One dict per history bucket: the main steps as columns, every other counter as JSON in "details"."""

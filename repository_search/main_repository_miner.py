@@ -12,8 +12,8 @@ import repository_actions
 
 # One row per tenth of a repository's history plus "repo" rows with the stage a repository reached ("started" is
 # written first, so a repository that was killed by the time limit shows up as started without a later row).
-FUNNEL_COLUMNS = ["repository_name", "bucket", "stage", "commits", "relevant_commits", "visited_pairs",
-                  "relevant_pairs", "pairs_with_changed_test", "changed_tests", "parent_success", "child_success",
+FUNNEL_COLUMNS = ["repository_name", "bucket", "stage", "commits", "relevant_commits", "relevant_pairs",
+                  "visited_pairs", "pairs_with_changed_test", "changed_tests", "parent_success", "child_success",
                   "cases", "details"]
 
 # test_name ("name" or "Class.name"), broken_date and repaired_date (committer dates) come last, so readers that pick
@@ -30,6 +30,11 @@ class Main:
         # The processed-repositories file; when given, the repository's line there records where an interrupted
         # search stopped (see processed_log.py) and a new run continues from it.
         self.processed_file = Path(processed_file) if processed_file else None
+        # Optional limits, read from the environment so they reach the miner through the searcher unchanged:
+        # PYTARGET_MAX_PAIRS=<n> looks at no more than n planned commit pairs per run of a repository, and
+        # PYTARGET_REQUIRE_SOURCE_CHANGE=1 skips pairs whose commit changes no non-test .py file.
+        self.max_pairs = int(os.environ["PYTARGET_MAX_PAIRS"]) if os.environ.get("PYTARGET_MAX_PAIRS") else None
+        self.require_source_change = os.environ.get("PYTARGET_REQUIRE_SOURCE_CHANGE") == "1"
         self.funnel_csv = self.output_csv.with_name(self.output_csv.stem + "_funnel.csv")
 
     def save_funnel(self, rows):
@@ -103,7 +108,7 @@ class Main:
             print(f"{self.repository_name}: recorded start {head} no longer exists, starting over")
             head, marker = fresh_head, None
             processed_log.mark_progress(self.processed_file, self.repository_name, head, "")
-        elif marker and not repository.is_ancestor(marker, head):
+        elif marker and not repository.is_ancestor(marker.split(":")[0], head):  # marker = "child:parent"
             print(f"{self.repository_name}: recorded progress {marker} is not in the history, starting over")
             marker = None
             processed_log.mark_progress(self.processed_file, self.repository_name, head, "")
@@ -139,6 +144,8 @@ class Main:
                     on_case=lambda case: self.handle_case(repository, case, seen),
                     on_progress=on_progress,
                     resume_after=marker,
+                    max_pairs=self.max_pairs,
+                    require_source_change=self.require_source_change,
                 )
                 self.save_funnel(getattr(repository, "funnel_rows", lambda: [])())
                 stage = "searched"

@@ -596,3 +596,22 @@ class TestSetFullPermissions:
         f = tmp_path / "proj" / "pkg" / "mod.py"
         mode = os.stat(f).st_mode & 0o777
         assert mode & 0o700 == 0o700  # at least owner rwx
+
+
+# --------------------------------------------------------------------------- #
+#  planning helpers                                                           #
+# --------------------------------------------------------------------------- #
+class TestPlanningHelpers:
+    def test_round_robin_interleaves_and_handles_uneven_groups(self):
+        import repository_actions
+        assert repository_actions._round_robin([[1, 2, 3], [10], [20, 21]]) == [1, 10, 20, 2, 21, 3]
+        assert repository_actions._round_robin([]) == []
+        assert repository_actions._round_robin([[], []]) == []
+
+    def test_test_paths_follow_the_same_rules_as_the_commit_filter(self):
+        import repository_actions
+        is_test = repository_actions._is_test_path
+        for path in ("test_a.py", "pkg/test_a.py", "a_test.py", "tests/a.py", "pkg/tests/sub/a.py", "test/a.py"):
+            assert is_test(path), path
+        for path in ("a.py", "pkg/a.py", "latest.py", "pkg/contest/a.py", "testing/a.py", "tests.py"):
+            assert not is_test(path), path
