@@ -289,6 +289,175 @@ class TestAnnotateCode:
 
 
 # --------------------------------------------------------------------------- #
+#  changed_test_methods: same answer as the checkout-and-scan method          #
+# --------------------------------------------------------------------------- #
+OLD_TESTS = """import pytest
+import unittest
+
+
+def test_changed():
+    assert f() == 1
+
+
+def test_same():
+    assert f() == 1
+
+
+# a comment-only change is not a change
+def test_comment():
+    assert f() == 1
+
+
+@pytest.mark.parametrize("x", [1, 2])
+def test_param(x):
+    assert f() == x
+
+
+@pytest.mark.slow
+def test_decorated():
+    assert f() == 1
+
+
+async def test_async():
+    assert await f() == 1
+
+
+class TestFoo:
+    def test_method(self):
+        assert f() == 1
+
+    def test_method_same(self):
+        assert f() == 1
+
+
+class Mixed(unittest.TestCase):
+    def test_unit(self):
+        self.assertEqual(f(), 1)
+
+    class Inner:
+        pass
+
+
+class Helper:
+    def test_not_collected(self):
+        assert f() == 1
+"""
+
+NEW_TESTS = (OLD_TESTS.replace("== 1\n\n\ndef test_same", "== 2\n\n\ndef test_same")
+             .replace("# a comment-only change is not a change", "# a comment-only change is still not a change")
+             .replace("def test_param(x):\n    assert f() == x", "def test_param(x):\n    assert f() != x")
+             .replace("def test_decorated():\n    assert f() == 1", "def test_decorated():\n    assert f() == 3")
+             .replace("assert await f() == 1", "assert await f() == 4")
+             .replace("def test_method(self):\n        assert f() == 1", "def test_method(self):\n        assert f() == 5")
+             .replace("self.assertEqual(f(), 1)", "self.assertEqual(f(), 6)")
+             .replace("def test_not_collected(self):\n        assert f() == 1",
+                      "def test_not_collected(self):\n        assert f() == 7"))
+
+
+def _git(cwd, *args):
+    import subprocess
+    return subprocess.run(["git", *args], cwd=str(cwd), check=True, capture_output=True, text=True).stdout.strip()
+
+
+def _legacy_changed_tests(actions, parent, child):
+    """What the loop used to do: check out each side, read every file, parse the file once per test."""
+    def collect(commit):
+        actions.git_checkout_with_retry(str(actions.repo_dir), commit)
+        found = {}
+        for file in actions.list_test_files():
+            rel = str(file.relative_to(actions.repo_dir))
+            for _, name in actions.find_test_methods(rel):
+                code = actions.extract_method_code(rel, name)
+                if code:
+                    found[(rel, name)] = code
+        return found
+    before, after = collect(parent), collect(child)
+    return {k: before[k] for k in before if k in after and actions.is_test_method_changed(before[k], after[k])}
+
+
+class TestChangedTestMethods:
+    def _build_repo(self, make_actions):
+        a = make_actions({})
+        repo = a.repo_dir
+        _git(repo, "init", "-q")
+        _git(repo, "config", "user.email", "t@example.com")
+        _git(repo, "config", "user.name", "t")
+        _git(repo, "config", "core.autocrlf", "false")
+
+        def write(rel, content, binary=False):
+            path = repo / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if binary:
+                path.write_bytes(content)
+            else:
+                path.write_text(content, encoding="utf-8", newline="")
+
+        def commit(message):
+            _git(repo, "add", "-A")
+            _git(repo, "commit", "-q", "-m", message)
+            return _git(repo, "rev-parse", "HEAD")
+
+        write("tests/test_mod.py", OLD_TESTS)
+        write("tests/test_crlf.py", "def test_crlf():\r\n    assert f() == 1\r\n")
+        write("tests/test_syntax.py", "def test_s():\n    assert 1 == 1\n")
+        write("tests/test_renamed.py", "def test_r():\n    assert 1 == 1\n")
+        write("tests/test_latin1.py", "# caf\xe9\ndef test_l():\n    assert 1 == 1\n".encode("latin-1"), binary=True)
+        write("tests/test_gone.py", "def test_g():\n    assert 1 == 1\n")
+        write("src/lib.py", "def f():\n    return 1\n")
+        write("tests/helpers.py", "def helper():\n    return 1\n")
+        parent = commit("old")
+
+        write("tests/test_mod.py", NEW_TESTS)
+        write("tests/test_crlf.py", "def test_crlf():\r\n    assert f() == 2\r\n")
+        write("tests/test_syntax.py", "def test_s(:\n    assert 1 == 2\n")
+        (repo / "tests/test_renamed.py").rename(repo / "tests/test_renamed2.py")
+        write("tests/test_renamed2.py", "def test_r():\n    assert 1 == 2\n")
+        write("tests/test_latin1.py", "# caf\xe9\ndef test_l():\n    assert 1 == 2\n".encode("latin-1"), binary=True)
+        (repo / "tests/test_gone.py").unlink()
+        write("tests/test_new.py", "def test_n():\n    assert 1 == 1\n")
+        write("src/lib.py", "def f():\n    return 2\n")
+        write("tests/helpers.py", "def helper():\n    return 2\n")
+        return a, parent, commit("new")
+
+    def test_matches_the_checkout_and_scan_method(self, make_actions):
+        a, parent, child = self._build_repo(make_actions)
+        legacy = _legacy_changed_tests(a, parent, child)
+        new = a.changed_test_methods(parent, child)
+
+        assert new == legacy
+        names = sorted(name for _, name in new)
+        # the changed ones, including a decorated test, an async one, a class method, a TestCase method and a file
+        # with CRLF line endings; a method of a class pytest would not collect (Helper) is not among them
+        assert names == sorted(["test_changed", "test_decorated", "test_async", "TestFoo.test_method",
+                                "Mixed.test_unit", "test_crlf"])
+        # and not these: parametrized, unchanged, comment-only, syntax error, rename, deleted, new, no tests
+        for skipped in ("test_param", "test_same", "test_comment", "TestFoo.test_method_same", "test_s", "test_r",
+                        "test_l", "test_g", "test_n", "helper"):
+            assert skipped not in names
+
+    def test_nothing_changed_without_test_edits(self, make_actions):
+        a = make_actions({})
+        repo = a.repo_dir
+        _git(repo, "init", "-q")
+        _git(repo, "config", "user.email", "t@example.com")
+        _git(repo, "config", "user.name", "t")
+        (repo / "lib.py").write_text("x = 1\n")
+        (repo / "test_a.py").write_text("def test_a():\n    assert True\n")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "one")
+        first = _git(repo, "rev-parse", "HEAD")
+        (repo / "lib.py").write_text("x = 2\n")
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "two")
+        assert a.changed_test_methods(first, _git(repo, "rev-parse", "HEAD")) == {}
+
+    def test_unknown_commit_gives_none(self, make_actions):
+        a = make_actions({})
+        _git(a.repo_dir, "init", "-q")
+        assert a.changed_test_methods("0" * 40, "1" * 40) is None
+
+
+# --------------------------------------------------------------------------- #
 #  get_commit_date                                                            #
 # --------------------------------------------------------------------------- #
 class TestGetCommitDate:

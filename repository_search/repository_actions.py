@@ -34,6 +34,79 @@ def _flatten_dependency_group(groups_table, name, _seen=None):
     return reqs
 
 
+def _find_test_methods(tree, source, rel_path):
+    """[[rel_path, name], ...] of the collectable tests in a parsed test file."""
+    test_methods = []
+    # Only module-level functions here; ast.walk() would also descend into
+    # class bodies and re-add class methods a second time under their bare
+    # (unqualified) name, producing bogus entries that can never be
+    # collected by pytest. Class methods are handled separately below.
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+            if any("parametrize" in (ast.get_source_segment(source, d) or "") for d in node.decorator_list):
+                continue
+            test_methods.append([rel_path, node.name])
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            inherits_testcase = any(
+                (isinstance(base, ast.Name) and base.id == "TestCase") or
+                (isinstance(base, ast.Attribute) and base.attr == "TestCase")
+                for base in node.bases
+            )
+            if inherits_testcase or node.name.startswith("Test"):
+                for item in node.body:
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name.startswith("test_"):
+                        test_methods.append([rel_path, f"{node.name}.{item.name}"])
+    return test_methods
+
+
+def _extract_method_code(tree, source_code, lines, test_method):
+    """
+    Source of one test in a parsed file. Supports:
+      test_func
+      ClassName.test_func
+    """
+    target = test_method.split(".")
+    want_class = target[0] if len(target) == 2 else None
+    want_method = target[-1]
+
+    class FunctionExtractor(ast.NodeVisitor):
+        def __init__(self):
+            self.found = ""
+
+        def _extract_with_decorators(self, node):
+            # skip parametrized tests (produce unstable repairs)
+            for d in node.decorator_list:
+                dec_src = ast.get_source_segment(source_code, d)
+                if dec_src and "parametrize" in dec_src:
+                    return ""
+
+            # include decorators if present
+            decorator_lines = [d.lineno for d in node.decorator_list] if node.decorator_list else []
+            start = min(decorator_lines + [node.lineno]) - 1
+            end = node.end_lineno
+            return "\n".join(lines[start:end])
+
+        def visit_FunctionDef(self, node):
+            if want_class is None and node.name == want_method:
+                self.found = self._extract_with_decorators(node)
+
+        def visit_AsyncFunctionDef(self, node):
+            if want_class is None and node.name == want_method:
+                self.found = self._extract_with_decorators(node)
+
+        def visit_ClassDef(self, node):
+            if want_class and node.name == want_class:
+                for item in node.body:
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == want_method:
+                        self.found = self._extract_with_decorators(item)
+
+    fx = FunctionExtractor()
+    fx.visit(tree)
+
+    return fx.found.strip() if fx.found else ""
+
+
 class RepositoryActions:
     def __init__(self, repository_name, repository_path, current_hash=None, previous_hash=None):
         self.repository_name = repository_name
@@ -365,38 +438,11 @@ class RepositoryActions:
                 if child_commit not in relevant_commits and parent_commit not in relevant_commits:
                     continue
 
-                # --- collect parent tests ---
-                if not self.git_checkout_with_retry(dest_dir, parent_commit):
+                # --- changed tests, straight from the diff (no checkout, no scan of the working tree) ---
+                parent_methods = self.changed_test_methods(parent_commit, child_commit)
+                if not parent_methods:
                     continue
-                self.set_full_permissions()
-
-                parent_methods = {}
-                for file in self.list_test_files():
-                    rel_path = str(file.relative_to(self.repo_dir))
-                    for (_, test_method) in self.find_test_methods(rel_path):
-                        code = self.extract_method_code(rel_path, test_method)
-                        if code:
-                            parent_methods[(rel_path, test_method)] = code
-
-                # --- collect child tests ---
-                if not self.git_checkout_with_retry(dest_dir, child_commit):
-                    continue
-                self.set_full_permissions()
-
-                child_methods = {}
-                for file in self.list_test_files():
-                    rel_path = str(file.relative_to(self.repo_dir))
-                    for (_, test_method) in self.find_test_methods(rel_path):
-                        code = self.extract_method_code(rel_path, test_method)
-                        if code:
-                            child_methods[(rel_path, test_method)] = code
-
-                # --- detect changed tests ---
-                changed_tests = {
-                    k for k in parent_methods
-                    if k in child_methods
-                       and self.is_test_method_changed(parent_methods[k], child_methods[k])
-                }
+                changed_tests = set(parent_methods)
 
                 for key in changed_tests:
                     rel_path, test_method = key
@@ -428,6 +474,62 @@ class RepositoryActions:
                         )
 
         return repaired_cases
+
+    def collect_test_methods(self, source, rel_path):
+        """
+        {(rel_path, name): code} for the tests of one file given as text. Exactly what list/find/extract_method_code
+        return for a checked-out file, but from a single parse instead of one parse per test.
+        """
+        try:
+            tree = ast.parse(source)
+        except Exception:
+            return {}
+        lines = source.splitlines()
+        methods = {}
+        for _, name in _find_test_methods(tree, source, rel_path):
+            code = _extract_method_code(tree, source, lines, name)
+            if code:
+                methods[(rel_path, name)] = code
+        return methods
+
+    def _git_show(self, commit, path):
+        """Text of a file at a commit (as read_text would give it), or None."""
+        proc = subprocess.run(["git", "show", f"{commit}:{path}"], cwd=self.repo_dir, capture_output=True)
+        if proc.returncode != 0:
+            return None
+        try:
+            text = proc.stdout.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        return text.replace("\r\n", "\n").replace("\r", "\n")
+
+    def changed_test_methods(self, parent_commit, child_commit):
+        """
+        {(rel_path, name): parent code} of the tests whose source differs between two commits, found from the git
+        diff without checking anything out: only .py files modified in place can hold a changed test, and only those
+        containing test functions are parsed, once per side. None when git cannot produce the diff.
+        """
+        proc = subprocess.run(
+            ["git", "diff", "--no-renames", "--diff-filter=M", "--name-only", "-z", parent_commit, child_commit,
+             "--", "*.py"],
+            cwd=self.repo_dir, capture_output=True,
+        )
+        if proc.returncode != 0:
+            return None
+        changed = {}
+        for path in filter(None, proc.stdout.decode("utf-8", errors="replace").split("\0")):
+            before, after = self._git_show(parent_commit, path), self._git_show(child_commit, path)
+            if before is None or after is None:
+                continue
+            if not (re.search(r"def\s+test_", before) and re.search(r"def\s+test_", after)):
+                continue  # same criterion list_test_files() applies to every file
+            rel_path = str(Path(path))
+            parent_methods = self.collect_test_methods(before, rel_path)
+            child_methods = self.collect_test_methods(after, rel_path)
+            for key, code in parent_methods.items():
+                if key in child_methods and self.is_test_method_changed(code, child_methods[key]):
+                    changed[key] = code
+        return changed
 
     def extract_and_annotate_code(self, broken_to_repaired_instance):
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
@@ -650,28 +752,7 @@ class RepositoryActions:
         except Exception as e:
             print(f"Error parsing {full_test_path}: {e}")
             return []
-        test_methods = []
-        # Only module-level functions here; ast.walk() would also descend into
-        # class bodies and re-add class methods a second time under their bare
-        # (unqualified) name, producing bogus entries that can never be
-        # collected by pytest. Class methods are handled separately below.
-        for node in ast.iter_child_nodes(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
-                if any("parametrize" in (ast.get_source_segment(source, d) or "") for d in node.decorator_list):
-                    continue
-                test_methods.append([test_rel_path, node.name])
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                inherits_testcase = any(
-                    (isinstance(base, ast.Name) and base.id == "TestCase") or
-                    (isinstance(base, ast.Attribute) and base.attr == "TestCase")
-                    for base in node.bases
-                )
-                if inherits_testcase or node.name.startswith("Test"):
-                    for item in node.body:
-                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name.startswith("test_"):
-                            test_methods.append([test_rel_path, f"{node.name}.{item.name}"])
-        return test_methods
+        return _find_test_methods(tree, source, test_rel_path)
 
     def extract_test_imports(self, rel_path):
         test_file_path = self.repo_dir / rel_path
@@ -1007,45 +1088,7 @@ class RepositoryActions:
         except Exception:
             return ""
 
-        target = test_method.split(".")
-        want_class = target[0] if len(target) == 2 else None
-        want_method = target[-1]
-
-        class FunctionExtractor(ast.NodeVisitor):
-            def __init__(self):
-                self.found = ""
-
-            def _extract_with_decorators(self, node):
-                # skip parametrized tests (produce unstable repairs)
-                for d in node.decorator_list:
-                    dec_src = ast.get_source_segment(source_code, d)
-                    if dec_src and "parametrize" in dec_src:
-                        return ""
-
-                # include decorators if present
-                decorator_lines = [d.lineno for d in node.decorator_list] if node.decorator_list else []
-                start = min(decorator_lines + [node.lineno]) - 1
-                end = node.end_lineno
-                return "\n".join(lines[start:end])
-
-            def visit_FunctionDef(self, node):
-                if want_class is None and node.name == want_method:
-                    self.found = self._extract_with_decorators(node)
-
-            def visit_AsyncFunctionDef(self, node):
-                if want_class is None and node.name == want_method:
-                    self.found = self._extract_with_decorators(node)
-
-            def visit_ClassDef(self, node):
-                if want_class and node.name == want_class:
-                    for item in node.body:
-                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == want_method:
-                            self.found = self._extract_with_decorators(item)
-
-        fx = FunctionExtractor()
-        fx.visit(tree)
-
-        return fx.found.strip() if fx.found else ""
+        return _extract_method_code(tree, source_code, lines, test_method)
 
     def filter_diff_lines(self, diff_lines, strip_markers=False):
         """
