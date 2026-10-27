@@ -6,13 +6,33 @@ import stat
 import subprocess
 import sys
 import time
+import tomllib
+from collections import deque
 from difflib import SequenceMatcher
 from pathlib import Path
 import re
 import coverage
 
 from data_types.Broken_to_repaired import Broken_to_repaired
-from py_parser import compile_and_run_test_python, TestVerdict, run_cmd
+from py_parser import compile_and_run_test_python, TestVerdict, run_cmd, to_pytest_nodeid_part
+
+
+def _flatten_dependency_group(groups_table, name, _seen=None):
+    """Resolve a PEP 735 [dependency-groups] entry into a flat list of
+    requirement strings, following {"include-group": "..."} references."""
+    if _seen is None:
+        _seen = set()
+    if name in _seen or name not in groups_table:
+        return []
+    _seen.add(name)
+    reqs = []
+    for item in groups_table[name]:
+        if isinstance(item, str):
+            reqs.append(item)
+        elif isinstance(item, dict) and "include-group" in item:
+            reqs.extend(_flatten_dependency_group(groups_table, item["include-group"], _seen))
+    return reqs
+
 
 class RepositoryActions:
     def __init__(self, repository_name, repository_path, current_hash=None, previous_hash=None):
@@ -41,20 +61,38 @@ class RepositoryActions:
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
 
         if os.path.exists(dest_dir):
-            print(f"Repository already exists at {dest_dir}. Removing it...")
             def handle_remove_readonly(func, path, exc_info):
                 os.chmod(path, stat.S_IWRITE)
                 func(path)
             shutil.rmtree(dest_dir, onerror=handle_remove_readonly)
 
-        print(f"Cloning repository from {repo_url} to {dest_dir}...")
         cmd = ["git", "clone", repo_url, dest_dir]
-        subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
+        clone_result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ)
+        if clone_result.returncode != 0:
+            print(f"Failed to clone {repo_url}: {clone_result.stderr}")
+            raise Exception(f"git clone failed for {self.repository_name}")
 
-        cmd = [sys.executable, "-m", "pip", "install", "-q", "--disable-pip-version-check", "."]
+        # Editable install: a regular `pip install .` copies the package into
+        # site-packages as it exists at HEAD *right now* and never touches
+        # that copy again. Every later `git checkout <historical commit>` in
+        # find_repaired_test_cases()/extract_and_annotate_code() only changes
+        # files in dest_dir - the installed copy stays frozen at today's
+        # HEAD. So "run the test at the parent/child commit" actually runs
+        # today's HEAD code against historical test code, which fails almost
+        # every genuine PASS check and silently zeroes out this repo's yield.
+        # An editable install re-reads from dest_dir on every import, so it
+        # tracks whatever commit is currently checked out. Fall back to a
+        # regular install only if editable isn't supported for this repo.
+        cmd = [sys.executable, "-m", "pip", "install", "-q", "--disable-pip-version-check", "-e", "."]
         result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
         if result.returncode != 0:
-            print(f"Warning: pip install failed for {self.repository_name}:\n{result.stderr.strip()}")
+            cmd = [sys.executable, "-m", "pip", "install", "-q", "--disable-pip-version-check", "."]
+            result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
+        if result.returncode != 0:
+            print(f"Warning: pip install failed for {self.repository_name}:\n{result.stderr}")
+            raise Exception("pip install failed; skipping repository")
+
+        self._install_test_dependencies(dest_dir)
 
         hash_cmd = ["git", "rev-parse", "HEAD"]
         hash_result = subprocess.run(hash_cmd, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
@@ -62,15 +100,131 @@ class RepositoryActions:
             latest_hash = hash_result.stdout.strip()
             self.set_current_hash(latest_hash)
             self.visited_commits.add(latest_hash)
-            print(f"Current commit hash set to: {self.current_hash}")
         else:
             print("Error obtaining latest commit hash:", hash_result.stderr)
             raise Exception("Failed to obtain commit hash")
 
         return dest_dir
 
+    def _install_test_dependencies(self, dest_dir):
+        """`pip install .` only pulls a project's *runtime* dependencies from
+        its packaging metadata - and plenty of repos (especially ones without
+        proper install_requires/[project] metadata, relying on a bare
+        requirements.txt instead) declare none at all there, so `pip install .`
+        silently installs nothing. On top of that, most test suites also need
+        test-only extras (e.g. fastapi's TestClient needs httpx, which only
+        ships under the "all"/"standard" extras) or a dev/test requirements
+        file. Either way the result is the same: imports fail during test
+        collection, parent/child never reach a PASS verdict, and no repairs
+        are ever found. This is best-effort: each candidate is installed
+        independently and failures are swallowed, so a missing/broken extra
+        never blocks the (already-successful) base install or the rest of the
+        candidates.
+        """
+        extra_names = set()
+        dependency_groups = {}
+        pyproject = Path(dest_dir) / "pyproject.toml"
+        if pyproject.exists():
+            try:
+                data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+                extra_names.update(data.get("project", {}).get("optional-dependencies", {}).keys())
+                extra_names.update(data.get("tool", {}).get("poetry", {}).get("extras", {}).keys())
+                dependency_groups = data.get("dependency-groups", {})
+            except Exception:
+                pass
+
+        # PEP 735 [dependency-groups] (e.g. modern uv-managed projects) is a
+        # separate mechanism from [project.optional-dependencies] and is not
+        # installable via `pip install .[name]`. Prefer "test"-named groups
+        # over "dev" (a "dev" group commonly pulls in large, unrelated
+        # tooling - docs builders, browsers for e2e tests, type checkers -
+        # that costs a lot of install time for no benefit here). But some
+        # projects (e.g. langflow) never split a "tests" group out at all and
+        # dump every dev/test tool - including the ones tests actually import,
+        # like asgi-lifespan or pytest itself - into a single "dev" group. In
+        # that case "dev" is the *only* place the test deps exist, so fall
+        # back to it rather than silently getting nothing.
+        test_group_reqs = set()
+        for name in dependency_groups:
+            if "test" in name.lower():
+                test_group_reqs.update(_flatten_dependency_group(dependency_groups, name))
+        if not test_group_reqs:
+            for name in dependency_groups:
+                if "dev" in name.lower():
+                    test_group_reqs.update(_flatten_dependency_group(dependency_groups, name))
+        if test_group_reqs:
+            try:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", *sorted(test_group_reqs)],
+                    capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=900
+                )
+            except Exception:
+                pass
+
+        keywords = ("test", "dev", "all", "full")
+        for extra in sorted(extra_names):
+            if any(k in extra.lower() for k in keywords):
+                try:
+                    subprocess.run(
+                        [sys.executable, "-m", "pip", "install", f".[{extra}]"],
+                        capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=600
+                    )
+                except Exception:
+                    pass
+
+        requirements_candidates = [
+            # Plain requirements.txt first: for repos with no install_requires
+            # in their packaging metadata (see docstring), this is the *only*
+            # place their actual runtime dependencies are declared at all.
+            "requirements.txt",
+            "requirements-test.txt", "requirements_test.txt", "test-requirements.txt",
+            "requirements-tests.txt", "requirements-dev.txt", "requirements_dev.txt",
+            "dev-requirements.txt", "requirements/test.txt", "requirements/tests.txt",
+            "requirements/dev.txt", "requirements/base.txt", "requirements/requirements.txt",
+            "tests/requirements.txt",
+        ]
+        for rel in requirements_candidates:
+            req_file = Path(dest_dir) / rel
+            if req_file.exists():
+                self._pip_install_requirements_file(req_file, dest_dir)
+
+    def _pip_install_requirements_file(self, req_file, dest_dir):
+        """Install a requirements file, falling back to installing its lines
+        one at a time if the batched install fails. pip resolves a
+        requirements file as a whole and installs nothing at all if any
+        single line is unresolvable (e.g. a stale pin, a platform-specific
+        package); going line-by-line on failure salvages every dependency
+        that *is* installable instead of losing all of them over one bad
+        line."""
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
+                capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=900
+            )
+        except Exception:
+            return
+
+        if result.returncode == 0:
+            return
+
+        try:
+            lines = req_file.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except Exception:
+            return
+
+        for line in lines:
+            line = line.split("#", 1)[0].strip()
+            if not line or line.startswith(("-", "git+", "http://", "https://")):
+                continue
+            try:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", line],
+                    capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=120
+                )
+            except Exception:
+                continue
+
     def has_tests(self):
-        print("Checking if tests exist")
         test_patterns = [r"def\s+test_"]
         for root, dirs, files in os.walk(self.repo_dir):
             for file in files:
@@ -80,11 +234,9 @@ class RepositoryActions:
                         content = file_path.read_text(encoding="utf-8").splitlines()
                         for line in content:
                             if any(re.search(pattern, line) for pattern in test_patterns):
-                                print(f"Test file found: {file_path}")
                                 return True
                     except Exception as e:
                         continue
-        print("Tests not found")
         return False
 
 
@@ -99,145 +251,198 @@ class RepositoryActions:
         test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
         original_content = test_file_path.read_text(encoding="utf-8")
 
-        # Extract imports once
-        imports = self.extract_test_imports(rel_path)
-
-        # Replace only the method body
-        current_method_code = self.extract_method_code(rel_path, test_method)
-        if not current_method_code:
+        line_range = self._get_method_line_range(rel_path, test_method)
+        if line_range is None:
             return TestVerdict(TestVerdict.UNKNOWN, None, "Target test method not found")
 
-        patched_test_code = imports + "\n\n" + overridden_test_code
+        start, end = line_range
 
         try:
-            new_content = original_content.replace(current_method_code, patched_test_code)
+            lines = original_content.splitlines(keepends=True)
+            new_lines = lines[:start] + [overridden_test_code + "\n"] + lines[end:]
+            new_content = "".join(new_lines)
             test_file_path.write_text(new_content, encoding="utf-8")
 
             self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
+            # Invalidate cached bytecode before running. The overridden test is
+            # frequently the same byte-size as the child test it replaces and is
+            # written within the same wall-clock second, so the .pyc header
+            # (source mtime at second resolution + size) still matches the
+            # stale, child-version bytecode. Without this, Python/pytest reuse
+            # that stale bytecode and the override spuriously *passes*, causing
+            # every genuine repaired case to be silently discarded.
+            self._invalidate_bytecode_cache()
             result = compile_and_run_test_python(
                 self.repo_dir, rel_path, test_method, self.repo_dir.parent
             )
         finally:
             test_file_path.write_text(original_content, encoding="utf-8")
+            self._invalidate_bytecode_cache()
 
         return result
 
+    def _invalidate_bytecode_cache(self):
+        """Remove cached bytecode under the repo so freshly written test source
+        is always recompiled (see run_test_with_overridden_test_code)."""
+        for cache_dir in self.repo_dir.rglob("__pycache__"):
+            shutil.rmtree(cache_dir, ignore_errors=True)
+        for pyc in self.repo_dir.rglob("*.pyc"):
+            try:
+                pyc.unlink()
+            except OSError:
+                pass
+
     def find_repaired_test_cases(self):
         """
-        Revised approach iterating over commit pairs:
-          The method iterates over commit pairs (child and its immediate parent) until it reaches
-          the beginning of the commit history or a stop condition from move_to_earlier_commit.
-          For each pair:
-             1. In the parent commit, extract test methods' source code.
-             2. Switch back to the child commit and extract test methods' source code.
-             3. For each test method present in both commits, if the parent's and child's code differ
-                (determined at hunk-level using difflib), then:
-                 a. Verify the test passes in the parent commit.
-                 b. Verify the test passes in the child commit.
-                 c. Run the parent's test code on the child's source using run_test_with_overridden_test_code.
-                 d. If the override test fails, record it as a repaired test case.
-          After processing the pair, update the current commit to the parent commit for the next iteration.
-        Returns:
-          A set of Broken_to_repaired objects representing detected repaired test cases.
+        BFS over the full commit DAG, following all parents of every merge commit.
+        This surfaces repair commits that live on non-first-parent (feature-branch)
+        history, which the previous linear HEAD^ walk missed entirely.
+
+        For each (child, parent) pair:
+          1. Collect test method source in the parent commit.
+          2. Collect test method source in the child commit.
+          3. For methods present in both that changed (difflib hunk-level):
+             a. Parent must PASS.
+             b. Child must PASS.
+             c. Override (child source + parent test code) must FAIL.
+             d. Record as a repaired test case.
+
+        commit_counter is incremented globally across all branches; once
+        MAX_COMMITS is reached the traversal stops.
         """
+        MAX_COMMITS = 1000
         repaired_cases = set()
 
-        while True:
-            child_commit = self.current_hash
+        # Git pathspecs without a leading "*/" only match at the repo root,
+        # and "*/tests/*.py" needs a directory *before* "tests/" — so without
+        # the bare "test_*.py" / "tests/*.py" / "test/*.py" variants below,
+        # root-level test files (very common in small repos) never mark a
+        # commit as relevant and their repairs are silently skipped.
+        result = subprocess.run(
+            ["git", "log", "--format=%H", "--diff-filter=M", "--",
+             "test_*.py", "*/test_*.py",
+             "*_test.py",
+             "tests/*.py", "*/tests/*.py",
+             "test/*.py", "*/test/*.py"],
+            cwd=self.repo_dir, capture_output=True, text=True
+        )
+        relevant_commits = set(result.stdout.splitlines())
 
-            parent_commit = self.move_to_earlier_commit()
-            if parent_commit == "Error":
+        queue = deque([self.current_hash])
+        dest_dir = str(self.repo_dir)
+
+        while queue:
+            if self.commit_counter >= MAX_COMMITS:
                 break
 
-            print(f"Processing commit pair: Parent: {parent_commit} | Child: {child_commit}")
+            child_commit = queue.popleft()
 
-            # --- collect parent tests ---
-            parent_methods = {}
-            for file in self.list_test_files():
-                rel_path = str(file.relative_to(self.repo_dir))
-                for (_, test_method) in self.find_test_methods(rel_path):
-                    code = self.extract_method_code(rel_path, test_method)
-                    if code:
-                        parent_methods[(rel_path, test_method)] = code
+            proc = subprocess.run(
+                ["git", "cat-file", "-p", child_commit],
+                cwd=dest_dir, capture_output=True, text=True
+            )
+            if proc.returncode != 0:
+                continue
 
-            # --- back to child ---
-            if self.move_to_later_commit() == "Error":
-                break
+            parents = [
+                line.split()[1]
+                for line in proc.stdout.splitlines()
+                if line.startswith("parent ")
+            ]
+            if not parents:
+                continue  # root commit
 
-            child_methods = {}
-            for file in self.list_test_files():
-                rel_path = str(file.relative_to(self.repo_dir))
-                for (_, test_method) in self.find_test_methods(rel_path):
-                    code = self.extract_method_code(rel_path, test_method)
-                    if code:
-                        child_methods[(rel_path, test_method)] = code
-
-            # --- detect changed tests ---
-            changed_tests = {
-                k for k in parent_methods
-                if k in child_methods
-                   and self.is_test_method_changed(parent_methods[k], child_methods[k])
-            }
-
-            for key in changed_tests:
-                rel_path, test_method = key
-
-                # ---------- parent must PASS ----------
-                if self.move_to_earlier_commit() == "Error":
+            for parent_commit in parents:
+                if parent_commit in self.visited_commits:
                     continue
-                parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+                if self.commit_counter >= MAX_COMMITS:
+                    break
 
-                if parent.status != TestVerdict.SUCCESS:
-                    print(f"Skipping {key}: parent does not PASS ({parent.status})")
-                    self.move_to_later_commit()
+                self.visited_commits.add(parent_commit)
+                self.commit_counter += 1
+                queue.append(parent_commit)
+
+                if child_commit not in relevant_commits and parent_commit not in relevant_commits:
                     continue
 
-                # ---------- child must PASS ----------
-                if self.move_to_later_commit() == "Error":
+                # --- collect parent tests ---
+                if not self.git_checkout_with_retry(dest_dir, parent_commit):
                     continue
-                child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+                self.set_full_permissions()
 
-                if child.status != TestVerdict.SUCCESS:
-                    print(f"Skipping {key}: child does not PASS ({child.status})")
+                parent_methods = {}
+                for file in self.list_test_files():
+                    rel_path = str(file.relative_to(self.repo_dir))
+                    for (_, test_method) in self.find_test_methods(rel_path):
+                        code = self.extract_method_code(rel_path, test_method)
+                        if code:
+                            parent_methods[(rel_path, test_method)] = code
+
+                # --- collect child tests ---
+                if not self.git_checkout_with_retry(dest_dir, child_commit):
                     continue
+                self.set_full_permissions()
 
-                # ---------- override must FAIL ----------
-                overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
+                child_methods = {}
+                for file in self.list_test_files():
+                    rel_path = str(file.relative_to(self.repo_dir))
+                    for (_, test_method) in self.find_test_methods(rel_path):
+                        code = self.extract_method_code(rel_path, test_method)
+                        if code:
+                            child_methods[(rel_path, test_method)] = code
 
-                if overridden.status == TestVerdict.FAILURE:
-                    print(f"Repaired test detected: {key}")
-                    repaired_cases.add(
-                        Broken_to_repaired(parent_commit, self.current_hash, test_method, rel_path, overridden.log)
-                    )
+                # --- detect changed tests ---
+                changed_tests = {
+                    k for k in parent_methods
+                    if k in child_methods
+                       and self.is_test_method_changed(parent_methods[k], child_methods[k])
+                }
 
-            # --- move history pointer backward ---
-            dest_dir = str(self.repo_dir)
-            if not self.git_checkout_with_retry(dest_dir, parent_commit):
-                break
+                for key in changed_tests:
+                    rel_path, test_method = key
 
-            self.current_hash = parent_commit
+                    # ---------- parent must PASS ----------
+                    if not self.git_checkout_with_retry(dest_dir, parent_commit):
+                        continue
+                    self.set_full_permissions()
+                    parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+
+                    if parent.status != TestVerdict.SUCCESS:
+                        continue
+
+                    # ---------- child must PASS ----------
+                    if not self.git_checkout_with_retry(dest_dir, child_commit):
+                        continue
+                    self.set_full_permissions()
+                    child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
+
+                    if child.status != TestVerdict.SUCCESS:
+                        continue
+
+                    # ---------- override must FAIL ----------
+                    overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
+
+                    if overridden.status in (TestVerdict.FAILURE, TestVerdict.SYNTAX_ERR):
+                        repaired_cases.add(
+                            Broken_to_repaired(parent_commit, child_commit, test_method, rel_path, overridden.log)
+                        )
 
         return repaired_cases
 
     def extract_and_annotate_code(self, broken_to_repaired_instance):
-        print("Attempting to extract and annotate code")
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
 
-        # Checkout to the parent's commit (broken test).
         if not self.checkout_commit(broken_to_repaired_instance.broken, dest_dir):
             return "Error"
         self.current_hash = broken_to_repaired_instance.broken
         self.set_full_permissions()
-        print(f"Repository at broken commit: {self.current_hash}")
         broken_test = self.extract_method_code(broken_to_repaired_instance.rel_path,
                                                broken_to_repaired_instance.test_name)
 
-        # Checkout to the child's commit (repaired test).
         if not self.checkout_commit(broken_to_repaired_instance.repaired, dest_dir):
             return "Error"
         self.current_hash = broken_to_repaired_instance.repaired
         self.set_full_permissions()
-        print(f"Repository at repaired commit: {self.current_hash}")
         repaired_test = self.extract_method_code(broken_to_repaired_instance.rel_path,
                                                  broken_to_repaired_instance.test_name)
 
@@ -248,6 +453,9 @@ class RepositoryActions:
             broken_to_repaired_instance.broken,
             broken_to_repaired_instance.repaired
         )
+
+        if not source_code:
+            return "Error"
 
         annotated_code = self.annotate_code(broken_test, repaired_test, source_code, broken_to_repaired_instance.rel_path)
         return annotated_code
@@ -276,9 +484,14 @@ class RepositoryActions:
         unchanged_after = []
         repaired_lines_only = []
 
+        last_change_idx = -1
+        for i, line in enumerate(diff_lines):
+            if line.startswith("-") or line.startswith("+"):
+                last_change_idx = i
+
         in_change_block = False
 
-        for line in diff_lines:
+        for i, line in enumerate(diff_lines):
             if line.startswith("@@"):
                 continue
             elif line.startswith("-"):
@@ -288,10 +501,14 @@ class RepositoryActions:
                 repaired_lines_only.append(line[1:])
                 in_change_block = True
             else:
-                if in_change_block:
+                if not in_change_block:
+                    unchanged_before.append(line)
+                elif i > last_change_idx:
                     unchanged_after.append(line)
                 else:
-                    unchanged_before.append(line)
+                    # inter-hunk context: present in both broken and repaired versions
+                    breakage_lines.append(line)
+                    repaired_lines_only.append(line)
 
         imports = self.extract_test_imports(rel_path)
 
@@ -316,6 +533,15 @@ class RepositoryActions:
 
 
     def checkout_commit(self, commit_hash, dest_dir):
+        # set_full_permissions() chmods every tracked file to 0o777, which
+        # flips the executable bit on ordinarily non-executable files and
+        # leaves the working tree with mode-only "modifications". A plain
+        # `git checkout` then refuses to switch commits ("local changes
+        # would be overwritten"), so every checkout after the first one in a
+        # sequence (e.g. the broken->repaired pair in
+        # extract_and_annotate_code) fails. Reset first to discard that
+        # self-inflicted noise, exactly like git_checkout_with_retry does.
+        subprocess.run(["git", "reset", "--hard"], cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         cmd_checkout = ["git", "checkout", commit_hash]
         proc_checkout = subprocess.run(cmd_checkout, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
         if proc_checkout.returncode != 0:
@@ -330,9 +556,9 @@ class RepositoryActions:
         Raises an exception if a cycle is detected.
         """
 
-        # if self.commit_counter >= 300:
-        #     print("Commit counter limit reached.")
-        #     return "Error"
+        MAX_COMMITS = 500
+        if self.commit_counter >= MAX_COMMITS:
+            return "Error"
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         self.previous_hash = self.current_hash
@@ -347,18 +573,18 @@ class RepositoryActions:
             return "Error"
 
         parent_hash = proc_parent.stdout.strip()
-        print(f"Parent commit hash: {parent_hash}")
+
+        if parent_hash in self.visited_commits:
+            return "Error"
+        self.visited_commits.add(parent_hash)
 
         if not self.git_checkout_with_retry(dest_dir, parent_hash):
-            print(f"Error checking out parent commit {parent_hash}. Ending iteration.")
+            print(f"Error checking out parent commit {parent_hash}.")
             return "Error"
 
         self.current_hash = parent_hash
         self.commit_counter += 1
         self.set_full_permissions()
-
-        print(
-            f"Repository is now at commit: {self.current_hash}, previously invoked move_to_earlier_commit: {self.commit_counter} times")
         return parent_hash
 
     def move_to_later_commit(self):
@@ -367,7 +593,6 @@ class RepositoryActions:
         """
 
         if self.previous_hash is None:
-            print("Either attempting to reverse second time, or first commit")
             return "Error"
 
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
@@ -379,12 +604,9 @@ class RepositoryActions:
         self.current_hash = self.previous_hash
         self.previous_hash = None
         self.set_full_permissions()
-
-        print(f"Repository is now at commit: {self.current_hash}")
         return self.current_hash
 
-    def git_checkout_with_retry(self, dest_dir, target_hash, retries=1000):
-        print("retrying")
+    def git_checkout_with_retry(self, dest_dir, target_hash, retries=5):
         for attempt in range(1, retries + 1):
             subprocess.run(["git", "reset", "--hard"], cwd=dest_dir)
             subprocess.run(["git", "clean", "-fdx"], cwd=dest_dir)
@@ -394,9 +616,8 @@ class RepositoryActions:
             if proc.returncode == 0:
                 return True
 
-            print(f"Checkout to {target_hash} failed (attempt {attempt}): {proc.stderr}")
-
-            time.sleep(1)
+            print(f"Checkout to {target_hash} failed (attempt {attempt}/{retries}): {proc.stderr}")
+            time.sleep(2 ** attempt)
 
         return False
 
@@ -413,8 +634,14 @@ class RepositoryActions:
             print(f"Error parsing {full_test_path}: {e}")
             return []
         test_methods = []
-        for node in ast.walk(tree):
+        # Only module-level functions here; ast.walk() would also descend into
+        # class bodies and re-add class methods a second time under their bare
+        # (unqualified) name, producing bogus entries that can never be
+        # collected by pytest. Class methods are handled separately below.
+        for node in ast.iter_child_nodes(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+                if any("parametrize" in (ast.get_source_segment(source, d) or "") for d in node.decorator_list):
+                    continue
                 test_methods.append([test_rel_path, node.name])
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
@@ -423,9 +650,9 @@ class RepositoryActions:
                     (isinstance(base, ast.Attribute) and base.attr == "TestCase")
                     for base in node.bases
                 )
-                if inherits_testcase:
+                if inherits_testcase or node.name.startswith("Test"):
                     for item in node.body:
-                        if isinstance(item, ast.FunctionDef) and item.name.startswith("test_"):
+                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name.startswith("test_"):
                             test_methods.append([test_rel_path, f"{node.name}.{item.name}"])
         return test_methods
 
@@ -521,33 +748,42 @@ class RepositoryActions:
     def extract_covered_source_coverage(self, rel_path, test_method, broken_hash, repaired_hash):
         dest_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
 
+        test_file_abs = str((self.repo_dir / rel_path).resolve())
+
         # --- BROKEN ---
+        # reset first: set_full_permissions() leaves mode-only "modifications"
+        # that make a plain `git checkout` refuse to switch commits (see
+        # checkout_commit() above).
+        subprocess.run(["git", "reset", "--hard"], cwd=dest_dir, capture_output=True, text=True)
         subprocess.run(["git", "checkout", broken_hash], cwd=dest_dir)
         broken_data = self.get_covered_source(rel_path, test_method, broken_hash)
 
         executed_methods_broken = {}
-        for filename in broken_data.measured_files():
-            if not filename.endswith(".py") or "tests" in filename:
-                continue
-            lines = broken_data.lines(filename)
-            if lines:
-                executed_methods_broken.update(
-                    self.extract_executed_methods_from_file(filename, lines)
-                )
+        if broken_data is not None:
+            for filename in broken_data.measured_files():
+                if not filename.endswith(".py") or os.path.abspath(filename) == test_file_abs:
+                    continue
+                lines = broken_data.lines(filename)
+                if lines:
+                    executed_methods_broken.update(
+                        self.extract_executed_methods_from_file(filename, lines)
+                    )
 
         # --- REPAIRED ---
+        subprocess.run(["git", "reset", "--hard"], cwd=dest_dir, capture_output=True, text=True)
         subprocess.run(["git", "checkout", repaired_hash], cwd=dest_dir)
         repaired_data = self.get_covered_source(rel_path, test_method, repaired_hash)
 
         executed_methods_repaired = {}
-        for filename in repaired_data.measured_files():
-            if not filename.endswith(".py") or "tests" in filename:
-                continue
-            lines = repaired_data.lines(filename)
-            if lines:
-                executed_methods_repaired.update(
-                    self.extract_executed_methods_from_file(filename, lines)
-                )
+        if repaired_data is not None:
+            for filename in repaired_data.measured_files():
+                if not filename.endswith(".py") or os.path.abspath(filename) == test_file_abs:
+                    continue
+                lines = repaired_data.lines(filename)
+                if lines:
+                    executed_methods_repaired.update(
+                        self.extract_executed_methods_from_file(filename, lines)
+                    )
 
         if not executed_methods_broken and not executed_methods_repaired:
             return ""
@@ -624,6 +860,11 @@ class RepositoryActions:
     def get_covered_source(self, rel_path, test_method, commit_hash):
         self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
 
+        # Reset first: set_full_permissions() leaves mode-only "modifications"
+        # that make a plain `git checkout` refuse to switch commits (see
+        # checkout_commit() above).
+        subprocess.run(["git", "reset", "--hard"], cwd=str(self.repo_dir), capture_output=True, text=True)
+
         # Checkout the specified commit.
         proc = subprocess.run(
             ["git", "checkout", commit_hash],
@@ -634,7 +875,13 @@ class RepositoryActions:
         )
         if proc.returncode != 0:
             print(f"Git checkout failed: {proc.stderr}")
-            return ""
+            return None
+
+        # Checking out broken/repaired commits in place can leave stale .pyc
+        # files whose header (source mtime at second resolution + size) still
+        # matches the just-checked-out source, so coverage would measure the
+        # previous commit's bytecode and yield wrong/empty covered source.
+        self._invalidate_bytecode_cache()
 
         # Ensure a .coveragerc file exists.
         coveragerc_path = self.repo_dir / ".coveragerc"
@@ -652,7 +899,14 @@ class RepositoryActions:
 
         # Build the test node id (using the absolute path of the test file).
         test_file_path = self.repo_dir / rel_path
-        nodeid = f"{test_file_path.as_posix()}::{test_method}"
+        nodeid = f"{test_file_path.as_posix()}::{to_pytest_nodeid_part(test_method)}"
+
+        # Remove stale coverage files from previous runs before starting.
+        for stale in self.repo_dir.glob(".coverage*"):
+            try:
+                stale.unlink()
+            except Exception:
+                pass
 
         # Run the test via coverage in parallel mode.
         cmd = [
@@ -660,14 +914,12 @@ class RepositoryActions:
             "--maxfail=1", "--disable-warnings", "--quiet", nodeid
         ]
         returncode, log = run_cmd(cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
-        print("pytest/coverage run returned:", returncode)
-        print("Log output:", log)
 
-        # Combine coverage data from subprocesses.
         combine_cmd = [sys.executable, "-m", "coverage", "combine"]
         combine_return, combine_log = run_cmd(combine_cmd, timeout=15 * 60, cwd=str(self.repo_dir), env=env)
-        print("Coverage combine returned:", combine_return)
-        print("Coverage combine log:", combine_log)
+
+        if combine_return != 0:
+            return None
 
         # Load the combined coverage data.
         cov_data_file = self.repo_dir / ".coverage"
@@ -676,6 +928,49 @@ class RepositoryActions:
         data = cov.get_data()
 
         return data
+
+    def _get_method_line_range(self, rel_path, test_method):
+        """Returns (start, end) as 0-indexed line indices for slicing, or None if not found."""
+        test_file_path = Path(self.repository_path) / self.repository_name.split("/")[-1] / rel_path
+        if not test_file_path.exists():
+            return None
+        try:
+            source_code = test_file_path.read_text(encoding="utf-8")
+            tree = ast.parse(source_code)
+        except Exception:
+            return None
+
+        target = test_method.split(".")
+        want_class = target[0] if len(target) == 2 else None
+        want_method = target[-1]
+
+        class RangeFinder(ast.NodeVisitor):
+            def __init__(self):
+                self.result = None
+
+            def _range(self, node):
+                decorator_lines = [d.lineno for d in node.decorator_list] if node.decorator_list else []
+                start = min(decorator_lines + [node.lineno]) - 1
+                end = node.end_lineno
+                self.result = (start, end)
+
+            def visit_FunctionDef(self, node):
+                if want_class is None and node.name == want_method:
+                    self._range(node)
+
+            def visit_AsyncFunctionDef(self, node):
+                if want_class is None and node.name == want_method:
+                    self._range(node)
+
+            def visit_ClassDef(self, node):
+                if want_class and node.name == want_class:
+                    for item in node.body:
+                        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == want_method:
+                            self._range(item)
+
+        finder = RangeFinder()
+        finder.visit(tree)
+        return finder.result
 
     def extract_method_code(self, rel_path, test_method):
         """
@@ -765,7 +1060,6 @@ class RepositoryActions:
         return any(line.startswith(('+', '-')) and meaningful(line) for line in diff)
 
     def list_test_files(self):
-        print("Listing test files")
         self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
         files_paths = []
         test_patterns = [r"def\s+test_"]

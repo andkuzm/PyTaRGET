@@ -1,5 +1,6 @@
 import os
 import re
+import signal
 import shlex
 import subprocess
 import sys
@@ -52,14 +53,14 @@ def run_cmd(cmd, timeout, cwd, env):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
-            cwd=cwd
+            cwd=cwd,
+            start_new_session=True
         )
         stdout, stderr = proc.communicate(timeout=timeout)
-        # Combine stdout and stderr for complete output
         output = stdout.decode("utf-8", errors="ignore") + "\n" + stderr.decode("utf-8", errors="ignore")
         return proc.returncode, output
     except TimeoutExpired:
-        proc.kill()
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
         stdout, stderr = proc.communicate()
         return 124, (stdout + stderr).decode("utf-8", errors="ignore")
 
@@ -68,10 +69,21 @@ def parse_successful_execution_py(log):
     # You could further parse the log for additional information.
     return TestVerdict(TestVerdict.SUCCESS, None, log)
 
+def to_pytest_nodeid_part(test_method):
+    """Convert an internal test-method identifier ('test_foo' or the
+    class-qualified 'MyTestCase.test_foo') into pytest node-ID syntax
+    ('test_foo' or 'MyTestCase::test_foo'). Pytest node IDs separate every
+    component - file, class, method - with '::', not '.'."""
+    return test_method.replace(".", "::")
+
+
 def parse_test_failure_py(log, test_class, test_method):
     # Attempt to capture line numbers from a typical pytest traceback.
     # This regex might need adjustment based on your pytest configuration.
-    regex = rf"File \".+{test_class}.py\", line (\d+), in {test_method}"
+    # Tracebacks report only the bare method name ("in test_foo"), never the
+    # class-qualified form, so strip any class prefix before matching.
+    method_name = test_method.rsplit(".", 1)[-1]
+    regex = rf"File \".+{test_class}.py\", line (\d+), in {method_name}"
     matches = re.compile(regex).findall(log)
     if matches:
         error_lines = set([int(m) for m in matches])
@@ -89,7 +101,7 @@ def parse_invalid_execution_py(log):
     return TestVerdict(TestVerdict.UNKNOWN, None, log)
 
 
-def compile_and_run_test_python(project_path, test_rel_path, test_method, log_path, save_logs=True, timeout=15 * 60):
+def compile_and_run_test_python(project_path, test_rel_path, test_method, log_path, timeout=15 * 60):
     """
     Run a single Python test using pytest.
     - project_path: Path object to the project root.
@@ -108,7 +120,7 @@ def compile_and_run_test_python(project_path, test_rel_path, test_method, log_pa
     if not test_file.exists():
         raise FileNotFoundError(f"Test file does not exist: {test_file}")
 
-    nodeid = f"{test_file.as_posix()}::{test_method}"
+    nodeid = f"{test_file.as_posix()}::{to_pytest_nodeid_part(test_method)}"
     cmd = [
         sys.executable, "-m", "pytest",
         "--maxfail=1", "--disable-warnings", "--quiet",
