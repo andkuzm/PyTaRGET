@@ -186,8 +186,15 @@ class RepositoryActions:
             cmd = [sys.executable, "-m", "pip", "install", "-q", "--disable-pip-version-check", "."]
             result = subprocess.run(cmd, capture_output=True, text=True, env=os.environ, cwd=dest_dir)
         if result.returncode != 0:
-            print(f"Warning: pip install failed for {self.repository_name}:\n{result.stderr}")
-            raise Exception("pip install failed; skipping repository")
+            tail = "\n".join(result.stderr.strip().splitlines()[-3:])
+            if os.environ.get("PYTARGET_REQUIRE_INSTALL") == "1":
+                print(f"Warning: pip install failed for {self.repository_name}:\n{tail}")
+                raise Exception("pip install failed; skipping repository")
+            # Plenty of repositories cannot be installed (collections of scripts, applications, flat layouts with
+            # several top-level packages) and their tests run fine anyway: pytest is started with the repository
+            # root as working directory, so `python -m pytest` imports the checked-out source straight from there.
+            # Skipping them cost most of the yield of such repositories; PYTARGET_REQUIRE_INSTALL=1 skips them again.
+            print(f"Warning: pip install failed for {self.repository_name}, going on without installing it:\n{tail}")
 
         self._install_test_dependencies(dest_dir)
 

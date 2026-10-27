@@ -615,3 +615,43 @@ class TestPlanningHelpers:
             assert is_test(path), path
         for path in ("a.py", "pkg/a.py", "latest.py", "pkg/contest/a.py", "testing/a.py", "tests.py"):
             assert not is_test(path), path
+
+
+# --------------------------------------------------------------------------- #
+#  repositories that cannot be installed                                      #
+# --------------------------------------------------------------------------- #
+class TestCloneOfAnUninstallableRepository:
+    def _fake_git_and_pip(self, monkeypatch):
+        import subprocess
+
+        def fake_run(cmd, **kwargs):
+            if cmd[0] == "git" and "clone" in cmd:
+                os.makedirs(cmd[-1], exist_ok=True)
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            if cmd[0] == "git" and "rev-parse" in cmd:
+                return subprocess.CompletedProcess(cmd, 0, "abc123\n", "")
+            if "pip" in cmd:
+                return subprocess.CompletedProcess(cmd, 1, "", "ERROR: Directory '.' is not installable.\n")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+    def test_the_search_goes_on_without_installing(self, make_actions, monkeypatch, capsys):
+        import repository_actions
+        a = make_actions({})
+        installs = []
+        monkeypatch.setattr(a, "_install_test_dependencies", lambda dest: installs.append(dest))
+        monkeypatch.delenv("PYTARGET_REQUIRE_INSTALL", raising=False)
+        self._fake_git_and_pip(monkeypatch)
+
+        dest = a.clone_repository_last()
+
+        assert a.current_hash == "abc123" and installs == [dest]  # test requirements are still installed
+        assert "going on without installing it" in capsys.readouterr().out
+
+    def test_the_old_strictness_can_be_asked_for(self, make_actions, monkeypatch):
+        a = make_actions({})
+        monkeypatch.setattr(a, "_install_test_dependencies", lambda dest: None)
+        monkeypatch.setenv("PYTARGET_REQUIRE_INSTALL", "1")
+        self._fake_git_and_pip(monkeypatch)
+        with pytest.raises(Exception, match="pip install failed"):
+            a.clone_repository_last()

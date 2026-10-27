@@ -333,11 +333,12 @@ class GitHubSearch:
         if self.max_repositories is not None and self._dispatched >= self.max_repositories:
             raise StopSearch(f"limit of {self.max_repositories} repositories reached")
         self._dispatched += 1
-        print(f"Processing {full_name}")
         if self._pool is None:
+            print(f"Processing {full_name}")
             self._work(full_name, None)
             return
-        slot = self._free_slots.get()
+        slot = self._free_slots.get()  # waits while every worker is busy, so the message below means "started"
+        print(f"Processing {full_name} (worker {slot})")
         self._futures.append(self._pool.submit(self._work, full_name, slot))
 
     def _work(self, full_name, slot):
