@@ -12,6 +12,8 @@ from pathlib import Path
 import requests
 import time
 
+import processed_log
+
 PROCESS_TIMEOUT = 90 * 60   # 90 minutes
 
 # Must match the header written by main_repository_miner.Main.save_case.
@@ -210,13 +212,7 @@ class GitHubSearch:
                     continue
                 processed_repos.add(full_name)
                 print(f"Processing {full_name}")
-                success = self.process_repository_with_timeout(full_name)
-                if not success:
-                    print(f"Timed out: {full_name}")
-
-                latest_commit = self.get_latest_commit(full_name)
-                with self.processed_file.open("a", encoding="utf-8") as f:
-                    f.write(f"{full_name}|{latest_commit}\n")
+                self._process_and_record(full_name)
                 self._run_count += 1
 
                 self.run_pytest_check(full_name)
@@ -232,19 +228,26 @@ class GitHubSearch:
         self.ensure_output_csv_initialized()
 
         processed_repos = set()
-        if self.processed_file.exists():
-            try:
-                with self.processed_file.open("r", encoding="utf-8") as f:
-                    for line in f:
-                        repo_full_name = line.split("|")[0].strip()
-                        processed_repos.add(repo_full_name)
-            except Exception as e:
-                print(f"Error reading {self.processed_file}: {e}")
+        unfinished = []
+        try:
+            entries = processed_log.read_entries(self.processed_file)
+            processed_repos = set(entries)  # finished and unfinished alike: the search pass must not run them again
+            unfinished = [entry for entry in entries.values() if entry.in_progress]
+        except Exception as e:
+            print(f"Error reading {self.processed_file}: {e}")
 
         if processed_repos:
-            print(f"Resuming: {len(processed_repos)} repositories already processed.")
+            print(f"Resuming: {len(processed_repos) - len(unfinished)} repositories already processed, "
+                  f"{len(unfinished)} unfinished.")
         else:
             print("Starting fresh (no previously processed repositories found).")
+
+        # Repositories that were interrupted last time continue first, from the last completely processed commit.
+        for entry in unfinished:
+            print(f"Continuing {entry.name} after {entry.marker or 'its start'}")
+            self._process_and_record(entry.name)
+            self._run_count += 1
+            self.run_pytest_check(entry.name)
 
         headers = {}
         if self.github_token:
@@ -274,13 +277,36 @@ class GitHubSearch:
 
         print(f"Done. Processed {self._run_count} repositories, found {found} test cases.")
 
+    def _process_and_record(self, full_name):
+        """
+        Run one repository and settle its line in the processed file. The miner marks a repository done itself when
+        it finishes. If it was killed (time limit) or crashed while searching, its line still says "in progress" with
+        the last completely processed commit and the next run continues from there, but only if this attempt got
+        further than the one before; otherwise it is given up so it cannot be retried forever.
+        """
+        before = processed_log.resume_state(self.processed_file, full_name)
+        start_marker = before.marker if before is not None else ""
+
+        if not self.process_repository_with_timeout(full_name):
+            print(f"Failed or timed out: {full_name}")
+
+        after = processed_log.read_entries(self.processed_file).get(full_name)
+        if after is None:  # the miner died before it wrote anything
+            processed_log.mark_done(self.processed_file, full_name, self.get_latest_commit(full_name) or "")
+        elif after.in_progress:
+            if after.marker != start_marker:
+                print(f"{full_name}: stopped after commit {after.marker[:10]}, the next run resumes from there")
+            else:
+                print(f"{full_name}: no progress in this attempt, giving up")
+                processed_log.mark_done(self.processed_file, full_name, after.head)
+
     def process_repository_with_timeout(self, full_name):
         venv_dir = tempfile.mkdtemp(prefix=f"repo_venv_{full_name.replace('/', '_')}_")
         create_virtualenv(venv_dir)
 
         p = multiprocessing.Process(
             target=run_processor_in_venv,
-            args=(full_name, self.repository_path, str(self.output_csv), venv_dir)
+            args=(full_name, self.repository_path, str(self.output_csv), venv_dir, str(self.processed_file))
         )
 
         start = time.time()
@@ -312,7 +338,7 @@ def create_virtualenv(venv_path):
     builder = venv.EnvBuilder(with_pip=True, clear=True)
     builder.create(venv_path)
 
-def run_processor_in_venv(full_name, repository_path, output_csv, venv_path):
+def run_processor_in_venv(full_name, repository_path, output_csv, venv_path, processed_file=None):
 
     python_bin = os.path.join(
         venv_path,
@@ -336,7 +362,7 @@ def run_processor_in_venv(full_name, repository_path, output_csv, venv_path):
     try:
         subprocess.check_call([
             python_bin, "-u", str(miner),
-            full_name, repository_path, output_csv
+            full_name, repository_path, output_csv, *([processed_file] if processed_file else [])
         ], timeout=PROCESS_TIMEOUT + 60, env=env)
     except subprocess.TimeoutExpired:
         raise

@@ -192,3 +192,83 @@ def test_funnel_is_the_same_on_a_rerun_of_the_same_repository(broken_repaired_re
         a.find_repaired_test_cases()
         results.append(a.funnel_rows())
     assert results[0] == results[1]
+
+
+@pytest.fixture
+def three_repairs_repo(git_available, tmp_path):
+    """Four commits; each of the last three changes f() and its test, so three cases can be found."""
+    work = tmp_path / "proj"
+    (work / "tests").mkdir(parents=True)
+    _git(["init", "-q"], cwd=work)
+    _git(["config", "user.email", "t@example.com"], cwd=work)
+    _git(["config", "user.name", "Tester"], cwd=work)
+    _git(["config", "commit.gpgsign", "false"], cwd=work)
+    test_file = work / "tests" / "test_mod.py"
+    shas = []
+    for value in (1, 2, 3, 4):
+        test_file.write_text(f"def f():\n    return {value}\n\ndef test_f():\n    assert f() == {value}\n",
+                             encoding="utf-8")
+        _git(["add", "-A"], cwd=work)
+        _git(["commit", "-q", "-m", f"v{value}"], cwd=work)
+        shas.append(_git(["rev-parse", "HEAD"], cwd=work).stdout.strip())
+    return str(tmp_path), shas
+
+
+def _search(repository_path, head, **kwargs):
+    a = repository_actions.RepositoryActions("local/proj", repository_path)
+    a.current_hash = head
+    a.visited_commits = {head}
+    events = []
+    a.find_repaired_test_cases(on_case=lambda case: events.append(("case", case.repaired)),
+                               on_progress=lambda commit: events.append(("done", commit)), **kwargs)
+    return events
+
+
+def test_cases_are_reported_as_they_are_found_and_progress_follows_each_pair(three_repairs_repo):
+    repository_path, shas = three_repairs_repo
+    events = _search(repository_path, shas[-1])
+    # newest pair first; a case is always reported before the pair is declared done
+    assert events == [("case", shas[3]), ("done", shas[2]),
+                      ("case", shas[2]), ("done", shas[1]),
+                      ("case", shas[1]), ("done", shas[0])]
+
+
+def test_resuming_after_a_pair_does_only_the_remaining_work(three_repairs_repo):
+    repository_path, shas = three_repairs_repo
+    events = _search(repository_path, shas[-1], resume_after=shas[2])
+    assert events == [("case", shas[2]), ("done", shas[1]), ("case", shas[1]), ("done", shas[0])]
+
+    events = _search(repository_path, shas[-1], resume_after=shas[0])  # everything was done
+    assert events == []
+
+
+def test_resumed_and_uninterrupted_searches_find_the_same_cases(three_repairs_repo):
+    repository_path, shas = three_repairs_repo
+    full = [e for e in _search(repository_path, shas[-1]) if e[0] == "case"]
+    first = [e for e in _search(repository_path, shas[-1]) if e[0] == "case"][:1]  # run killed after one pair
+    rest = [e for e in _search(repository_path, shas[-1], resume_after=shas[2]) if e[0] == "case"]
+    assert first + rest == full
+
+
+def test_a_pair_without_work_does_not_move_the_marker(git_available, tmp_path):
+    work = tmp_path / "proj"
+    (work / "tests").mkdir(parents=True)
+    _git(["init", "-q"], cwd=work)
+    _git(["config", "user.email", "t@example.com"], cwd=work)
+    _git(["config", "user.name", "Tester"], cwd=work)
+    _git(["config", "commit.gpgsign", "false"], cwd=work)
+    for n in (1, 2):
+        (work / "lib.py").write_text(f"x = {n}\n", encoding="utf-8")
+        _git(["add", "-A"], cwd=work)
+        _git(["commit", "-q", "-m", f"c{n}"], cwd=work)
+    head = _git(["rev-parse", "HEAD"], cwd=work).stdout.strip()
+    assert _search(str(tmp_path), head) == []
+
+
+def test_the_search_does_not_depend_on_what_is_currently_checked_out(three_repairs_repo):
+    # Regression: the relevant commits used to come from `git log` of whatever the working tree had checked out,
+    # so a second search on the same clone (left at an old commit by the first) skipped the newest pair.
+    repository_path, shas = three_repairs_repo
+    first = _search(repository_path, shas[-1])
+    second = _search(repository_path, shas[-1])
+    assert first == second and len([e for e in first if e[0] == "case"]) == 3

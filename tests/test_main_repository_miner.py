@@ -85,15 +85,31 @@ class FakeRA:
     has_tests_value = True
     repaired_cases = ()
     annotate_map = {}
+    crash_after = None      # raise after this many cases (and their progress reports)
+    missing_commits = ()    # commits that are no longer in the cloned history
+    searches = []           # (start commit, resume_after) of every search
 
     def clone_repository_last(self):
         self.cloned = True
+        self.current_hash = "fresh-head"
+        self.visited_commits = {"fresh-head"}
         return "/fake/dest"
+
+    def is_ancestor(self, ancestor, descendant):
+        return ancestor not in self.missing_commits
 
     def has_tests(self):
         return self.has_tests_value
 
-    def find_repaired_test_cases(self):
+    def find_repaired_test_cases(self, on_case=None, on_progress=None, resume_after=None):
+        FakeRA.searches.append((self.current_hash, resume_after))
+        for done, case in enumerate(self.repaired_cases, 1):
+            if on_case is not None:
+                on_case(case)
+            if on_progress is not None:
+                on_progress(case.broken)
+            if self.crash_after == done:
+                raise RuntimeError("killed")
         return set(self.repaired_cases)
 
     def extract_and_annotate_code(self, case):
@@ -110,6 +126,9 @@ class FakeRA:
 @pytest.fixture
 def patch_ra(monkeypatch):
     FakeRA.instances = []
+    # the knobs are class attributes that tests assign to: start every test from the defaults
+    FakeRA.has_tests_value, FakeRA.repaired_cases, FakeRA.annotate_map = True, (), {}
+    FakeRA.crash_after, FakeRA.missing_commits, FakeRA.searches = None, (), []
     monkeypatch.setattr(main_repository_miner.repository_actions, "RepositoryActions", FakeRA)
     # Neutralise the pip-uninstall subprocess call.
     monkeypatch.setattr(main_repository_miner.subprocess, "run",
@@ -189,3 +208,92 @@ class TestProcessRepository:
             rows = list(csv.DictReader(fh, delimiter="|"))
         assert [r["stage"] for r in rows] == ["started", "failed"]
         assert "clone exploded" in rows[1]["details"]
+
+
+# --------------------------------------------------------------------------- #
+#  progress in the processed-repositories file, saving per case, resuming     #
+# --------------------------------------------------------------------------- #
+class TestProgressAndResume:
+    def _case(self, n):
+        return Broken_to_repaired(f"parent{n}", f"child{n}", f"test_{n}", "tests/test_x.py", "LOG")
+
+    def _run(self, tmp_path, processed_text=None):
+        processed = tmp_path / "processed.txt"
+        if processed_text is not None:
+            processed.write_text(processed_text, encoding="utf-8")
+        Main("owner/proj", str(tmp_path), str(tmp_path / "out.csv"), str(processed)).process_repository()
+        return processed.read_text(encoding="utf-8").splitlines()
+
+    def _rows(self, tmp_path):
+        with (tmp_path / "out.csv").open(encoding="utf-8") as fh:
+            return list(csv.DictReader(fh, delimiter="|"))
+
+    def test_finished_repository_is_marked_done_with_its_start(self, patch_ra, tmp_path):
+        patch_ra.repaired_cases = (self._case(1), self._case(2))
+        assert self._run(tmp_path) == ["owner/proj|fresh-head"]
+        assert [r["test_name"] for r in self._rows(tmp_path)] == ["test_1", "test_2"]
+
+    def test_repository_without_tests_is_done_too(self, patch_ra, tmp_path):
+        patch_ra.has_tests_value = False
+        assert self._run(tmp_path) == ["owner/proj|fresh-head"]
+
+    def test_crash_keeps_what_was_saved_and_the_last_finished_commit(self, patch_ra, tmp_path):
+        patch_ra.repaired_cases = (self._case(1), self._case(2), self._case(3))
+        patch_ra.crash_after = 2
+        lines = self._run(tmp_path)
+        # two cases are in the dataset and the repository is in progress after the second one
+        assert [r["test_name"] for r in self._rows(tmp_path)] == ["test_1", "test_2"]
+        assert lines == ["owner/proj|fresh-head|parent2"]
+
+    def test_crash_without_progress_gives_the_repository_up(self, patch_ra, tmp_path, monkeypatch):
+        def boom(self):
+            raise RuntimeError("search exploded")
+        monkeypatch.setattr(FakeRA, "has_tests", boom)
+        # the start was recorded and nothing was finished: retrying would crash the same way, so it is closed
+        assert self._run(tmp_path) == ["owner/proj|fresh-head"]
+
+    def test_clone_failure_leaves_a_plain_done_line(self, patch_ra, tmp_path, monkeypatch):
+        def boom(self):
+            raise RuntimeError("clone exploded")
+        monkeypatch.setattr(FakeRA, "clone_repository_last", boom)
+        assert self._run(tmp_path) == ["owner/proj"]
+
+    def test_resumes_from_the_recorded_start_and_marker(self, patch_ra, tmp_path):
+        patch_ra.repaired_cases = (self._case(3),)
+        lines = self._run(tmp_path, "other/repo|abc\nowner/proj|pinned-head|parent2\n")
+        assert patch_ra.searches == [("pinned-head", "parent2")]
+        assert lines == ["other/repo|abc", "owner/proj|pinned-head"]
+
+    def test_resume_does_not_save_a_case_twice(self, patch_ra, tmp_path):
+        patch_ra.repaired_cases = (self._case(2), self._case(3))
+        main = Main("owner/proj", str(tmp_path), str(tmp_path / "out.csv"))
+        main.save_case("owner/proj", "OLD", "tests/test_x.py", "parent2", "child2", "LOG", test_name="test_2")
+        main.save_case("someone/else", "OTHER", "tests/test_x.py", "parent3", "child3", "LOG", test_name="test_3")
+
+        self._run(tmp_path, "owner/proj|pinned-head|parent1\n")
+        rows = [(r["repository_name"], r["test_name"], r["annotated_code"]) for r in self._rows(tmp_path)]
+        assert rows == [("owner/proj", "test_2", "OLD"), ("someone/else", "test_3", "OTHER"),
+                        ("owner/proj", "test_3", "ANNOTATED")]
+
+    def test_marker_missing_from_the_history_starts_over(self, patch_ra, tmp_path):
+        patch_ra.missing_commits = ("stale-marker",)
+        lines = self._run(tmp_path, "owner/proj|pinned-head|stale-marker\n")
+        assert patch_ra.searches == [("pinned-head", None)]
+        assert lines == ["owner/proj|pinned-head"]
+
+    def test_start_missing_from_the_history_starts_over_from_the_fresh_head(self, patch_ra, tmp_path):
+        patch_ra.missing_commits = ("pinned-head",)
+        lines = self._run(tmp_path, "owner/proj|pinned-head|parent2\n")
+        assert patch_ra.searches == [("fresh-head", None)]
+        assert lines == ["owner/proj|fresh-head"]
+
+    def test_a_case_that_fails_to_annotate_does_not_stop_the_repository(self, patch_ra, tmp_path, monkeypatch):
+        patch_ra.repaired_cases = (self._case(1), self._case(2))
+
+        def flaky(self, case):
+            if case.test_name == "test_1":
+                raise RuntimeError("coverage run died")
+            return "ANNOTATED"
+        monkeypatch.setattr(FakeRA, "extract_and_annotate_code", flaky)
+        assert self._run(tmp_path) == ["owner/proj|fresh-head"]
+        assert [r["test_name"] for r in self._rows(tmp_path)] == ["test_2"]

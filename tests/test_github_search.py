@@ -355,3 +355,76 @@ class TestModuleHelpers:
                miner_cmd[0].endswith(os.path.join("Scripts", "python"))
         # PYTHONPATH points at the project root.
         assert "PYTHONPATH" in miner_kwargs["env"]
+
+
+# --------------------------------------------------------------------------- #
+#  progress: what a finished, killed or crashed attempt means                 #
+# --------------------------------------------------------------------------- #
+import processed_log
+
+
+class TestProcessAndRecord:
+    def _searcher(self, tmp_path, monkeypatch, miner_effect, success=True):
+        s = make_searcher(tmp_path)
+        monkeypatch.setattr(s, "process_repository_with_timeout",
+                            lambda name: (miner_effect(s), success)[1])
+        monkeypatch.setattr(s, "get_latest_commit", lambda name: "latest")
+        return s
+
+    def test_finished_repository_stays_as_the_miner_marked_it(self, tmp_path, monkeypatch):
+        s = self._searcher(tmp_path, monkeypatch, lambda s: processed_log.mark_done(s.processed_file, "o/r", "head"))
+        s._process_and_record("o/r")
+        assert s.processed_file.read_text().splitlines() == ["o/r|head"]
+
+    def test_miner_that_never_wrote_anything_is_recorded_with_the_latest_commit(self, tmp_path, monkeypatch):
+        s = self._searcher(tmp_path, monkeypatch, lambda s: None, success=False)
+        s._process_and_record("o/r")
+        assert s.processed_file.read_text().splitlines() == ["o/r|latest"]
+
+    def test_killed_after_progress_is_left_for_the_next_run(self, tmp_path, monkeypatch):
+        s = self._searcher(tmp_path, monkeypatch,
+                           lambda s: processed_log.mark_progress(s.processed_file, "o/r", "head", "commit7"),
+                           success=False)
+        s._process_and_record("o/r")
+        assert processed_log.resume_state(s.processed_file, "o/r").marker == "commit7"
+
+    def test_killed_without_progress_is_given_up(self, tmp_path, monkeypatch):
+        s = self._searcher(tmp_path, monkeypatch,
+                           lambda s: processed_log.mark_started(s.processed_file, "o/r", "head"), success=False)
+        s._process_and_record("o/r")
+        assert s.processed_file.read_text().splitlines() == ["o/r|head"]
+
+    def test_a_second_attempt_that_got_no_further_is_given_up(self, tmp_path, monkeypatch):
+        s = self._searcher(tmp_path, monkeypatch, lambda s: None, success=False)
+        processed_log.mark_progress(s.processed_file, "o/r", "head", "commit7")
+        s._process_and_record("o/r")  # still at commit7 afterwards
+        assert s.processed_file.read_text().splitlines() == ["o/r|head"]
+
+    def test_a_second_attempt_that_advanced_stays_in_progress(self, tmp_path, monkeypatch):
+        s = self._searcher(tmp_path, monkeypatch,
+                           lambda s: processed_log.mark_progress(s.processed_file, "o/r", "head", "commit9"),
+                           success=False)
+        processed_log.mark_progress(s.processed_file, "o/r", "head", "commit7")
+        s._process_and_record("o/r")
+        assert processed_log.resume_state(s.processed_file, "o/r").marker == "commit9"
+
+
+class TestUnfinishedRepositoriesAreResumedFirst:
+    def test_unfinished_ones_run_before_the_search_and_are_not_run_twice(self, tmp_path, monkeypatch):
+        s = make_searcher(tmp_path)
+        s.processed_file.write_text("o/done|d\no/busy|head|commit3\n", encoding="utf-8")
+        ran = []
+        monkeypatch.setattr(s, "_process_and_record", lambda name: ran.append(("resume", name)))
+        monkeypatch.setattr(s, "run_pytest_check", lambda name: None)
+
+        def fake_search(query_base, size_start, size_end, headers, processed_repos):
+            for name in ("o/done", "o/busy", "o/new"):
+                if name not in processed_repos:
+                    ran.append(("search", name))
+        monkeypatch.setattr(s, "_search_size_range", fake_search)
+
+        s.find_and_process_repositories()
+        resumed = [name for kind, name in ran if kind == "resume"]
+        searched = {name for kind, name in ran if kind == "search"}
+        assert resumed == ["o/busy"] and ran[0] == ("resume", "o/busy")
+        assert searched == {"o/new"}

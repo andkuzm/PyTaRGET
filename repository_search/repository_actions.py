@@ -366,7 +366,7 @@ class RepositoryActions:
             except OSError:
                 pass
 
-    def find_repaired_test_cases(self):
+    def find_repaired_test_cases(self, on_case=None, on_progress=None, resume_after=None):
         """
         BFS over the full commit DAG, following all parents of every merge commit.
         This surfaces repair commits that live on non-first-parent (feature-branch)
@@ -383,9 +383,18 @@ class RepositoryActions:
 
         commit_counter is incremented globally across all branches; once
         MAX_COMMITS is reached the traversal stops.
+
+        on_case(case)       called the moment a case is verified, so it can be annotated and saved right away
+                            instead of at the very end (a killed run then keeps what it found).
+        on_progress(commit) called after a pair that needed real work is completely done; `commit` is that pair's
+                            parent commit.
+        resume_after        a commit previously reported to on_progress. The walk is deterministic, so it is run
+                            again from the same start but the pairs up to and including that commit are only
+                            walked over, not processed.
         """
         MAX_COMMITS = 1000
         repaired_cases = set()
+        skipping = resume_after is not None
 
         # Git pathspecs without a leading "*/" only match at the repo root,
         # and "*/tests/*.py" needs a directory *before* "tests/" — so without
@@ -393,7 +402,7 @@ class RepositoryActions:
         # root-level test files (very common in small repos) never mark a
         # commit as relevant and their repairs are silently skipped.
         result = subprocess.run(
-            ["git", "log", "--format=%H", "--diff-filter=M", "--",
+            ["git", "log", "--format=%H", "--diff-filter=M", self.current_hash, "--",
              "test_*.py", "*/test_*.py",
              "*_test.py",
              "tests/*.py", "*/tests/*.py",
@@ -404,7 +413,7 @@ class RepositoryActions:
 
         # Funnel: how many commit pairs survive each step, per tenth of the repository's history (0 = oldest).
         # Purely diagnostic, it does not influence what is mined.
-        buckets = self._history_buckets()
+        buckets = self._history_buckets(self.current_hash)
         self.funnel = defaultdict(Counter)
         for commit, bucket in buckets.items():
             self.funnel[bucket]["commits"] += 1
@@ -447,6 +456,12 @@ class RepositoryActions:
                 self.visited_commits.add(parent_commit)
                 self.commit_counter += 1
                 queue.append(parent_commit)
+
+                if skipping:  # finished in an earlier run: keep the walk identical, do no work
+                    if parent_commit == resume_after:
+                        skipping = False
+                    continue
+
                 tally(child_commit, "visited_pairs")
 
                 if child_commit not in relevant_commits and parent_commit not in relevant_commits:
@@ -492,12 +507,16 @@ class RepositoryActions:
                     overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
 
                     if overridden.status in (TestVerdict.FAILURE, TestVerdict.SYNTAX_ERR):
-                        repaired_cases.add(
-                            Broken_to_repaired(parent_commit, child_commit, test_method, rel_path, overridden.log)
-                        )
+                        case = Broken_to_repaired(parent_commit, child_commit, test_method, rel_path, overridden.log)
+                        repaired_cases.add(case)
                         tally(child_commit, "cases")
+                        if on_case is not None:
+                            on_case(case)
                     else:
                         tally(child_commit, f"override_{overridden.status}")
+
+                if on_progress is not None:
+                    on_progress(parent_commit)
 
         return repaired_cases
 
@@ -505,9 +524,9 @@ class RepositoryActions:
     FUNNEL_MAIN_COLUMNS = ("commits", "relevant_commits", "visited_pairs", "relevant_pairs",
                            "pairs_with_changed_test", "changed_tests", "parent_success", "child_success", "cases")
 
-    def _history_buckets(self):
-        """{commit: tenth of the history it falls in}, 0 = oldest. Position is the topological order from HEAD."""
-        proc = subprocess.run(["git", "rev-list", "--topo-order", "--reverse", "HEAD"], cwd=self.repo_dir,
+    def _history_buckets(self, start):
+        """{commit: tenth of the history it falls in}, 0 = oldest. Position is the topological order up to `start`."""
+        proc = subprocess.run(["git", "rev-list", "--topo-order", "--reverse", start], cwd=self.repo_dir,
                               capture_output=True, text=True)
         commits = proc.stdout.split()
         total = max(len(commits), 1)
@@ -694,6 +713,12 @@ class RepositoryActions:
 
         return annotated_string
 
+
+    def is_ancestor(self, ancestor, descendant):
+        """True when `ancestor` is reachable from `descendant` in the cloned repository."""
+        result = subprocess.run(["git", "merge-base", "--is-ancestor", ancestor, descendant], cwd=str(self.repo_dir),
+                                capture_output=True, text=True, env=os.environ)
+        return result.returncode == 0
 
     def get_commit_date(self, commit_hash):
         """Committer date of a commit in the cloned repository (ISO 8601), or "" if it cannot be read."""
