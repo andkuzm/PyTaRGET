@@ -102,6 +102,10 @@ class FakeRA:
     def get_commit_date(self, commit_hash):
         return f"date-of-{commit_hash}"
 
+    def funnel_rows(self):
+        return [{"repository_name": self.repository_name, "bucket": 9, "stage": "", "commits": 5, "cases": 1,
+                 "details": '{"parent_failure": 2}'}]
+
 
 @pytest.fixture
 def patch_ra(monkeypatch):
@@ -134,6 +138,26 @@ class TestProcessRepository:
         # test name and commit dates are recorded next to the case
         assert rows[1][6:] == [case.test_name, "date-of-br0ken", "date-of-f1xed"]
 
+    def _funnel(self, tmp_path):
+        with (tmp_path / "out_funnel.csv").open(encoding="utf-8") as fh:
+            return list(csv.DictReader(fh, delimiter="|"))
+
+    def test_writes_started_then_the_funnel_and_the_stage(self, patch_ra, tmp_path):
+        patch_ra.has_tests_value = True
+        patch_ra.repaired_cases = ()
+
+        Main("owner/proj", str(tmp_path), str(tmp_path / "out.csv")).process_repository()
+
+        rows = self._funnel(tmp_path)
+        assert [(r["bucket"], r["stage"]) for r in rows] == [("repo", "started"), ("9", ""), ("repo", "searched")]
+        assert rows[1]["commits"] == "5" and rows[1]["cases"] == "1" and rows[1]["details"] == '{"parent_failure": 2}'
+        assert set(rows[0]) == set(main_repository_miner.FUNNEL_COLUMNS)
+
+    def test_funnel_records_why_a_repository_has_no_search(self, patch_ra, tmp_path):
+        patch_ra.has_tests_value = False
+        Main("owner/proj", str(tmp_path), str(tmp_path / "out.csv")).process_repository()
+        assert [r["stage"] for r in self._funnel(tmp_path)] == ["started", "no_tests"]
+
     def test_skips_when_no_tests(self, patch_ra, tmp_path):
         patch_ra.has_tests_value = False
         patch_ra.repaired_cases = (self._case(),)
@@ -161,3 +185,7 @@ class TestProcessRepository:
         # Should not raise: process_repository wraps everything in try/except.
         Main("owner/proj", str(tmp_path), str(csv_path)).process_repository()
         assert not csv_path.exists()
+        with (tmp_path / "out_funnel.csv").open(encoding="utf-8") as fh:
+            rows = list(csv.DictReader(fh, delimiter="|"))
+        assert [r["stage"] for r in rows] == ["started", "failed"]
+        assert "clone exploded" in rows[1]["details"]

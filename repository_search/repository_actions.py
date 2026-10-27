@@ -1,5 +1,6 @@
 import ast
 import difflib
+import json
 import os
 import shutil
 import stat
@@ -7,7 +8,7 @@ import subprocess
 import sys
 import time
 import tomllib
-from collections import deque
+from collections import Counter, defaultdict, deque
 from difflib import SequenceMatcher
 from pathlib import Path
 import re
@@ -401,6 +402,18 @@ class RepositoryActions:
         )
         relevant_commits = set(result.stdout.splitlines())
 
+        # Funnel: how many commit pairs survive each step, per tenth of the repository's history (0 = oldest).
+        # Purely diagnostic, it does not influence what is mined.
+        buckets = self._history_buckets()
+        self.funnel = defaultdict(Counter)
+        for commit, bucket in buckets.items():
+            self.funnel[bucket]["commits"] += 1
+            if commit in relevant_commits:
+                self.funnel[bucket]["relevant_commits"] += 1
+
+        def tally(commit, key, n=1):
+            self.funnel[buckets.get(commit, -1)][key] += n
+
         queue = deque([self.current_hash])
         dest_dir = str(self.repo_dir)
 
@@ -434,36 +447,46 @@ class RepositoryActions:
                 self.visited_commits.add(parent_commit)
                 self.commit_counter += 1
                 queue.append(parent_commit)
+                tally(child_commit, "visited_pairs")
 
                 if child_commit not in relevant_commits and parent_commit not in relevant_commits:
                     continue
+                tally(child_commit, "relevant_pairs")
 
                 # --- changed tests, straight from the diff (no checkout, no scan of the working tree) ---
                 parent_methods = self.changed_test_methods(parent_commit, child_commit)
                 if not parent_methods:
                     continue
                 changed_tests = set(parent_methods)
+                tally(child_commit, "pairs_with_changed_test")
+                tally(child_commit, "changed_tests", len(changed_tests))
 
                 for key in changed_tests:
                     rel_path, test_method = key
 
                     # ---------- parent must PASS ----------
                     if not self.git_checkout_with_retry(dest_dir, parent_commit):
+                        tally(child_commit, "checkout_failed")
                         continue
                     self.set_full_permissions()
                     parent = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
 
                     if parent.status != TestVerdict.SUCCESS:
+                        tally(child_commit, f"parent_{parent.status}")
                         continue
+                    tally(child_commit, "parent_success")
 
                     # ---------- child must PASS ----------
                     if not self.git_checkout_with_retry(dest_dir, child_commit):
+                        tally(child_commit, "checkout_failed")
                         continue
                     self.set_full_permissions()
                     child = compile_and_run_test_python(self.repo_dir, rel_path, test_method, self.repo_dir.parent)
 
                     if child.status != TestVerdict.SUCCESS:
+                        tally(child_commit, f"child_{child.status}")
                         continue
+                    tally(child_commit, "child_success")
 
                     # ---------- override must FAIL ----------
                     overridden = self.run_test_with_overridden_test_code(rel_path, test_method, parent_methods[key])
@@ -472,8 +495,35 @@ class RepositoryActions:
                         repaired_cases.add(
                             Broken_to_repaired(parent_commit, child_commit, test_method, rel_path, overridden.log)
                         )
+                        tally(child_commit, "cases")
+                    else:
+                        tally(child_commit, f"override_{overridden.status}")
 
         return repaired_cases
+
+    FUNNEL_BUCKETS = 10
+    FUNNEL_MAIN_COLUMNS = ("commits", "relevant_commits", "visited_pairs", "relevant_pairs",
+                           "pairs_with_changed_test", "changed_tests", "parent_success", "child_success", "cases")
+
+    def _history_buckets(self):
+        """{commit: tenth of the history it falls in}, 0 = oldest. Position is the topological order from HEAD."""
+        proc = subprocess.run(["git", "rev-list", "--topo-order", "--reverse", "HEAD"], cwd=self.repo_dir,
+                              capture_output=True, text=True)
+        commits = proc.stdout.split()
+        total = max(len(commits), 1)
+        return {c: min(self.FUNNEL_BUCKETS - 1, i * self.FUNNEL_BUCKETS // total) for i, c in enumerate(commits)}
+
+    def funnel_rows(self):
+        """One dict per history bucket: the main steps as columns, every other counter as JSON in "details"."""
+        rows = []
+        for bucket in sorted(getattr(self, "funnel", {})):
+            counts = dict(self.funnel[bucket])
+            row = {"repository_name": self.repository_name, "bucket": bucket, "stage": ""}
+            for column in self.FUNNEL_MAIN_COLUMNS:
+                row[column] = counts.pop(column, 0)
+            row["details"] = json.dumps(counts, sort_keys=True) if counts else ""
+            rows.append(row)
+        return rows
 
     def collect_test_methods(self, source, rel_path):
         """

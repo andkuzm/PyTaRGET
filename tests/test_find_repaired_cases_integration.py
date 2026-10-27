@@ -123,3 +123,72 @@ def test_no_case_when_test_unchanged(git_available, tmp_path):
     a.visited_commits = set()
 
     assert a.find_repaired_test_cases() == set()
+
+
+def _totals(rows):
+    """Sum of every counter over all history buckets, details included."""
+    import json
+    totals = {}
+    for row in rows:
+        for key, value in row.items():
+            if key not in ("repository_name", "bucket", "stage", "details"):
+                totals[key] = totals.get(key, 0) + value
+        for key, value in json.loads(row["details"] or "{}").items():
+            totals[key] = totals.get(key, 0) + value
+    return totals
+
+
+def test_funnel_counts_every_step_of_a_found_case(broken_repaired_repo):
+    repository_path, parent_sha, child_sha = broken_repaired_repo
+    a = repository_actions.RepositoryActions("local/proj", repository_path)
+    a.current_hash = child_sha
+    a.visited_commits = set()
+    assert len(a.find_repaired_test_cases()) == 1
+
+    rows = a.funnel_rows()
+    totals = _totals(rows)
+    assert totals["commits"] == 2 and totals["relevant_commits"] == 1
+    assert totals["visited_pairs"] == 1 and totals["relevant_pairs"] == 1
+    assert totals["pairs_with_changed_test"] == 1 and totals["changed_tests"] == 1
+    assert (totals["parent_success"], totals["child_success"], totals["cases"]) == (1, 1, 1)
+    # bucket = index * 10 // number of commits: the oldest commit is in bucket 0, the second of two in bucket 5
+    assert [row["bucket"] for row in rows] == [0, 5]
+    assert rows[-1]["cases"] == 1 and rows[0]["cases"] == 0
+
+
+def test_funnel_says_where_a_pair_is_lost(git_available, tmp_path):
+    # the test already fails at the parent commit, so the pair must be counted as lost at "parent must pass"
+    work = tmp_path / "proj"
+    (work / "tests").mkdir(parents=True)
+    _git(["init", "-q"], cwd=work)
+    _git(["config", "user.email", "t@example.com"], cwd=work)
+    _git(["config", "user.name", "Tester"], cwd=work)
+    _git(["config", "commit.gpgsign", "false"], cwd=work)
+    test_file = work / "tests" / "test_mod.py"
+    test_file.write_text("def test_f():\n    assert 1 == 2\n", encoding="utf-8")
+    _git(["add", "-A"], cwd=work)
+    _git(["commit", "-q", "-m", "parent"], cwd=work)
+    test_file.write_text("def test_f():\n    assert 2 == 2\n", encoding="utf-8")
+    _git(["add", "-A"], cwd=work)
+    _git(["commit", "-q", "-m", "child"], cwd=work)
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = _git(["rev-parse", "HEAD"], cwd=work).stdout.strip()
+    a.visited_commits = set()
+    assert a.find_repaired_test_cases() == set()
+
+    totals = _totals(a.funnel_rows())
+    assert totals["changed_tests"] == 1 and totals["parent_success"] == 0 and totals["cases"] == 0
+    assert totals["parent_failure"] == 1
+
+
+def test_funnel_is_the_same_on_a_rerun_of_the_same_repository(broken_repaired_repo):
+    repository_path, parent_sha, child_sha = broken_repaired_repo
+    results = []
+    for _ in range(2):
+        a = repository_actions.RepositoryActions("local/proj", repository_path)
+        a.current_hash = child_sha
+        a.visited_commits = set()
+        a.find_repaired_test_cases()
+        results.append(a.funnel_rows())
+    assert results[0] == results[1]
