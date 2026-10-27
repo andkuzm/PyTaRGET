@@ -185,7 +185,8 @@ class PlausibilityTester:
     def evaluate_case(self, row, candidates):
         result = {"status": None, "nodeid": None, "verdicts": []}
         reference = row["output"]
-        test_name = find_test_name(row["annotated_code"])
+        recorded = row.get("test_name")  # written by searchers newer than PR #57, "name" or "Class.name"
+        test_name = recorded.split(".")[-1] if isinstance(recorded, str) and recorded else find_test_name(row["annotated_code"])
         if test_name is None:
             return {**result, "status": "no_test_name"}
         if reference.strip() == DELETED:
