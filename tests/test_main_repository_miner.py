@@ -30,9 +30,21 @@ class TestSaveCase:
 
         rows = self._read(csv_path)
         assert rows[0] == ["repository_name", "annotated_code", "relative_path",
-                           "broken_hash", "repaired_hash", "outdated_test_log"]
+                           "broken_hash", "repaired_hash", "outdated_test_log",
+                           "test_name", "broken_date", "repaired_date"]
         assert rows[1] == ["owner/proj", "ANNOT", "tests/test_a.py",
-                           "br0ken", "f1xed", "LOG"]
+                           "br0ken", "f1xed", "LOG", "", "", ""]
+
+    def test_writes_test_name_and_commit_dates(self, tmp_path):
+        csv_path = tmp_path / "out.csv"
+        m = Main("owner/proj", str(tmp_path), str(csv_path))
+        m.save_case("owner/proj", "ANNOT", "tests/test_a.py", "br0ken", "f1xed", "LOG",
+                    test_name="TestA.test_x", broken_date="2020-01-01T10:00:00+00:00",
+                    repaired_date="2020-02-01T10:00:00+00:00")
+
+        rows = self._read(csv_path)
+        assert rows[0] == main_repository_miner.CSV_HEADER
+        assert rows[1][6:] == ["TestA.test_x", "2020-01-01T10:00:00+00:00", "2020-02-01T10:00:00+00:00"]
 
     def test_appends_without_duplicate_header(self, tmp_path):
         csv_path = tmp_path / "out.csv"
@@ -87,6 +99,9 @@ class FakeRA:
     def extract_and_annotate_code(self, case):
         return self.annotate_map.get(case.test_name, "ANNOTATED")
 
+    def get_commit_date(self, commit_hash):
+        return f"date-of-{commit_hash}"
+
 
 @pytest.fixture
 def patch_ra(monkeypatch):
@@ -116,6 +131,8 @@ class TestProcessRepository:
         assert rows[1][1] == "GOOD-ANNOTATION"
         assert rows[1][3] == "br0ken"
         assert rows[1][4] == "f1xed"
+        # test name and commit dates are recorded next to the case
+        assert rows[1][6:] == [case.test_name, "date-of-br0ken", "date-of-f1xed"]
 
     def test_skips_when_no_tests(self, patch_ra, tmp_path):
         patch_ra.has_tests_value = False

@@ -16,7 +16,8 @@ PROCESS_TIMEOUT = 90 * 60   # 90 minutes
 
 # Must match the header written by main_repository_miner.Main.save_case.
 CSV_HEADER = ["repository_name", "annotated_code", "relative_path",
-              "broken_hash", "repaired_hash", "outdated_test_log"]
+              "broken_hash", "repaired_hash", "outdated_test_log",
+              "test_name", "broken_date", "repaired_date"]
 
 # Bump this to the latest merged PR number whenever a change lands that
 # affects mining/repair-detection behavior (repository_actions.py,
@@ -26,7 +27,7 @@ CSV_HEADER = ["repository_name", "annotated_code", "relative_path",
 # remember whether `git pull` happened before starting a run, and a repo
 # blacklisted by an older, buggier revision gets retried automatically
 # under a new one instead of staying skipped forever.
-PIPELINE_FIX_REVISION = "pr57"
+PIPELINE_FIX_REVISION = "pr58"
 
 
 class GitHubSearch:

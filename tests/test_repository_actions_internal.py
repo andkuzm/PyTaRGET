@@ -246,6 +246,73 @@ class TestAnnotateCode:
         same = "def test_x():\n    assert True"
         assert a.annotate_code(same, same, "src", "t.py") == ""
 
+    BROKEN = ("def test_x(self):\n        a = make(1)\n        b = make(2)\n        c = make(3)\n"
+              "        d = make(4)\n        assert a == 1\n        assert d == 4")
+
+    @staticmethod
+    def _rebuild(out):
+        """(broken test, repaired test) as the annotation encodes them."""
+        context = out.split("[<TESTCONTEXT>]")[1].split("[</TESTCONTEXT>]")[0].split("\n")
+        start, end = context.index("[<BREAKAGE>]"), context.index("[</BREAKAGE>]")
+        head = next(i for i, line in enumerate(context) if line.startswith("def "))
+        before, breakage, after = context[head:start], context[start + 1:end], context[end + 1:]
+        repair = out.split("[<REPAIREDTEST>]\n")[1].split("\n[</REPAIREDTEST>]")[0].split("\n")
+        return ("\n".join(before + breakage + after).rstrip("\n"), "\n".join(before + repair + after).rstrip("\n"))
+
+    def test_unchanged_lines_keep_their_exact_indentation(self, make_actions):
+        # Regression: unified-diff context lines carry a leading " " that used to stay in the annotation, so every
+        # unchanged line was indented one space too deep (" def test_x(self):") and a repair spanning an unchanged
+        # line mixed 4 and 5 spaces.
+        a = make_actions({"t.py": "import os\n"})
+        repaired = (self.BROKEN.replace("make(1)", "make(1, strict=True)")
+                    .replace("assert d == 4", "assert d == 40"))
+        out = a.annotate_code(self.BROKEN, repaired, "src", "t.py")
+
+        assert "\ndef test_x(self):\n" in out and "\n def " not in out
+        assert self._rebuild(out) == (self.BROKEN, repaired)
+        repaired_block = out.split("[<REPAIREDTEST>]\n")[1].split("\n[</REPAIREDTEST>]")[0]
+        assert "        b = make(2)" in repaired_block.split("\n")  # the unchanged line in the middle, exact
+
+    def test_changed_def_line_is_handled(self, make_actions):
+        a = make_actions({"t.py": "import os\n"})
+        broken = "def test_y(tmp):\n    run(tmp)\n    assert ok()"
+        repaired = "def test_y(tmp_path):\n    run(tmp_path)\n    assert ok()"
+        assert self._rebuild(a.annotate_code(broken, repaired, "src", "t.py")) == (broken, repaired)
+
+    def test_case_that_cannot_round_trip_is_skipped(self, make_actions):
+        # A removed line starting with "--" shows up as "---..." in the diff, which filter_diff_lines() treats as
+        # a header and drops; the annotation would then lack that line, so the case must be skipped.
+        a = make_actions({"t.py": "import os\n"})
+        broken = "def test_x():\n    x = 1\n-- bad\n    assert x"
+        repaired = "def test_x():\n    x = 1\n    assert x"
+        assert a.annotate_code(broken, repaired, "src", "t.py") == ""
+
+
+# --------------------------------------------------------------------------- #
+#  get_commit_date                                                            #
+# --------------------------------------------------------------------------- #
+class TestGetCommitDate:
+    def test_reads_the_committer_date_and_tolerates_unknown_commits(self, make_actions):
+        import subprocess
+        a = make_actions({"t.py": "x = 1\n"})
+        env = dict(os.environ, GIT_COMMITTER_DATE="2021-03-04T05:06:07+00:00",
+                   GIT_AUTHOR_DATE="2021-03-04T05:06:07+00:00")
+
+        def run(*args):
+            return subprocess.run(["git", *args], cwd=str(a.repo_dir), check=True, capture_output=True,
+                                  text=True, env=env).stdout.strip()
+
+        run("init", "-q")
+        run("config", "user.email", "t@example.com")
+        run("config", "user.name", "t")
+        run("add", ".")
+        run("commit", "-q", "-m", "init")
+
+        from datetime import datetime
+        date = a.get_commit_date(run("rev-parse", "HEAD"))  # git prints UTC as "...Z"
+        assert datetime.fromisoformat(date) == datetime.fromisoformat("2021-03-04T05:06:07+00:00")
+        assert a.get_commit_date("0" * 40) == ""
+
 
 # --------------------------------------------------------------------------- #
 #  format_inline_diff                                                         #

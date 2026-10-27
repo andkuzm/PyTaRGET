@@ -9,6 +9,11 @@ from pathlib import Path
 
 import repository_actions
 
+# test_name ("name" or "Class.name"), broken_date and repaired_date (committer dates) come last, so readers that pick
+# columns by name keep working. The Encoder splits chronologically on broken_date when it is present.
+CSV_HEADER = ["repository_name", "annotated_code", "relative_path", "broken_hash", "repaired_hash",
+              "outdated_test_log", "test_name", "broken_date", "repaired_date"]
+
 class Main:
     def __init__(self, repository_name, repository_path, output_csv):
         self.repository_name = repository_name
@@ -27,7 +32,10 @@ class Main:
                         annotated_code = repository.extract_and_annotate_code(repaired_test)
                         if not annotated_code or annotated_code == "Error":
                             continue
-                        self.save_case(self.repository_name, annotated_code, repaired_test.rel_path, repaired_test.broken, repaired_test.repaired, f"[<TESTLOG>]\n{repaired_test.log}\n[</TESTLOG>]\n")
+                        self.save_case(self.repository_name, annotated_code, repaired_test.rel_path, repaired_test.broken, repaired_test.repaired, f"[<TESTLOG>]\n{repaired_test.log}\n[</TESTLOG>]\n",
+                                       test_name=repaired_test.test_name,
+                                       broken_date=repository.get_commit_date(repaired_test.broken),
+                                       repaired_date=repository.get_commit_date(repaired_test.repaired))
 
             try:
                 subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", self.repository_name.split("/")[-1]],
@@ -43,7 +51,8 @@ class Main:
         dest_dir = os.path.join(self.repository_path, self.repository_name.split("/")[-1])
         shutil.rmtree(dest_dir, ignore_errors=True)
 
-    def save_case(self, repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log):
+    def save_case(self, repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log,
+                  test_name="", broken_date="", repaired_date=""):
         output_file = self.output_csv
 
         with output_file.open("a", newline='', encoding="utf-8") as csvfile:
@@ -52,8 +61,9 @@ class Main:
                 write_header = output_file.stat().st_size == 0
                 writer = csv.writer(csvfile, delimiter='|', quoting=csv.QUOTE_ALL)
                 if write_header:
-                    writer.writerow(["repository_name", "annotated_code", "relative_path", "broken_hash", "repaired_hash", "outdated_test_log"])
-                writer.writerow([repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log])
+                    writer.writerow(CSV_HEADER)
+                writer.writerow([repository_name, annotated_code, relative_path, broken_hash, repaired_hash, log,
+                                 test_name, broken_date, repaired_date])
             finally:
                 fcntl.flock(csvfile, fcntl.LOCK_UN)
 

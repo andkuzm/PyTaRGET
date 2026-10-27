@@ -501,6 +501,9 @@ class RepositoryActions:
                 repaired_lines_only.append(line[1:])
                 in_change_block = True
             else:
+                # A unified-diff context line is the code prefixed with one " ". Strip it like the +/- markers
+                # above, otherwise every unchanged line of the test carries one extra space.
+                line = line[1:]
                 if not in_change_block:
                     unchanged_before.append(line)
                 elif i > last_change_idx:
@@ -509,6 +512,14 @@ class RepositoryActions:
                     # inter-hunk context: present in both broken and repaired versions
                     breakage_lines.append(line)
                     repaired_lines_only.append(line)
+
+        # Self-check: the annotation must contain both tests exactly. filter_diff_lines() drops diff lines that
+        # look like headers (e.g. a removed line starting with "--"), and anything else that breaks the round
+        # trip would silently put a malformed case into the dataset. Skip such cases instead.
+        if (unchanged_before + breakage_lines + unchanged_after != broken_lines
+                or unchanged_before + repaired_lines_only + unchanged_after != repaired_lines):
+            print("Skipping case: the annotation does not reproduce the broken/repaired test exactly")
+            return ""
 
         imports = self.extract_test_imports(rel_path)
 
@@ -531,6 +542,12 @@ class RepositoryActions:
 
         return annotated_string
 
+
+    def get_commit_date(self, commit_hash):
+        """Committer date of a commit in the cloned repository (ISO 8601), or "" if it cannot be read."""
+        result = subprocess.run(["git", "show", "-s", "--format=%cI", commit_hash], cwd=str(self.repo_dir),
+                                capture_output=True, text=True, env=os.environ)
+        return result.stdout.strip() if result.returncode == 0 else ""
 
     def checkout_commit(self, commit_hash, dest_dir):
         # set_full_permissions() chmods every tracked file to 0o777, which
