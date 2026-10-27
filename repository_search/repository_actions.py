@@ -35,6 +35,29 @@ def _flatten_dependency_group(groups_table, name, _seen=None):
     return reqs
 
 
+def _unknown_reason(log):
+    """Why a test run ended with an unclassifiable ("unknown") verdict, from pytest's own output."""
+    log = log or ""
+    missing = re.search(r"ModuleNotFoundError: No module named '([\w.\-]+)'", log)
+    if missing:
+        return "missing_module:" + missing.group(1).split(".")[0]
+    if "unrecognized arguments" in log or re.search(r"^ERROR: (usage|unknown|invalid)", log, re.M):
+        return "pytest_usage_error"
+    if "file or directory not found" in log or re.search(r"^ERROR: not found", log, re.M):
+        return "test_not_found"
+    if "ImportError" in log:
+        return "import_error"
+    if "ERROR at setup" in log:
+        return "setup_error"
+    if "ERROR collecting" in log or "errors during collection" in log or "error during collection" in log:
+        return "collection_error"
+    if "INTERNALERROR" in log:
+        return "pytest_internal_error"
+    if "no tests ran" in log or "collected 0 items" in log:
+        return "no_tests_ran"
+    return "other"
+
+
 def _is_test_path(path):
     """Same notion of "test file" as the pathspecs that select the relevant commits."""
     parts = PurePosixPath(path.strip('"')).parts
@@ -196,7 +219,7 @@ class RepositoryActions:
             # Skipping them cost most of the yield of such repositories; PYTARGET_REQUIRE_INSTALL=1 skips them again.
             print(f"Warning: pip install failed for {self.repository_name}, going on without installing it:\n{tail}")
 
-        self._install_test_dependencies(dest_dir)
+        self._install_test_dependencies(dest_dir, project_installed=(result.returncode == 0))
 
         hash_cmd = ["git", "rev-parse", "HEAD"]
         hash_result = subprocess.run(hash_cmd, cwd=dest_dir, capture_output=True, text=True, env=os.environ)
@@ -210,7 +233,30 @@ class RepositoryActions:
 
         return dest_dir
 
-    def _install_test_dependencies(self, dest_dir):
+    def _pip_install_list(self, requirements, dest_dir):
+        """Install requirement strings: all at once, and one by one if that fails (see _pip_install_requirements_file)."""
+        requirements = [r for r in requirements if isinstance(r, str) and r.strip()]
+        if not requirements:
+            return
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", *requirements],
+                capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=900
+            )
+        except Exception:
+            return
+        if result.returncode == 0:
+            return
+        for requirement in requirements:
+            try:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", requirement],
+                    capture_output=True, text=True, env=os.environ, cwd=dest_dir, timeout=120
+                )
+            except Exception:
+                continue
+
+    def _install_test_dependencies(self, dest_dir, project_installed=True):
         """`pip install .` only pulls a project's *runtime* dependencies from
         its packaging metadata - and plenty of repos (especially ones without
         proper install_requires/[project] metadata, relying on a bare
@@ -227,10 +273,13 @@ class RepositoryActions:
         """
         extra_names = set()
         dependency_groups = {}
+        project_dependencies, optional_dependencies = [], {}
         pyproject = Path(dest_dir) / "pyproject.toml"
         if pyproject.exists():
             try:
                 data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+                project_dependencies = data.get("project", {}).get("dependencies", [])
+                optional_dependencies = data.get("project", {}).get("optional-dependencies", {})
                 extra_names.update(data.get("project", {}).get("optional-dependencies", {}).keys())
                 extra_names.update(data.get("tool", {}).get("poetry", {}).get("extras", {}).keys())
                 dependency_groups = data.get("dependency-groups", {})
@@ -265,9 +314,18 @@ class RepositoryActions:
             except Exception:
                 pass
 
+        if not project_installed:
+            # The project itself could not be installed (no packaging files, several top-level packages, ...), and
+            # with it went the runtime dependencies that `pip install .` would have pulled in. Install the declared
+            # ones directly, so the tests can import numpy and friends.
+            self._pip_install_list(project_dependencies, dest_dir)
+
         keywords = ("test", "dev", "all", "full")
         for extra in sorted(extra_names):
             if any(k in extra.lower() for k in keywords):
+                if not project_installed:  # `.[extra]` cannot work for a project that does not install
+                    self._pip_install_list(optional_dependencies.get(extra, []), dest_dir)
+                    continue
                 try:
                     subprocess.run(
                         [sys.executable, "-m", "pip", "install", f".[{extra}]"],
@@ -496,6 +554,8 @@ class RepositoryActions:
 
                 if parent.status != TestVerdict.SUCCESS:
                     tally(child_commit, f"parent_{parent.status}")
+                    if parent.status == TestVerdict.UNKNOWN:
+                        tally(child_commit, "why:parent:" + _unknown_reason(parent.log))
                     continue
                 tally(child_commit, "parent_success")
 
@@ -508,6 +568,8 @@ class RepositoryActions:
 
                 if child.status != TestVerdict.SUCCESS:
                     tally(child_commit, f"child_{child.status}")
+                    if child.status == TestVerdict.UNKNOWN:
+                        tally(child_commit, "why:child:" + _unknown_reason(child.log))
                     continue
                 tally(child_commit, "child_success")
 

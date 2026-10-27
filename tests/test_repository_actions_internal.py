@@ -639,7 +639,7 @@ class TestCloneOfAnUninstallableRepository:
         import repository_actions
         a = make_actions({})
         installs = []
-        monkeypatch.setattr(a, "_install_test_dependencies", lambda dest: installs.append(dest))
+        monkeypatch.setattr(a, "_install_test_dependencies", lambda dest, **kw: installs.append(dest))
         monkeypatch.delenv("PYTARGET_REQUIRE_INSTALL", raising=False)
         self._fake_git_and_pip(monkeypatch)
 
@@ -650,8 +650,68 @@ class TestCloneOfAnUninstallableRepository:
 
     def test_the_old_strictness_can_be_asked_for(self, make_actions, monkeypatch):
         a = make_actions({})
-        monkeypatch.setattr(a, "_install_test_dependencies", lambda dest: None)
+        monkeypatch.setattr(a, "_install_test_dependencies", lambda dest, **kw: None)
         monkeypatch.setenv("PYTARGET_REQUIRE_INSTALL", "1")
         self._fake_git_and_pip(monkeypatch)
         with pytest.raises(Exception, match="pip install failed"):
             a.clone_repository_last()
+
+
+class TestDependenciesOfAnUninstallableProject:
+    PYPROJECT = (
+        '[project]\nname = "demo"\ndependencies = ["numpy>=2", "beautifulsoup4"]\n'
+        '[project.optional-dependencies]\ntest = ["pytest-cov", "hypothesis"]\ndocs = ["sphinx"]\n'
+    )
+
+    def _pip_calls(self, make_actions, monkeypatch, project_installed):
+        import subprocess
+        a = make_actions({"pyproject.toml": self.PYPROJECT})
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            if "pip" in cmd:
+                calls.append(cmd[cmd.index("install") + 1:])
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        a._install_test_dependencies(str(a.repo_dir), project_installed=project_installed)
+        return calls
+
+    def test_runtime_dependencies_and_extras_are_installed_directly(self, make_actions, monkeypatch):
+        calls = self._pip_calls(make_actions, monkeypatch, project_installed=False)
+        assert ["numpy>=2", "beautifulsoup4"] in calls          # [project].dependencies
+        assert ["pytest-cov", "hypothesis"] in calls            # the "test" extra, as plain requirements
+        assert not any(arg.startswith(".[") for call in calls for arg in call)   # `.[extra]` cannot work here
+        assert not any("sphinx" in call for call in calls)      # "docs" is not a test extra
+
+    def test_an_installed_project_keeps_using_the_extras_of_pip(self, make_actions, monkeypatch):
+        calls = self._pip_calls(make_actions, monkeypatch, project_installed=True)
+        assert [".[test]"] in calls
+        assert ["numpy>=2", "beautifulsoup4"] not in calls      # pip install . already pulled them in
+
+    def test_one_unresolvable_requirement_does_not_cost_the_others(self, make_actions, monkeypatch):
+        import subprocess
+        a = make_actions({})
+        installs = []
+
+        def fake_run(cmd, **kwargs):
+            requirements = cmd[cmd.index("install") + 1:]
+            installs.append(requirements)
+            return subprocess.CompletedProcess(cmd, 1 if len(requirements) > 1 else 0, "", "")  # batch fails
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        a._pip_install_list(["good", "also-good"], str(a.repo_dir))
+        assert installs == [["good", "also-good"], ["good"], ["also-good"]]
+
+
+class TestUnknownReasons:
+    def test_the_reason_comes_from_pytests_own_output(self):
+        import repository_actions
+        why = repository_actions._unknown_reason
+        assert why("E   ModuleNotFoundError: No module named 'numpy.linalg'") == "missing_module:numpy"
+        assert why("pytest: error: unrecognized arguments: --cov=.") == "pytest_usage_error"
+        assert why("ERROR: file or directory not found: tests/test_x.py::test_y") == "test_not_found"
+        assert why("ERROR at setup of test_a\nE ValueError") == "setup_error"
+        assert why("ERROR collecting test_a.py\nE SyntaxError") == "collection_error"
+        assert why("ImportError: cannot import name 'x' from 'y'") == "import_error"
+        assert why("collected 0 items\n\nno tests ran in 0.01s") == "no_tests_ran"
+        assert why("something unexpected") == "other"
+        assert why(None) == "other"

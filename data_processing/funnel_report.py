@@ -55,7 +55,8 @@ def render(stages, buckets):
         lines.append("no search rows yet")
         return "\n".join(lines)
 
-    extra = sorted({key for counts in buckets.values() for key in counts if key not in MAIN})
+    extra = sorted({key for counts in buckets.values() for key in counts
+                    if key not in MAIN and not key.startswith("why:")})
     extra = [key for key in extra if any(counts[key] for counts in buckets.values())]
     columns = MAIN + extra
     names = [SHORT.get(column, column) for column in columns]
@@ -84,6 +85,13 @@ def render(stages, buckets):
                         and k not in ("parent_success", "child_success")})
         if lost:
             lines.append("lost: " + ", ".join(f"{key} {value}" for key, value in lost.most_common()))
+
+    why = Counter({k[4:]: v for k, v in sums.items() if k.startswith("why:")})
+    if why:
+        lines.append("")
+        lines.append("why tests ended 'unknown' (parent/child : reason), most common first:")
+        for key, value in why.most_common(15):
+            lines.append(f"  {value:6d}  {key}")
     return "\n".join(lines)
 
 

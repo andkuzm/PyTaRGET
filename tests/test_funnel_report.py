@@ -81,3 +81,20 @@ def test_it_runs_as_a_plain_script_with_the_standard_library_only(tmp_path):
     script = os.path.join(os.path.dirname(funnel_report.__file__), "funnel_report.py")
     result = subprocess.run([sys.executable, script, str(tmp_path / "f.csv")], capture_output=True, text=True)
     assert result.returncode == 0 and "CASES" in result.stdout
+
+
+def test_reasons_are_ranked_and_do_not_become_table_columns(tmp_path):
+    rows = [
+        repo("a/one", "started"),
+        bucket("a/one", 0, changed_tests=9, details=json.dumps({
+            "parent_unknown": 9, "why:parent:missing_module:numpy": 6, "why:parent:setup_error": 2,
+            "why:child:other": 1})),
+        repo("a/one", "searched"),
+    ]
+    write(tmp_path / "f.csv", rows)
+    text = funnel_report.render(*funnel_report.summarize(funnel_report.load(tmp_path / "f.csv")))
+    header = text.splitlines()[3]
+    assert "parent_unknown" in header and "why:" not in header
+    ranking = text.split("why tests ended 'unknown'")[1]
+    assert ranking.index("parent:missing_module:numpy") < ranking.index("parent:setup_error") < ranking.index("child:other")
+    assert "     6  parent:missing_module:numpy" in ranking

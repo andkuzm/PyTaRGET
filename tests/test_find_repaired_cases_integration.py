@@ -382,3 +382,16 @@ def test_require_source_change_leaves_out_test_only_pairs(git_available, tmp_pat
     a.current_hash = head
     a.find_repaired_test_cases(require_source_change=True)
     assert _totals(a.funnel_rows())["skipped_no_source"] == 1
+
+
+def test_the_funnel_says_why_a_test_could_not_be_run(git_available, tmp_path):
+    work = _init(tmp_path)
+    test = "import no_such_package_for_the_pytarget_test\n\n\ndef test_f():\n    assert {v} == {v}\n"
+    head = _fast_import(work, [{"test_mod.py": test.format(v=1)}, {"test_mod.py": test.format(v=2)}])
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = head
+    assert a.find_repaired_test_cases() == set()
+    totals = _totals(a.funnel_rows())
+    assert totals["parent_unknown"] == 1
+    assert totals["why:parent:missing_module:no_such_package_for_the_pytarget_test"] == 1
