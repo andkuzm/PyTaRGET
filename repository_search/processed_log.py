@@ -13,6 +13,7 @@ and go through a temporary file, under a lock file where fcntl exists, so a kill
 """
 import os
 import tempfile
+import threading
 from collections import namedtuple
 from pathlib import Path
 
@@ -22,6 +23,9 @@ except ImportError:  # Windows: no locking, fine for a single process
     fcntl = None
 
 Entry = namedtuple("Entry", "name head marker in_progress")
+
+# flock keeps processes apart; this keeps the worker threads of one searcher apart (and is all there is on Windows)
+_THREAD_LOCK = threading.Lock()
 
 
 def parse_line(line):
@@ -73,34 +77,37 @@ def _update(path, entry):
     """Replace the line of entry.name (or append one), atomically."""
     path = Path(path)
     lock_path = path.with_name(path.name + ".lock")
-    lock = None
-    if fcntl is not None:
-        lock = open(lock_path, "a")
-        fcntl.flock(lock, fcntl.LOCK_EX)
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
-        new_line = format_entry(entry)
-        replaced = False
-        result = []
-        for line in lines:
-            parsed = parse_line(line)
-            if parsed is not None and parsed.name == entry.name:
-                if not replaced:
-                    result.append(new_line)
-                    replaced = True
-                continue  # a second line of the same repository would only confuse readers
-            result.append(line)
-        if not replaced:
-            result.append(new_line)
+    with _THREAD_LOCK:  # released whatever happens below, a stuck lock would block every worker thread
+        lock = None
+        try:
+            if fcntl is not None:
+                lock = open(lock_path, "a")
+                fcntl.flock(lock, fcntl.LOCK_EX)
+            lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+            new_line = format_entry(entry)
+            replaced = False
+            result = []
+            for line in lines:
+                parsed = parse_line(line)
+                if parsed is not None and parsed.name == entry.name:
+                    if not replaced:
+                        result.append(new_line)
+                        replaced = True
+                    continue  # a second line of the same repository would only confuse readers
+                result.append(line)
+            if not replaced:
+                result.append(new_line)
 
-        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
-            f.write("\n".join(result) + "\n")
-        os.replace(tmp, path)
-    finally:
-        if lock is not None:
-            fcntl.flock(lock, fcntl.LOCK_UN)
-            lock.close()
+            fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+                f.write("\n".join(result) + "\n")
+            os.replace(tmp, path)
+        finally:
+            if lock is not None:
+                try:
+                    fcntl.flock(lock, fcntl.LOCK_UN)
+                finally:
+                    lock.close()
 
 
 def mark_started(path, name, head):

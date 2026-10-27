@@ -428,3 +428,151 @@ class TestUnfinishedRepositoriesAreResumedFirst:
         searched = {name for kind, name in ran if kind == "search"}
         assert resumed == ["o/busy"] and ran[0] == ("resume", "o/busy")
         assert searched == {"o/new"}
+
+
+# --------------------------------------------------------------------------- #
+#  several repositories at the same time                                      #
+# --------------------------------------------------------------------------- #
+import threading
+
+
+def make_parallel(tmp_path, monkeypatch, workers, fake_process):
+    s = GHS(github_token="tok", version="par", cwd=str(tmp_path), workers=workers)
+    monkeypatch.setattr(s, "process_repository_with_timeout", fake_process)
+    monkeypatch.setattr(s, "run_pytest_check", lambda name: None)
+    monkeypatch.setattr(s, "get_latest_commit", lambda name: "latest")
+    s._run_count = 0
+    return s
+
+
+class TestWorkers:
+    def test_repositories_run_at_the_same_time_each_in_its_own_directory(self, tmp_path, monkeypatch):
+        lock, running, seen = threading.Lock(), [], []
+        peak, all_busy = [0], threading.Event()
+
+        def fake(name, repository_path=None):
+            with lock:
+                running.append(name)
+                seen.append((name, repository_path, sorted(running)))
+                peak[0] = max(peak[0], len(running))
+                if len(running) == 3:
+                    all_busy.set()
+            all_busy.wait(10)  # nobody finishes before three are inside: proves they overlap
+            with lock:
+                running.remove(name)
+            return True
+
+        s = make_parallel(tmp_path, monkeypatch, 3, fake)
+        s._start_pool()
+        for n in range(7):
+            s._dispatch(f"owner{n}/utils")  # same last name on purpose
+        s._finish_pool()
+
+        assert peak[0] == 3
+        assert s._run_count == 7
+        assert {name for name, _, _ in seen} == {f"owner{n}/utils" for n in range(7)}
+        # every repository got a worker directory, and workers running together never share one
+        assert all(path is not None and os.path.basename(path).startswith("slot") for _, path, _ in seen)
+        directory = {name: path for name, path, _ in seen}
+        for _, _, together in seen:  # whoever was running at the same moment had a directory of its own
+            assert len({directory[n] for n in together}) == len(together)
+        assert (tmp_path / "repos_par_pr58" / "slot0").is_dir()
+        # all seven lines ended up in the processed file even though they were written concurrently
+        names = {line.split("|")[0] for line in s.processed_file.read_text().splitlines()}
+        assert names == {f"owner{n}/utils" for n in range(7)}
+
+    def test_one_worker_runs_in_place_without_a_slot_directory(self, tmp_path, monkeypatch):
+        calls = []
+        s = make_parallel(tmp_path, monkeypatch, 1, lambda name, *rest: calls.append((name, rest)) or True)
+        s._start_pool()
+        s._dispatch("o/a")
+        s._dispatch("o/b")
+        s._finish_pool()
+        assert calls == [("o/a", ()), ("o/b", ())]
+        assert s._pool is None
+
+    def test_the_repository_limit_stops_the_dispatching(self, tmp_path, monkeypatch):
+        s = GHS(github_token="tok", version="lim", cwd=str(tmp_path), max_repositories=2)
+        done = []
+        monkeypatch.setattr(s, "_process_and_record", lambda name, *rest: done.append(name))
+        monkeypatch.setattr(s, "run_pytest_check", lambda name: None)
+        monkeypatch.setattr(s, "_search_size_range",
+                            lambda query, a, b, headers, processed: [s._dispatch(f"o/r{i}") for i in range(5)])
+        s.find_and_process_repositories()
+        assert done == ["o/r0", "o/r1"]
+
+    def test_a_broken_environment_stops_the_search(self, tmp_path, monkeypatch):
+        s = make_parallel(tmp_path, monkeypatch, 2, lambda name, repository_path=None: True)
+
+        def give_up(name):
+            raise SystemExit(1)
+        monkeypatch.setattr(s, "run_pytest_check", give_up)
+        s._start_pool()
+        s._dispatch("o/a")
+        s._finish_pool()
+        with pytest.raises(GitHubSearch.StopSearch):
+            s._dispatch("o/b")
+
+    def test_a_worker_that_fails_does_not_take_the_others_down(self, tmp_path, monkeypatch):
+        def fake(name, repository_path=None):
+            if name == "o/bad":
+                raise RuntimeError("boom")
+            return True
+        s = make_parallel(tmp_path, monkeypatch, 2, fake)
+        s._start_pool()
+        for name in ("o/bad", "o/good1", "o/good2"):
+            s._dispatch(name)
+        s._finish_pool()
+        assert s._run_count == 2
+
+
+class TestProcessGroups:
+    def test_a_timeout_kills_the_whole_process_group(self, tmp_path, monkeypatch):
+        killed = []
+        monkeypatch.setattr(GitHubSearch.os, "killpg", lambda pgid, sig: killed.append(pgid), raising=False)
+        s = make_searcher(tmp_path)
+        monkeypatch.setattr(GitHubSearch, "create_virtualenv", lambda p: None)
+        monkeypatch.setattr(GitHubSearch.tempfile, "mkdtemp", lambda **k: str(tmp_path / "venv"))
+        monkeypatch.setattr(GitHubSearch.shutil, "rmtree", lambda *a, **k: None)
+
+        class Hung(FakeProcess):
+            pid = 4242
+
+        monkeypatch.setattr(GitHubSearch.multiprocessing, "Process",
+                            lambda target, args: Hung(target, args, alive=True, exitcode=None))
+        assert s.process_repository_with_timeout("o/r") is False
+        assert 4242 in killed
+        assert s._active == set()
+
+    def test_the_worker_entry_leads_its_own_group_and_then_runs_the_miner(self, monkeypatch):
+        events = []
+        monkeypatch.setattr(GitHubSearch.os, "setsid", lambda: events.append("setsid"), raising=False)
+        monkeypatch.setattr(GitHubSearch, "run_processor_in_venv", lambda *a: events.append(("run", a)))
+        GitHubSearch._worker_entry("o/r", "/rp", "/out.csv", "/venv", "/processed.txt")
+        assert events == ["setsid", ("run", ("o/r", "/rp", "/out.csv", "/venv", "/processed.txt"))]
+
+    def test_killing_a_group_that_is_already_gone_is_harmless(self, monkeypatch):
+        def gone(pgid, sig):
+            raise ProcessLookupError()
+        monkeypatch.setattr(GitHubSearch.os, "killpg", gone, raising=False)
+
+        class P:
+            pid = 1
+        GitHubSearch._kill_process_group(P())
+        GitHubSearch._kill_process_group(object())  # no pid at all
+
+
+class TestImportedAsAPackage:
+    def test_the_searcher_can_be_imported_the_way_a_notebook_does(self, tmp_path):
+        # "from repository_search.GitHubSearch import GitHubSearch" with only the project root on the path;
+        # its sibling module processed_log must be found without repository_search/ being on the path
+        import subprocess
+        import sys
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        code = ("import sys; sys.path.insert(0, %r); "
+                "from repository_search.GitHubSearch import GitHubSearch; "
+                "s = GitHubSearch(github_token='t', version='v', cwd=%r, workers=2); print(s.workers)"
+                % (root, str(tmp_path)))
+        result = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, cwd=str(tmp_path))
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().endswith("2")

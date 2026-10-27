@@ -1,10 +1,14 @@
 import csv
 import multiprocessing
 import os
+import queue
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import venv
 import warnings
 from pathlib import Path
@@ -12,7 +16,10 @@ from pathlib import Path
 import requests
 import time
 
-import processed_log
+try:
+    import processed_log  # run as a script, or with repository_search/ on the path
+except ImportError:
+    from repository_search import processed_log  # imported as repository_search.GitHubSearch
 
 PROCESS_TIMEOUT = 90 * 60   # 90 minutes
 
@@ -35,8 +42,20 @@ PIPELINE_FIX_REVISION = "pr58"
 class GitHubSearch:
 
     def __init__(self, github_token, version=None, cwd=None,
-                 repository_path=None, out_path=None):
+                 repository_path=None, out_path=None, workers=1, max_repositories=None):
         self.github_token = github_token
+        # workers: how many repositories are processed at the same time (each in its own clone directory, venv and
+        # process group). max_repositories: stop handing out repositories after this many (None = no limit).
+        self.workers = max(1, int(workers))
+        self.max_repositories = max_repositories
+        self._lock = threading.Lock()
+        self._pytest_lock = threading.Lock()
+        self._pool = None
+        self._free_slots = None
+        self._futures = []
+        self._active = set()
+        self._dispatched = 0
+        self._abort = False
 
         if version is not None:
             self.version = version
@@ -211,11 +230,7 @@ class GitHubSearch:
                 if full_name in processed_repos:
                     continue
                 processed_repos.add(full_name)
-                print(f"Processing {full_name}")
-                self._process_and_record(full_name)
-                self._run_count += 1
-
-                self.run_pytest_check(full_name)
+                self._dispatch(full_name)
 
             if 'next' not in response.links:
                 break
@@ -224,6 +239,8 @@ class GitHubSearch:
 
     def find_and_process_repositories(self, stars=10, size_start=0, size_end=1_000_000):
         self._run_count = 0
+        self._dispatched = 0
+        self._abort = False
 
         self.ensure_output_csv_initialized()
 
@@ -242,13 +259,6 @@ class GitHubSearch:
         else:
             print("Starting fresh (no previously processed repositories found).")
 
-        # Repositories that were interrupted last time continue first, from the last completely processed commit.
-        for entry in unfinished:
-            print(f"Continuing {entry.name} after {entry.marker or 'its start'}")
-            self._process_and_record(entry.name)
-            self._run_count += 1
-            self.run_pytest_check(entry.name)
-
         headers = {}
         if self.github_token:
             headers['Authorization'] = f'Bearer {self.github_token}'
@@ -265,8 +275,23 @@ class GitHubSearch:
             f"license:gpl-3.0 language:python stars:>={stars}",
         ]
 
-        for query_base in license_filters:
-            self._search_size_range(query_base, size_start, size_end, headers, processed_repos)
+        self._start_pool()
+        try:
+            # Repositories that were interrupted last time continue first, from the last completely processed commit.
+            for entry in unfinished:
+                print(f"Continuing {entry.name} after {entry.marker or 'its start'}")
+                self._dispatch(entry.name)
+
+            for query_base in license_filters:
+                self._search_size_range(query_base, size_start, size_end, headers, processed_repos)
+        except StopSearch as stop:
+            print(f"Search stopped: {stop}")
+        except KeyboardInterrupt:
+            print("Interrupted: stopping the workers, unfinished repositories continue next time.")
+            self._stop_workers()
+            raise
+        finally:
+            self._finish_pool()
 
         found = 0
         try:
@@ -277,7 +302,67 @@ class GitHubSearch:
 
         print(f"Done. Processed {self._run_count} repositories, found {found} test cases.")
 
-    def _process_and_record(self, full_name):
+    def _start_pool(self):
+        if self.workers > 1:
+            self._pool = ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="repo-worker")
+            self._free_slots = queue.Queue()
+            for slot in range(self.workers):
+                self._free_slots.put(slot)
+
+    def _finish_pool(self):
+        """Wait for the repositories that are still being processed."""
+        if self._pool is not None:
+            self._pool.shutdown(wait=True)
+            self._pool = None
+        for future in self._futures:
+            future.result()  # a worker never raises (see _work), this only surfaces a bug
+        self._futures = []
+
+    def _stop_workers(self):
+        """Kill what the workers started (the miners and the tests under them), e.g. after Ctrl-C."""
+        if self._pool is not None:
+            self._pool.shutdown(wait=False, cancel_futures=True)
+        for process in list(self._active):
+            _kill_process_group(process)
+            process.terminate()
+
+    def _dispatch(self, full_name):
+        """Hand a repository to a free worker, waiting while all of them are busy. Without workers it runs here."""
+        if self._abort:
+            raise StopSearch("a worker found the environment broken")
+        if self.max_repositories is not None and self._dispatched >= self.max_repositories:
+            raise StopSearch(f"limit of {self.max_repositories} repositories reached")
+        self._dispatched += 1
+        print(f"Processing {full_name}")
+        if self._pool is None:
+            self._work(full_name, None)
+            return
+        slot = self._free_slots.get()
+        self._futures.append(self._pool.submit(self._work, full_name, slot))
+
+    def _work(self, full_name, slot):
+        try:
+            if slot is None:
+                self._process_and_record(full_name)
+            else:
+                # one clone directory per worker: the miner names the clone after the last part of the repository
+                # name, so two repositories with the same name under different owners would collide otherwise
+                path = Path(self.repository_path) / f"slot{slot}"
+                path.mkdir(parents=True, exist_ok=True)
+                self._process_and_record(full_name, str(path))
+            with self._lock:
+                self._run_count = getattr(self, "_run_count", 0) + 1
+            with self._pytest_lock:
+                self.run_pytest_check(full_name)
+        except SystemExit:  # run_pytest_check gives up when the shared environment is broken
+            self._abort = True
+        except Exception as e:
+            print(f"{full_name}: worker error: {e}")
+        finally:
+            if slot is not None:
+                self._free_slots.put(slot)
+
+    def _process_and_record(self, full_name, repository_path=None):
         """
         Run one repository and settle its line in the processed file. The miner marks a repository done itself when
         it finishes. If it was killed (time limit) or crashed while searching, its line still says "in progress" with
@@ -287,7 +372,9 @@ class GitHubSearch:
         before = processed_log.resume_state(self.processed_file, full_name)
         start_marker = before.marker if before is not None else ""
 
-        if not self.process_repository_with_timeout(full_name):
+        finished = (self.process_repository_with_timeout(full_name) if repository_path is None
+                    else self.process_repository_with_timeout(full_name, repository_path))
+        if not finished:
             print(f"Failed or timed out: {full_name}")
 
         after = processed_log.read_entries(self.processed_file).get(full_name)
@@ -300,28 +387,36 @@ class GitHubSearch:
                 print(f"{full_name}: no progress in this attempt, giving up")
                 processed_log.mark_done(self.processed_file, full_name, after.head)
 
-    def process_repository_with_timeout(self, full_name):
+    def process_repository_with_timeout(self, full_name, repository_path=None):
         venv_dir = tempfile.mkdtemp(prefix=f"repo_venv_{full_name.replace('/', '_')}_")
         create_virtualenv(venv_dir)
 
         p = multiprocessing.Process(
-            target=run_processor_in_venv,
-            args=(full_name, self.repository_path, str(self.output_csv), venv_dir, str(self.processed_file))
+            target=_worker_entry,
+            args=(full_name, repository_path or self.repository_path, str(self.output_csv), venv_dir,
+                  str(self.processed_file))
         )
 
         start = time.time()
         p.start()
+        with self._lock:
+            self._active.add(p)
         p.join(PROCESS_TIMEOUT)
 
         timed_out = False
 
         if p.is_alive():
+            # terminate() only reaches this wrapper; the miner and the tests below it would run on as orphans
+            _kill_process_group(p)
             p.terminate()
             p.join(timeout=30)
             if p.is_alive():
                 p.kill()
                 p.join()
             timed_out = True
+        _kill_process_group(p)  # whatever the miner left behind
+        with self._lock:
+            self._active.discard(p)
 
         try:
             shutil.rmtree(venv_dir)
@@ -337,6 +432,32 @@ class GitHubSearch:
 def create_virtualenv(venv_path):
     builder = venv.EnvBuilder(with_pip=True, clear=True)
     builder.create(venv_path)
+
+class StopSearch(Exception):
+    """Raised to leave the search loops early (repository limit reached, environment broken)."""
+
+
+def _kill_process_group(process):
+    """SIGKILL the process group a worker leads (see _worker_entry); a no-op where that is not possible."""
+    pid = getattr(process, "pid", None)
+    if pid is None or not hasattr(os, "killpg"):
+        return
+    try:
+        os.killpg(pid, getattr(signal, "SIGKILL", 9))
+    except (ProcessLookupError, PermissionError, OSError):
+        pass
+
+
+def _worker_entry(*args):
+    """Entry point of the process that runs one repository: it leads its own process group, so that a time limit or
+    Ctrl-C can kill the miner and the test runs below it together."""
+    if hasattr(os, "setsid"):
+        try:
+            os.setsid()
+        except OSError:
+            pass
+    run_processor_in_venv(*args)
+
 
 def run_processor_in_venv(full_name, repository_path, output_csv, venv_path, processed_file=None):
 
@@ -411,44 +532,53 @@ if __name__ == "__main__":
         print()
 
     # --- GitHub token ---
-    while True:
-        github_token = input("GitHub token (leave blank for unauthenticated): ").strip()
-        if not github_token:
-            print("Warning: running without a token — rate limits will be very restrictive (10 req/min).")
-            confirm = input("Continue without token? [y/N]: ").strip().lower()
-            if confirm == "y":
-                break
-            continue
-        placeholders = ("your_token", "token_here", "xxx", "<token>", "paste")
-        if len(github_token) < 10 or any(p in github_token.lower() for p in placeholders):
-            print(f"Warning: '{github_token}' looks like a placeholder or is very short.")
-            confirm = input("Use it anyway? [y/N]: ").strip().lower()
-            if confirm != "y":
+    github_token = os.environ.get("GITHUB_TOKEN", "").strip()  # set it to skip the prompt
+    if not github_token:
+        while True:
+            github_token = input("GitHub token (leave blank for unauthenticated): ").strip()
+            if not github_token:
+                print("Warning: running without a token — rate limits will be very restrictive (10 req/min).")
+                confirm = input("Continue without token? [y/N]: ").strip().lower()
+                if confirm == "y":
+                    break
                 continue
-        break
+            placeholders = ("your_token", "token_here", "xxx", "<token>", "paste")
+            if len(github_token) < 10 or any(p in github_token.lower() for p in placeholders):
+                print(f"Warning: '{github_token}' looks like a placeholder or is very short.")
+                confirm = input("Use it anyway? [y/N]: ").strip().lower()
+                if confirm != "y":
+                    continue
+            break
 
     # --- Version name ---
-    while True:
-        version = input("Version name (e.g. v1, experiment2, java-run): ").strip()
-        if not version:
-            print("Version name cannot be empty.")
-            continue
-        if not version.replace("-", "").replace("_", "").isalnum():
-            print(f"Warning: '{version}' contains special characters. Only letters, digits, hyphens, and underscores are recommended.")
-            confirm = input("Use it anyway? [y/N]: ").strip().lower()
-            if confirm != "y":
+    version = os.environ.get("PYTARGET_VERSION", "").strip()  # set it to skip the prompt
+    if not version:
+        while True:
+            version = input("Version name (e.g. v1, experiment2, java-run): ").strip()
+            if not version:
+                print("Version name cannot be empty.")
                 continue
-        break
+            if not version.replace("-", "").replace("_", "").isalnum():
+                print(f"Warning: '{version}' contains special characters. Only letters, digits, hyphens, and underscores are recommended.")
+                confirm = input("Use it anyway? [y/N]: ").strip().lower()
+                if confirm != "y":
+                    continue
+            break
 
     # --- Show paths ---
     # Constructed once here (instead of re-deriving the filename formula) so
     # the paths shown below always match, byte for byte, what the run
     # actually uses - the revision suffix is set in exactly one place.
     print()
+    # Optional, from the environment: PYTARGET_WORKERS (repositories processed at the same time),
+    # PYTARGET_MAX_REPOS (stop after this many repositories), PYTARGET_STARS, PYTARGET_SIZE_START and
+    # PYTARGET_SIZE_END (the repository size window of the search, in KB).
     searcher = GitHubSearch(
         github_token=github_token,
         version=version,
         cwd=str(cwd),
+        workers=int(os.environ.get("PYTARGET_WORKERS", "1")),
+        max_repositories=int(os.environ["PYTARGET_MAX_REPOS"]) if os.environ.get("PYTARGET_MAX_REPOS") else None,
     )
     output_csv_path = searcher.output_csv
     blacklist_path = searcher.processed_file
@@ -471,4 +601,8 @@ if __name__ == "__main__":
 
     clone_dir.mkdir(parents=True, exist_ok=True)
 
-    searcher.find_and_process_repositories(size_start=0, size_end=1_000_000)
+    searcher.find_and_process_repositories(
+        stars=int(os.environ.get("PYTARGET_STARS", "10")),
+        size_start=int(os.environ.get("PYTARGET_SIZE_START", "0")),
+        size_end=int(os.environ.get("PYTARGET_SIZE_END", "1000000")),
+    )
