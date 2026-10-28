@@ -53,9 +53,19 @@ def _unknown_reason(log):
         return "collection_error"
     if "INTERNALERROR" in log:
         return "pytest_internal_error"
+    if "Override could not be pasted" in log:
+        return "override_not_pasted"
     if "no tests ran" in log or "collected 0 items" in log:
         return "no_tests_ran"
     return "other"
+
+
+def _restore_indent(code, indent):
+    """
+    `code` as _extract_method_code returns it has lost the indentation of its first line, while the other lines keep
+    theirs. Put the first line's indentation back so a method can be pasted in place of a method of a class.
+    """
+    return indent + code if indent and code and not code[0].isspace() else code
 
 
 def _is_test_path(path):
@@ -421,8 +431,13 @@ class RepositoryActions:
 
         try:
             lines = original_content.splitlines(keepends=True)
-            new_lines = lines[:start] + [overridden_test_code + "\n"] + lines[end:]
+            indent = lines[start][:len(lines[start]) - len(lines[start].lstrip())]
+            new_lines = lines[:start] + [_restore_indent(overridden_test_code, indent) + "\n"] + lines[end:]
             new_content = "".join(new_lines)
+            try:
+                ast.parse(new_content)
+            except SyntaxError as error:  # a pasted test that does not even parse says nothing about the source
+                return TestVerdict(TestVerdict.UNKNOWN, None, f"Override could not be pasted: {error}")
             test_file_path.write_text(new_content, encoding="utf-8")
 
             self.repo_dir = Path(self.repository_path) / self.repository_name.split("/")[-1]
@@ -584,6 +599,8 @@ class RepositoryActions:
                         on_case(case)
                 else:
                     tally(child_commit, f"override_{overridden.status}")
+                    if overridden.status == TestVerdict.UNKNOWN:
+                        tally(child_commit, "why:override:" + _unknown_reason(overridden.log))
 
             if on_progress is not None:
                 on_progress(pair)

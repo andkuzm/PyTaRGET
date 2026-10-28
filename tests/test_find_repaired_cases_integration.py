@@ -90,6 +90,55 @@ def test_find_repaired_test_cases_surfaces_the_repair(broken_repaired_repo):
     assert case.repaired == child_sha
 
 
+CLASS_PARENT_FILE = (
+    "import unittest\n"
+    "\n"
+    "def f():\n"
+    "    return 1\n"
+    "\n"
+    "class TestF(unittest.TestCase):\n"
+    "    def test_f(self):\n"
+    "        self.assertEqual(f(), 1)\n"
+)
+
+CLASS_CHILD_FILE = (
+    "import unittest\n"
+    "\n"
+    "def f():\n"
+    "    return 2\n"
+    "\n"
+    "class TestF(unittest.TestCase):\n"
+    "    def test_f(self):\n"
+    "        self.assertEqual(f(), 2)\n"
+)
+
+
+def test_find_repaired_test_cases_surfaces_a_class_based_repair(git_available, tmp_path):
+    """Same scenario with a unittest class: the old method pasted into the class used to be an IndentationError,
+    which counted as an unknown verdict, so no case was ever found for tests inside classes."""
+    work = tmp_path / "proj"
+    (work / "tests").mkdir(parents=True)
+    _git(["init", "-q"], cwd=work)
+    _git(["config", "user.email", "t@example.com"], cwd=work)
+    _git(["config", "user.name", "Tester"], cwd=work)
+    _git(["config", "commit.gpgsign", "false"], cwd=work)
+    test_file = work / "tests" / "test_mod.py"
+    for content in (CLASS_PARENT_FILE, CLASS_CHILD_FILE):
+        test_file.write_text(content, encoding="utf-8")
+        _git(["add", "-A"], cwd=work)
+        _git(["commit", "-q", "-m", "c"], cwd=work)
+    child_sha = _git(["rev-parse", "HEAD"], cwd=work).stdout.strip()
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = child_sha
+    a.visited_commits = set()
+
+    cases = a.find_repaired_test_cases()
+
+    assert [case.test_name for case in cases] == ["TestF.test_f"]
+    assert test_file.read_text(encoding="utf-8") == CLASS_CHILD_FILE
+
+
 def test_no_case_when_test_unchanged(git_available, tmp_path):
     """If the test method does not change between commits, nothing is found.
 

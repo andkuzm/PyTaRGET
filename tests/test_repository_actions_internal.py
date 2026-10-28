@@ -289,6 +289,98 @@ class TestAnnotateCode:
 
 
 # --------------------------------------------------------------------------- #
+#  pasting an old test over a new one (run_test_with_overridden_test_code)    #
+# --------------------------------------------------------------------------- #
+CLASS_TESTS = dedent(
+    """
+    import unittest
+
+
+    class TestThing(unittest.TestCase):
+        def test_other(self):
+            self.assertEqual(1, 1)
+
+        @staticmethod
+        def test_value():
+            x = 2
+            assert x == 2
+    """
+)
+
+
+class TestRestoreIndent:
+    def test_first_line_gets_the_indentation_back(self):
+        import repository_actions
+        assert repository_actions._restore_indent("def t(self):\n        pass", "    ") == "    def t(self):\n        pass"
+
+    def test_module_level_code_is_left_alone(self):
+        import repository_actions
+        assert repository_actions._restore_indent("def t():\n    pass", "") == "def t():\n    pass"
+
+    def test_already_indented_code_is_left_alone(self):
+        import repository_actions
+        assert repository_actions._restore_indent("    def t(self):\n        pass", "    ") == "    def t(self):\n        pass"
+
+    def test_empty_code(self):
+        import repository_actions
+        assert repository_actions._restore_indent("", "    ") == ""
+
+
+class TestOverriddenTestCode:
+    """The old test is pasted into the new file; for a method of a class that used to be an IndentationError."""
+
+    def _run(self, a, monkeypatch, rel, name, code):
+        import repository_actions
+        pasted = {}
+
+        def fake_run(repo_dir, rel_path, test_method, log_path):
+            pasted["text"] = (repo_dir / rel_path).read_text(encoding="utf-8")
+            return repository_actions.TestVerdict(repository_actions.TestVerdict.FAILURE, set(), "FAILED")
+
+        monkeypatch.setattr(repository_actions, "compile_and_run_test_python", fake_run)
+        return a.run_test_with_overridden_test_code(rel, name, code), pasted.get("text")
+
+    def test_class_method_is_pasted_with_its_indentation(self, make_actions, monkeypatch):
+        import ast
+        a = make_actions({"t.py": CLASS_TESTS})
+        old = a.extract_method_code("t.py", "TestThing.test_other").replace("(1, 1)", "(1, 2)")
+        verdict, text = self._run(a, monkeypatch, "t.py", "TestThing.test_other", old)
+        assert verdict.status == "failure"
+        ast.parse(text)  # used to raise IndentationError
+        assert "    def test_other(self):\n        self.assertEqual(1, 2)" in text
+
+    def test_decorated_class_method(self, make_actions, monkeypatch):
+        import ast
+        a = make_actions({"t.py": CLASS_TESTS})
+        old = a.extract_method_code("t.py", "TestThing.test_value").replace("== 2", "== 3")
+        verdict, text = self._run(a, monkeypatch, "t.py", "TestThing.test_value", old)
+        ast.parse(text)
+        assert "    @staticmethod\n    def test_value():" in text
+        assert "assert x == 3" in text
+
+    def test_module_level_function_unchanged(self, make_actions, monkeypatch):
+        a = make_actions({"t.py": "def test_a():\n    assert 1\n"})
+        verdict, text = self._run(a, monkeypatch, "t.py", "test_a", "def test_a():\n    assert 0")
+        assert text == "def test_a():\n    assert 0\n"
+
+    def test_original_file_is_restored(self, make_actions, monkeypatch):
+        a = make_actions({"t.py": CLASS_TESTS})
+        old = a.extract_method_code("t.py", "TestThing.test_other")
+        self._run(a, monkeypatch, "t.py", "TestThing.test_other", old)
+        assert (a.repo_dir / "t.py").read_text(encoding="utf-8") == CLASS_TESTS
+
+    def test_unparsable_paste_is_unknown_and_never_run(self, make_actions, monkeypatch):
+        import repository_actions
+        a = make_actions({"t.py": CLASS_TESTS})
+        verdict, text = self._run(a, monkeypatch, "t.py", "TestThing.test_other",
+                                  "def test_other(self):\n  pass\n        pass")  # not parsable
+        assert verdict.status == "unknown"
+        assert text is None  # pytest was not started
+        assert repository_actions._unknown_reason(verdict.log) == "override_not_pasted"
+        assert (a.repo_dir / "t.py").read_text(encoding="utf-8") == CLASS_TESTS
+
+
+# --------------------------------------------------------------------------- #
 #  changed_test_methods: same answer as the checkout-and-scan method          #
 # --------------------------------------------------------------------------- #
 OLD_TESTS = """import pytest
