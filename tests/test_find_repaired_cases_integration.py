@@ -444,3 +444,57 @@ def test_the_funnel_says_why_a_test_could_not_be_run(git_available, tmp_path):
     totals = _totals(a.funnel_rows())
     assert totals["parent_unknown"] == 1
     assert totals["why:parent:missing_module:no_such_package_for_the_pytarget_test"] == 1
+
+
+def _many_changes(count, header):
+    """`count` commits, each editing one test of a file whose imports cannot be satisfied."""
+    return [{"test_mod.py": header + "".join(f"\n\ndef test_{n}():\n    assert {v} == {v}\n" for n in range(3))}
+            for v in range(count)]
+
+
+def test_a_repository_where_nothing_can_run_is_given_up_after_the_limit(git_available, tmp_path, monkeypatch):
+    monkeypatch.setenv("PYTARGET_ENV_FAILURE_LIMIT", "4")
+    work = _init(tmp_path)
+    head = _fast_import(work, _many_changes(12, "import no_such_package_for_the_pytarget_test\n"))
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = head
+    assert a.find_repaired_test_cases() == set()
+    totals = _totals(a.funnel_rows())
+    assert totals["parent_unknown"] == 4  # not the 3 tests of each of the 11 pairs
+    assert totals["gave_up_environment"] == 1
+
+
+def test_the_limit_can_be_switched_off(git_available, tmp_path, monkeypatch):
+    monkeypatch.setenv("PYTARGET_ENV_FAILURE_LIMIT", "0")
+    work = _init(tmp_path)
+    head = _fast_import(work, _many_changes(4, "import no_such_package_for_the_pytarget_test\n"))
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = head
+    a.find_repaired_test_cases()
+    totals = _totals(a.funnel_rows())
+    assert totals["parent_unknown"] == 9  # 3 pairs x 3 tests
+    assert "gave_up_environment" not in totals
+
+
+def test_a_repository_whose_tests_run_is_never_given_up(git_available, tmp_path, monkeypatch):
+    monkeypatch.setenv("PYTARGET_ENV_FAILURE_LIMIT", "2")
+    work = _init(tmp_path)
+    # the first pairs' tests pass at the parent, so the two missing modules after them must not end the search
+    good = "def test_a():\n    assert {v} == {v}\n"
+    bad = "import no_such_package_for_the_pytarget_test\n\n\ndef test_a():\n    assert {v} == {v}\n"
+    head = _fast_import(work, [{"test_mod.py": good.format(v=1)}, {"test_mod.py": good.format(v=2)},
+                               {"test_mod.py": bad.format(v=3)}, {"test_mod.py": bad.format(v=4)},
+                               {"test_mod.py": bad.format(v=5)}])
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = head
+    plan_pairs = a.plan_pairs
+    # oldest pair first, so the order does not depend on how the plan spreads the history
+    monkeypatch.setattr(a, "plan_pairs", lambda *args: (lambda r: (list(reversed(r[0])), r[1], r[2]))(plan_pairs(*args)))
+    a.find_repaired_test_cases()
+    totals = _totals(a.funnel_rows())
+    assert totals["parent_success"] >= 1
+    assert totals["parent_unknown"] == 2
+    assert "gave_up_environment" not in totals

@@ -60,6 +60,15 @@ def _unknown_reason(log):
     return "other"
 
 
+# Reasons for an unknown parent verdict that come from the repository's environment, not from the test
+_ENVIRONMENT_REASONS = ("missing_module:", "import_error", "pytest_usage_error")
+
+
+def _environment_failure_limit():
+    """How many such failures, with not one parent test passing, make a repository hopeless (0 = never give up)."""
+    return int(os.environ.get("PYTARGET_ENV_FAILURE_LIMIT", "10"))
+
+
 def _restore_indent(code, indent):
     """
     `code` as _extract_method_code returns it has lost the indentation of its first line, while the other lines keep
@@ -536,6 +545,8 @@ class RepositoryActions:
             self.funnel[buckets.get(commit, -1)][key] += n
 
         looked_at = 0
+        parents_passed = environment_failures = 0
+        failure_limit = _environment_failure_limit()
         for child_commit, parent_commit in plan:
             pair = f"{child_commit}:{parent_commit}"
 
@@ -558,6 +569,8 @@ class RepositoryActions:
             tally(child_commit, "changed_tests", len(changed_tests))
 
             for key in changed_tests:
+                if failure_limit and not parents_passed and environment_failures >= failure_limit:
+                    break  # nothing ever ran here (e.g. a monorepo whose packages are not installed)
                 rel_path, test_method = key
 
                 # ---------- parent must PASS ----------
@@ -570,9 +583,13 @@ class RepositoryActions:
                 if parent.status != TestVerdict.SUCCESS:
                     tally(child_commit, f"parent_{parent.status}")
                     if parent.status == TestVerdict.UNKNOWN:
-                        tally(child_commit, "why:parent:" + _unknown_reason(parent.log))
+                        reason = _unknown_reason(parent.log)
+                        tally(child_commit, "why:parent:" + reason)
+                        if reason.startswith(_ENVIRONMENT_REASONS):
+                            environment_failures += 1
                     continue
                 tally(child_commit, "parent_success")
+                parents_passed += 1
 
                 # ---------- child must PASS ----------
                 if not self.git_checkout_with_retry(dest_dir, child_commit):
@@ -602,6 +619,9 @@ class RepositoryActions:
                     if overridden.status == TestVerdict.UNKNOWN:
                         tally(child_commit, "why:override:" + _unknown_reason(overridden.log))
 
+            if failure_limit and not parents_passed and environment_failures >= failure_limit:
+                tally(child_commit, "gave_up_environment")
+                break
             if on_progress is not None:
                 on_progress(pair)
 
