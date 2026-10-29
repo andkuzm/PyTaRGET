@@ -1360,9 +1360,11 @@ class RepositoryActions:
     def set_full_permissions(self):
         os.chmod(self.repository_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
         for root, dirs, files in os.walk(self.repository_path):
-            for d in dirs:
-                dir_path = os.path.join(root, d)
-                os.chmod(dir_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-            for f in files:
-                file_path = os.path.join(root, f)
-                os.chmod(file_path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+            for name in dirs + files:
+                path = os.path.join(root, name)
+                if os.path.islink(path):
+                    continue  # chmod follows a link: a dangling one raised (black, openpilot), a live one changes a file outside the repository
+                try:
+                    os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+                except FileNotFoundError:
+                    pass  # gone since os.walk listed it

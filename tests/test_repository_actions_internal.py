@@ -689,6 +689,26 @@ class TestSetFullPermissions:
         mode = os.stat(f).st_mode & 0o777
         assert mode & 0o700 == 0o700  # at least owner rwx
 
+    def test_dangling_links_do_not_stop_it(self, make_actions, tmp_path):
+        # psf/black (docs/show_your_style.md) and commaai/openpilot (opendbc) were lost to a link like these
+        a = make_actions({"pkg/mod.py": "x = 1\n"})
+        work = tmp_path / "proj"
+        (work / "docs").mkdir()
+        os.symlink(work / "nowhere.md", work / "docs" / "dangling.md")
+        os.symlink(work / "no_such_dir", work / "dangling_dir")
+        os.chmod(work / "pkg" / "mod.py", 0o600)
+        a.set_full_permissions()  # used to raise FileNotFoundError
+        assert os.stat(work / "pkg" / "mod.py").st_mode & 0o777 == 0o777
+
+    def test_links_to_files_outside_the_repository_are_left_alone(self, make_actions, tmp_path, tmp_path_factory):
+        a = make_actions({"pkg/mod.py": "x = 1\n"})
+        outside = tmp_path_factory.mktemp("elsewhere") / "outside.txt"  # not under a.repository_path
+        outside.write_text("not part of the repository")
+        os.chmod(outside, 0o600)
+        os.symlink(outside, tmp_path / "proj" / "link.txt")
+        a.set_full_permissions()
+        assert os.stat(outside).st_mode & 0o777 == 0o600
+
 
 # --------------------------------------------------------------------------- #
 #  planning helpers                                                           #
