@@ -476,7 +476,7 @@ class TestWorkers:
         directory = {name: path for name, path, _ in seen}
         for _, _, together in seen:  # whoever was running at the same moment had a directory of its own
             assert len({directory[n] for n in together}) == len(together)
-        assert (tmp_path / "repos_par_pr58" / "slot0").is_dir()
+        assert (tmp_path / f"repos_par_{GitHubSearch.PIPELINE_FIX_REVISION}" / "slot0").is_dir()
         # all seven lines ended up in the processed file even though they were written concurrently
         names = {line.split("|")[0] for line in s.processed_file.read_text().splitlines()}
         assert names == {f"owner{n}/utils" for n in range(7)}

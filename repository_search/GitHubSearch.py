@@ -36,7 +36,7 @@ CSV_HEADER = ["repository_name", "annotated_code", "relative_path",
 # remember whether `git pull` happened before starting a run, and a repo
 # blacklisted by an older, buggier revision gets retried automatically
 # under a new one instead of staying skipped forever.
-PIPELINE_FIX_REVISION = "pr58"
+PIPELINE_FIX_REVISION = "pr59"
 
 
 class GitHubSearch:
