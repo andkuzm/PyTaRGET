@@ -69,6 +69,11 @@ def _environment_failure_limit():
     return int(os.environ.get("PYTARGET_ENV_FAILURE_LIMIT", "10"))
 
 
+def _file_failure_limit():
+    """How often a test file may fail at the parent for the same environment reason before its other tests are not tried (0 = always try)."""
+    return int(os.environ.get("PYTARGET_FILE_FAILURE_LIMIT", "3"))
+
+
 def _restore_indent(code, indent):
     """
     `code` as _extract_method_code returns it has lost the indentation of its first line, while the other lines keep
@@ -547,6 +552,9 @@ class RepositoryActions:
         looked_at = 0
         parents_passed = environment_failures = 0
         failure_limit = _environment_failure_limit()
+        file_limit = _file_failure_limit()
+        file_failures = Counter()  # (test file, reason) -> parent runs lost to it
+        blocked_files = set()      # test files that cannot run here, e.g. they import a module that is not installed
         for child_commit, parent_commit in plan:
             pair = f"{child_commit}:{parent_commit}"
 
@@ -572,6 +580,9 @@ class RepositoryActions:
                 if failure_limit and not parents_passed and environment_failures >= failure_limit:
                     break  # nothing ever ran here (e.g. a monorepo whose packages are not installed)
                 rel_path, test_method = key
+                if rel_path in blocked_files:
+                    tally(child_commit, "skipped_blocked_file")
+                    continue
 
                 # ---------- parent must PASS ----------
                 if not self.git_checkout_with_retry(dest_dir, parent_commit):
@@ -587,6 +598,9 @@ class RepositoryActions:
                         tally(child_commit, "why:parent:" + reason)
                         if reason.startswith(_ENVIRONMENT_REASONS):
                             environment_failures += 1
+                            file_failures[(rel_path, reason)] += 1
+                            if file_limit and file_failures[(rel_path, reason)] >= file_limit:
+                                blocked_files.add(rel_path)
                     continue
                 tally(child_commit, "parent_success")
                 parents_passed += 1

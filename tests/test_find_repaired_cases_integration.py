@@ -454,6 +454,7 @@ def _many_changes(count, header):
 
 def test_a_repository_where_nothing_can_run_is_given_up_after_the_limit(git_available, tmp_path, monkeypatch):
     monkeypatch.setenv("PYTARGET_ENV_FAILURE_LIMIT", "4")
+    monkeypatch.setenv("PYTARGET_FILE_FAILURE_LIMIT", "0")  # this is about the limit of the whole repository
     work = _init(tmp_path)
     head = _fast_import(work, _many_changes(12, "import no_such_package_for_the_pytarget_test\n"))
 
@@ -467,6 +468,7 @@ def test_a_repository_where_nothing_can_run_is_given_up_after_the_limit(git_avai
 
 def test_the_limit_can_be_switched_off(git_available, tmp_path, monkeypatch):
     monkeypatch.setenv("PYTARGET_ENV_FAILURE_LIMIT", "0")
+    monkeypatch.setenv("PYTARGET_FILE_FAILURE_LIMIT", "0")  # this is about the limit of the whole repository
     work = _init(tmp_path)
     head = _fast_import(work, _many_changes(4, "import no_such_package_for_the_pytarget_test\n"))
 
@@ -498,3 +500,71 @@ def test_a_repository_whose_tests_run_is_never_given_up(git_available, tmp_path,
     assert totals["parent_success"] >= 1
     assert totals["parent_unknown"] == 2
     assert "gave_up_environment" not in totals
+
+
+def _file_with_tests(header, value, names=("a", "b", "c")):
+    return header + "".join(f"\n\ndef test_{n}():\n    assert {value} == {value}\n" for n in names)
+
+
+def test_a_file_that_cannot_import_is_not_tried_again_but_the_rest_of_the_repository_is(git_available, tmp_path,
+                                                                                         monkeypatch):
+    monkeypatch.setenv("PYTARGET_FILE_FAILURE_LIMIT", "2")
+    monkeypatch.setenv("PYTARGET_ENV_FAILURE_LIMIT", "0")  # the whole-repository limit is another switch
+    work = _init(tmp_path)
+    bad_a = "import no_such_package_for_the_pytarget_test\n"
+    bad_b = "import another_missing_package_for_the_pytarget_test\n"
+    commits = [{"tests/test_bad_a.py": _file_with_tests(bad_a, v), "tests/test_bad_b.py": _file_with_tests(bad_b, v),
+                "tests/test_good.py": _file_with_tests("", v, names=("a",))} for v in range(1, 5)]
+    head = _fast_import(work, commits)
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = head
+    a.find_repaired_test_cases()
+    totals = _totals(a.funnel_rows())
+    assert totals["parent_unknown"] == 4  # two runs for each of the two files, whatever the number of commits
+    assert totals["skipped_blocked_file"] > 0
+    assert totals["parent_success"] == 3  # the file that imports fine was tried at every pair
+
+
+def test_blocked_files_can_be_switched_off(git_available, tmp_path, monkeypatch):
+    monkeypatch.setenv("PYTARGET_FILE_FAILURE_LIMIT", "0")
+    monkeypatch.setenv("PYTARGET_ENV_FAILURE_LIMIT", "0")
+    work = _init(tmp_path)
+    bad = "import no_such_package_for_the_pytarget_test\n"
+    head = _fast_import(work, [{"tests/test_bad.py": _file_with_tests(bad, v)} for v in range(1, 5)])
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = head
+    a.find_repaired_test_cases()
+    totals = _totals(a.funnel_rows())
+    assert totals["parent_unknown"] == 9  # 3 pairs x 3 tests, all tried
+    assert "skipped_blocked_file" not in totals
+
+
+# Cases taken from the v2 search, where one missing module (or one unimportable name) made the same file fail at the
+# parent again and again: mitmproxy (zstandard, 437 runs), faker (text_unidecode, 737), dash (flask_compress, 195),
+# pipenv (the project itself, 174) and the generic "ImportError: cannot import name" (503 runs over many repositories).
+@pytest.mark.parametrize("path, import_line, reason", [
+    ("test/mitmproxy/net/test_encoding.py", "import zstandard_for_the_pytarget_test", "missing_module"),
+    ("tests/providers/test_internet.py", "from text_unidecode_for_the_pytarget_test import unidecode", "missing_module"),
+    ("tests/unit/test_compress.py", "import flask_compress_for_the_pytarget_test", "missing_module"),
+    ("tests/unit/test_core.py", "import pipenv_for_the_pytarget_test.core", "missing_module"),
+    ("tests/test_models.py", "from json import no_such_name_for_the_pytarget_test", "import_error"),
+])
+def test_real_import_failures_cost_the_default_limit_per_file_not_one_run_per_test(git_available, tmp_path, monkeypatch,
+                                                                                    path, import_line, reason):
+    monkeypatch.delenv("PYTARGET_FILE_FAILURE_LIMIT", raising=False)  # the default, 3
+    monkeypatch.setenv("PYTARGET_ENV_FAILURE_LIMIT", "0")
+    work = _init(tmp_path)
+    commits = [{path: _file_with_tests(import_line + "\n", v, names=("a", "b", "c", "d")),
+                "tests/test_unrelated.py": _file_with_tests("", v, names=("a",))} for v in range(1, 6)]
+    head = _fast_import(work, commits)
+
+    a = repository_actions.RepositoryActions("local/proj", str(tmp_path))
+    a.current_hash = head
+    a.find_repaired_test_cases()
+    totals = _totals(a.funnel_rows())
+    assert totals["parent_unknown"] == 3  # 4 pairs x 4 tests = 16 runs before
+    assert totals["skipped_blocked_file"] == 13
+    assert any(key.startswith(f"why:parent:{reason}") for key in totals)
+    assert totals["parent_success"] == 4  # tests/test_unrelated.py is tried at every pair
