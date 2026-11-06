@@ -125,6 +125,76 @@ class TestGithubSearchRequest:
         assert s._github_search_request({}, {}, retries=2) is None
 
 
+class TestHttpTimeoutAndRetry:
+    """A hung connection must never block the run: every call has a timeout, failed calls are retried."""
+
+    def test_every_call_passes_a_timeout(self, monkeypatch):
+        seen = []
+        monkeypatch.setattr(GitHubSearch.requests, "get",
+                            lambda url, **k: seen.append(k.get("timeout")) or FakeResponse(200))
+        GitHubSearch.http_get("https://x", headers={}, params={})
+        assert seen == [GitHubSearch.HTTP_TIMEOUT]
+
+    def test_retries_timeouts_then_succeeds(self, monkeypatch):
+        ok = FakeResponse(200, {"a": 1})
+        calls = iter([GitHubSearch.requests.exceptions.ReadTimeout("slow"),
+                      GitHubSearch.requests.exceptions.ConnectionError("down"), ok])
+
+        def fake_get(url, **k):
+            item = next(calls)
+            if isinstance(item, Exception):
+                raise item
+            return item
+        monkeypatch.setattr(GitHubSearch.requests, "get", fake_get)
+        assert GitHubSearch.http_get("https://x") is ok
+
+    def test_returns_none_when_every_attempt_fails(self, monkeypatch):
+        n = []
+
+        def always_timeout(url, **k):
+            n.append(1)
+            raise GitHubSearch.requests.exceptions.ReadTimeout("slow")
+        monkeypatch.setattr(GitHubSearch.requests, "get", always_timeout)
+        assert GitHubSearch.http_get("https://x", retries=3) is None
+        assert len(n) == 3
+
+    def test_does_not_hide_non_network_errors(self, monkeypatch):
+        def bug(url, **k):
+            raise ValueError("programming error")
+        monkeypatch.setattr(GitHubSearch.requests, "get", bug)
+        with pytest.raises(ValueError):
+            GitHubSearch.http_get("https://x")
+
+    def test_search_request_survives_unreachable_github_then_succeeds(self, tmp_path, monkeypatch):
+        s = make_searcher(tmp_path)
+        ok = FakeResponse(200, {"total_count": 0})
+        state = {"n": 0}
+
+        def flaky(url, **k):
+            state["n"] += 1
+            if state["n"] <= GitHubSearch.HTTP_RETRIES:   # the whole first http_get fails
+                raise GitHubSearch.requests.exceptions.ReadTimeout("slow")
+            return ok
+        monkeypatch.setattr(GitHubSearch.requests, "get", flaky)
+        assert s._github_search_request({}, {}) is ok
+
+    def test_search_request_gives_up_with_none_when_github_never_answers(self, tmp_path, monkeypatch):
+        s = make_searcher(tmp_path)
+
+        def dead(url, **k):
+            raise GitHubSearch.requests.exceptions.ConnectionError("down")
+        monkeypatch.setattr(GitHubSearch.requests, "get", dead)
+        assert s._github_search_request({}, {}, retries=2) is None
+
+    def test_latest_commit_empty_when_github_unreachable(self, tmp_path, monkeypatch):
+        s = make_searcher(tmp_path)
+
+        def dead(url, **k):
+            raise GitHubSearch.requests.exceptions.ReadTimeout("slow")
+        monkeypatch.setattr(GitHubSearch.requests, "get", dead)
+        assert s.get_latest_commit("o/r") == ""
+
+
 # --------------------------------------------------------------------------- #
 #  _search_size_range                                                         #
 # --------------------------------------------------------------------------- #
@@ -150,7 +220,7 @@ class TestSearchSizeRange:
             q = params["q"]
             queries.append(q)
             # Only the original full range is "too big"; sub-ranges are empty.
-            if "size:>=0 size:<100" in q:
+            if q.endswith("size:0..99"):
                 return FakeResponse(200, {"total_count": 1000, "items": []})
             return FakeResponse(200, {"total_count": 0})
 
@@ -158,9 +228,27 @@ class TestSearchSizeRange:
         monkeypatch.setattr(s, "process_repository_with_timeout", lambda fn: True)
         s._search_size_range("q", 0, 100, {}, set())
 
-        # Recursion split into [0,50) and [50,100).
-        assert any("size:>=0 size:<50" in q for q in queries)
-        assert any("size:>=50 size:<100" in q for q in queries)
+        # Recursion split into [0,50) and [50,100), written as inclusive GitHub ranges.
+        assert any(q.endswith("size:0..49") for q in queries)
+        assert any(q.endswith("size:50..99") for q in queries)
+
+    def test_size_filter_uses_a_single_range_qualifier(self, tmp_path, monkeypatch):
+        """GitHub silently IGNORES the size filter when two size qualifiers are combined
+        (`size:>=A size:<B` returns the unfiltered results, which made every band return the same top
+        repositories). Only the single `size:A..B` form filters; the query must never contain two."""
+        s = make_searcher(tmp_path)
+        s._run_count = 0
+        queries = []
+
+        def fake_request(headers, params, **k):
+            queries.append(params["q"])
+            return FakeResponse(200, {"total_count": 0})
+
+        monkeypatch.setattr(s, "_github_search_request", fake_request)
+        s._search_size_range("license:mit language:python stars:>=10", 2000, 4000, {}, set())
+        assert queries == ["license:mit language:python stars:>=10 size:2000..3999"]
+        assert all(q.count("size:") == 1 and ">=" not in q.split("size:")[1] and "<" not in q.split("size:")[1]
+                   for q in queries)
 
     def test_processes_items_and_writes_blacklist(self, tmp_path, monkeypatch):
         s = make_searcher(tmp_path)

@@ -23,6 +23,27 @@ except ImportError:
 
 PROCESS_TIMEOUT = 90 * 60   # 90 minutes
 
+# Every GitHub API call has a (connect, read) timeout: without one a dead connection blocks the whole run forever
+# without any error (this stalled a 20 h run for ~12 h). A failed or timed-out call is retried with a growing pause.
+HTTP_TIMEOUT = (10, 60)     # seconds
+HTTP_RETRIES = 5
+
+
+def http_get(url, headers=None, params=None, retries=HTTP_RETRIES, timeout=HTTP_TIMEOUT, get=None):
+    """requests.get with a timeout; connection errors and timeouts are retried (pause 5 s, 10 s, 20 s, ...).
+
+    Returns the response, or None when every attempt failed. HTTP status codes are NOT judged here: the callers
+    handle 403/429/errors themselves."""
+    get = get or requests.get
+    for attempt in range(retries):
+        try:
+            return get(url, headers=headers, params=params, timeout=timeout)
+        except requests.exceptions.RequestException as e:
+            print(f"GitHub request failed ({type(e).__name__}), attempt {attempt + 1}/{retries}: {url}", flush=True)
+            if attempt < retries - 1:
+                time.sleep(5 * (2 ** attempt))
+    return None
+
 # Must match the header written by main_repository_miner.Main.save_case.
 CSV_HEADER = ["repository_name", "annotated_code", "relative_path",
               "broken_hash", "repaired_hash", "outdated_test_log",
@@ -102,8 +123,8 @@ class GitHubSearch:
         if self.github_token:
             headers['Authorization'] = f'Bearer {self.github_token}'
         params = {"per_page": 1}
-        response = requests.get(commits_url, headers=headers, params=params)
-        if response.status_code == 200:
+        response = http_get(commits_url, headers=headers, params=params)
+        if response is not None and response.status_code == 200:
             data = response.json()
             if isinstance(data, list) and data:
                 return data[0].get("sha", "")
@@ -163,7 +184,12 @@ class GitHubSearch:
     def _github_search_request(self, headers, params, retries=5):
         base_url = "https://api.github.com/search/repositories"
         for attempt in range(retries):
-            response = requests.get(base_url, headers=headers, params=params)
+            response = http_get(base_url, headers=headers, params=params)
+            if response is None:   # every connection attempt failed or timed out
+                print(f"GitHub search unreachable (attempt {attempt + 1}/{retries})", flush=True)
+                if attempt < retries - 1:
+                    time.sleep(10 * (2 ** attempt))
+                continue
             if response.status_code == 200:
                 return response
 
@@ -188,7 +214,9 @@ class GitHubSearch:
         return None
 
     def _search_size_range(self, query_base, size_start, size_end, headers, processed_repos):
-        query = f"{query_base} size:>={size_start} size:<{size_end}"
+        # [size_start, size_end) in KB as ONE inclusive range qualifier. Do not write `size:>=A size:<B`: GitHub
+        # ignores the size filter when two size qualifiers are combined and returns the unfiltered results.
+        query = f"{query_base} size:{size_start}..{size_end - 1}"
         params = {
             "q": query,
             "sort": "stars",
