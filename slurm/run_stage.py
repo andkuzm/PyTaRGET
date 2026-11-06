@@ -44,6 +44,8 @@ def parse_args(argv=None):
     parser.add_argument("--out", default=os.environ.get("OUT", DEFAULT_OUT), help="results directory (default $OUT)")
     parser.add_argument("--train-size", type=float, default=0.8, help="share of the cases (oldest commits) for training")
     parser.add_argument("--beam", type=int, default=20, help="beam size = number of candidates per case")
+    parser.add_argument("--max-length", type=int, default=None,
+                        help="tokens per input (default: 1024 for codet5p and plbart, the model's own for codegen)")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--eval-batch-size", type=int, default=8)
@@ -87,7 +89,8 @@ def make_smoke_csv(source, destination, commits=40, per_commit=6, seed=1):
 def make_eftt(args, csv_path, out_path):
     from data_processing.encode_tune_test import Eftt
     return Eftt(annotated_cases_path=Path(csv_path), out_path=Path(out_path), model=args.model,
-                train_size=args.train_size, beam_size=args.beam, batch_size=args.batch_size, hftoken=None)
+                train_size=args.train_size, beam_size=args.beam, batch_size=args.batch_size, hftoken=None,
+                max_length=args.max_length)
 
 
 def peak_memory():

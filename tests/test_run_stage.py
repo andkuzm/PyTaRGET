@@ -60,6 +60,8 @@ class TestArguments:
         args = run_stage.parse_args(["train", "--model", "codet5p"])
         assert (args.train_size, args.beam, args.epochs, args.batch_size, args.early_stop) == (0.8, 20, 10, 8, 3)
         assert args.csv.endswith("annotated_cases_v2_pr59_filtered_cap_clean.csv") and args.restart is False
+        assert args.max_length is None                                     # the model's default: 1024 / 1024 / 2048
+        assert run_stage.parse_args(["train", "--model", "plbart", "--max-length", "512"]).max_length == 512
 
     def test_environment_sets_the_paths(self, monkeypatch):
         monkeypatch.setenv("CSV", "/data/cases.csv")

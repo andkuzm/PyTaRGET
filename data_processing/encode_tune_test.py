@@ -34,7 +34,13 @@ class Tokens:
     HUNK_END = "[</HUNK>]"
 
 class Eftt:
-    def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=40, batch_size=4, hftoken=None, java=False):
+    # Tokens per input for the fine-tuned models. At 512 only about 41% of the cases fit (the test function must fit in half
+    # the window); at 1024, which is also PLBART's position limit, about 75% do. CodeGen keeps its own 2048.
+    MODEL_MAX_LENGTH = {"codet5p": 1024, "plbart": 1024}
+
+    def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=40, batch_size=4, hftoken=None, java=False,
+                 max_length=None):
+        self.max_length = max_length            # overrides MODEL_MAX_LENGTH
         self.annotated_cases_path = annotated_cases_path
         self.out_path = out_path
         self.model = model
@@ -233,7 +239,10 @@ class Eftt:
             "additional_special_tokens": self.tokenizer.additional_special_tokens
                                          + [v for k, v in inspect.getmembers(Tokens) if not k.startswith("_")]
         }
-        if self.tokenizer.model_max_length > 10000:
+        wanted = self.max_length or self.MODEL_MAX_LENGTH.get(self.model)
+        if wanted:
+            self.tokenizer.model_max_length = wanted
+        elif self.tokenizer.model_max_length > 10000:
             self.tokenizer.model_max_length = 512
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token

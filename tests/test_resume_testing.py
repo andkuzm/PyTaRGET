@@ -298,6 +298,29 @@ class TestLlmTester:
 
 # ---- Eftt --------------------------------------------------------------------------------------------------------------
 
+class TestMaxLength:
+    """The input window per model: 1024 for CodeT5+ and PLBART (only 41% of the cases fit in 512), CodeGen keeps its own."""
+
+    def eftt(self, tiny, tmp_path, model, native, max_length=None):
+        eftt = Eftt.__new__(Eftt)
+        eftt.model, eftt.max_length, eftt.out_path, eftt.train_size = model, max_length, tmp_path, 0.8
+        eftt.tokenizer = fixtures.build_tokenizer(model_max_length=native)
+        eftt.create_tokenizer()
+        return eftt
+
+    @pytest.mark.parametrize("model,native,expected", [("codet5p", 512, 1024), ("plbart", 512, 1024), ("plbart", 1024, 1024),
+                                                       ("codegen", 2048, 2048)])
+    def test_default_window_per_model(self, tiny, tmp_path, model, native, expected):
+        assert self.eftt(tiny, tmp_path, model, native).tokenizer.model_max_length == expected
+
+    def test_explicit_max_length_wins(self, tiny, tmp_path):
+        assert self.eftt(tiny, tmp_path, "codet5p", 512, max_length=512).tokenizer.model_max_length == 512
+        assert self.eftt(tiny, tmp_path, "codegen", 2048, max_length=1024).tokenizer.model_max_length == 1024
+
+    def test_a_placeholder_length_is_still_replaced_for_other_models(self, tiny, tmp_path):
+        assert self.eftt(tiny, tmp_path, "somemodel", int(1e30)).tokenizer.model_max_length == 512
+
+
 class TestEftt:
     def test_train_and_validate_pass_their_options_on(self, monkeypatch):
         seen = {}
