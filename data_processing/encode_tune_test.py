@@ -9,6 +9,7 @@ from transformers import (
     AutoTokenizer, PLBartForConditionalGeneration, CodeGenForCausalLM, AutoModelForSeq2SeqLM, AutoModelForCausalLM
 )
 
+from data_processing import prediction_files
 from data_processing.encode import Encoder
 from data_processing.llm_test import Tester_llm
 from data_processing.plausibility_test import PlausibilityTester
@@ -81,7 +82,7 @@ class Eftt:
         #     self.dataset_class = LLMSeqDataset
 
         if model == "qwen":
-            login(token=self.hftok)
+            self._hf_login()
             self.model_path = "Qwen/Qwen2.5-7B-Instruct"
             self.model_class = AutoModelForCausalLM
             if not java:
@@ -92,7 +93,7 @@ class Eftt:
             self.dataset_class = LLMSeqDataset
 
         if model == "qwen3":
-            login(token=self.hftok)
+            self._hf_login()
             self.model_path = "Qwen/Qwen3-8B"
             self.model_class = AutoModelForCausalLM
             if not java:
@@ -103,7 +104,7 @@ class Eftt:
             self.dataset_class = LLMSeqDataset
 
         if model == "gemma":
-            login(token=self.hftok)
+            self._hf_login()
             self.model_path = "google/gemma-7b-it"
             self.model_class = AutoModelForCausalLM
             if not java:
@@ -114,7 +115,7 @@ class Eftt:
             self.dataset_class = LLMSeqDataset
 
         if model == "deepseek":
-            login(token=self.hftok)
+            self._hf_login()
             self.model_path = "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct" #deepseek-ai/deepseek-coder-33b-instruct
             self.model_class = AutoModelForCausalLM
             if not java:
@@ -140,6 +141,23 @@ class Eftt:
         #     self.create_tokenizer_llm()
         #     self.dataset_class = LLMSeqDataset
         # self.beam_size = beam_size
+
+    def _hf_login(self):
+        """
+        Log in to Hugging Face only when a token was given. Without one the cached token (or HF_TOKEN) is used;
+        calling login() without a token would stop a batch job to ask for one on the terminal.
+        """
+        if self.hftok:
+            login(token=self.hftok)
+
+    def _check_complete(self, records):
+        """Print how many test cases the scored predictions cover, and warn when it is not all of them."""
+        with open(self.out_path / self.model / str(self.train_size) / "splits" / "test.json", encoding="utf-8") as f:
+            total = len(json.load(f))
+        text, warning = prediction_files.describe(len(records), total)
+        print(f"Scores are {text}")
+        if warning:
+            print(warning)
 
     def full_cycle(self):
         self.encode()
@@ -184,8 +202,8 @@ class Eftt:
             is_java= "ref" in str(self.train_size),
         )
         pred_path = self.out_path / self.model / str(self.train_size) / f"{self.model}_llm_test_predictions.json"
-        with open(pred_path, 'r') as f:
-            preds = json.load(f)
+        preds = prediction_files.load(pred_path)
+        self._check_complete(preds)
         bleu, codebleu, em, norm_em = tester.compute_scores(preds)
         print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em} | EM (indentation-normalized)={norm_em}")
         return bleu, codebleu, em, norm_em
@@ -193,8 +211,8 @@ class Eftt:
     def get_metrics(self):
         tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size)
         pred_path = self.out_path / self.model / str(self.train_size) / f"test_predictions.json"
-        with open(pred_path, 'r') as f:
-            preds = json.load(f)
+        preds = prediction_files.load(pred_path)
+        self._check_complete(preds)
         bleu, codebleu, em, norm_em = tester.compute_scores(preds)
         print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em} | EM (indentation-normalized)={norm_em}")
         return bleu, codebleu, em, norm_em

@@ -22,6 +22,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from data_processing.atomic_io import atomic_write_text
 from data_processing.metrics import normalize_indentation
 
 DELETED = "# Deleted"  # what the Encoder writes as the reference when the repair only removes lines
@@ -248,8 +249,7 @@ class PlausibilityTester:
                 results[i] = self.evaluate_case(row, candidates)
             print(f"[{n}/{len(todo)}] case {i} {row['repository_name']}: {results[i]['status']} {results[i]['verdicts']}")
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(json.dumps({"summary": summarize(results), "results": results}, indent=1),
-                                encoding="utf-8")
+            atomic_write_text(out_path, json.dumps({"summary": summarize(results), "results": results}, indent=1))
 
         summary = summarize(results)
         print(summary)

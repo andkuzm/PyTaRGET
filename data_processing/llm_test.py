@@ -7,6 +7,8 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm import tqdm
 
+from data_processing import prediction_files
+from data_processing.atomic_io import sigterm_as_keyboard_interrupt
 from data_processing.metrics import exact_match_flags
 from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
@@ -20,7 +22,7 @@ from data_processing.jCodeBLEU.code_bleu import calc_code_bleu as jcalc_code_ble
 
 class Tester_llm:
     def __init__(self, model_name, model_path, dataset_path, token, tokenizer, train_fraction, batch_size=4, is_java=False, device="cuda",
-                 generation=None):
+                 generation=None, dtype=torch.float16):
         self.model_name = model_name
         self.model_path = model_path
         self.dataset_path = Path(dataset_path) / "splits" / "test.json"
@@ -33,6 +35,7 @@ class Tester_llm:
         self.is_java = is_java
         self.max_prompt_tokens = 2048
         self.generation = self.resolve_generation(model_name, generation)
+        self.dtype = dtype
         self.model = None
         if "ref" in str(self.train_fraction):
             print("prompting will be done for java dataset")
@@ -44,7 +47,7 @@ class Tester_llm:
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             device_map="auto",
-            torch_dtype=torch.float16,
+            torch_dtype=self.dtype,
             trust_remote_code=True,
             token=self.token
         )
@@ -58,9 +61,10 @@ class Tester_llm:
         Decoding settings of the instruction-tuned models. The defaults are the ones used for the first results
         (beam search with sampling at temperature 1.5, every beam returned as a candidate); pass e.g.
         {"do_sample": False} for plain beam search, or {"num_beams": 1, "num_return_sequences": 1} for greedy.
-        "seed" (optional) seeds torch before sampling.
+        "seed" seeds torch before every batch (seed + the batch's first case ID), so a run that was interrupted and
+        resumed samples exactly what an uninterrupted run would have; None leaves the sampling unseeded.
         """
-        settings = {"do_sample": True, "num_beams": 4, "num_return_sequences": 4, "temperature": 1.5, "seed": None}
+        settings = {"do_sample": True, "num_beams": 4, "num_return_sequences": 4, "temperature": 1.5, "seed": 1234}
         if model_name == "deepseek":
             settings.update(num_beams=2, num_return_sequences=2)
         unknown = set(overrides or {}) - set(settings)
@@ -185,9 +189,16 @@ class Tester_llm:
         return self.postprocess_prediction(parts[1] if len(parts) > 1 else generated)
 
     def run(self, out_path=None, max_gen_tokens=256, save_json=True):
+        """
+        Generate candidates for every case of splits/test.json. After every batch the predictions are written
+        atomically to <out_path>/<model>_llm_test_predictions.json; a run that finds that file continues with the
+        cases that have no prediction yet (and retries the ones that ran out of memory).
+        """
+        with sigterm_as_keyboard_interrupt():
+            return self._run(out_path, max_gen_tokens, save_json)
+
+    def _run(self, out_path, max_gen_tokens, save_json):
         self.load_model()
-        if self.generation["seed"] is not None:
-            torch.manual_seed(self.generation["seed"])
         print(f"Decoding settings: {self.generation}")
         predictions = []
         seen_ids = set()
@@ -201,9 +212,9 @@ class Tester_llm:
             # Load existing predictions if file exists
             if out_file.exists():
                 print(f"Resuming from existing file: {out_file}")
-                existing = pd.read_json(out_file)
-                predictions = existing.to_dict("records")
-                seen_ids = {int(row["ID"]) for row in predictions}
+                predictions = prediction_files.load(out_file)
+                prediction_files.check_matches_test_split(predictions, self.dataset)
+                seen_ids = {row["ID"] for row in predictions}
 
         # "ID" is the row's position in test.json, so skipped cases never shift the others
         remaining = [(i, row) for i, row in enumerate(self.dataset) if i not in seen_ids]
@@ -211,6 +222,8 @@ class Tester_llm:
 
         for batch_start in tqdm(range(0, len(remaining), self.batch_size), desc=f"Testing {self.model_name}"):
             batch = remaining[batch_start:batch_start + self.batch_size]
+            if self.generation["seed"] is not None:
+                torch.manual_seed(self.generation["seed"] + batch[0][0])
             prompts = [self.fit_prompt(row) for _, row in batch]
             results = self.safe_generate(prompts, max_gen_tokens)
 
@@ -227,7 +240,7 @@ class Tester_llm:
 
             # Save intermediate state
             if out_file is not None:
-                pd.DataFrame(predictions).to_json(out_file, indent=2)
+                prediction_files.save(predictions, out_file)
 
             torch.cuda.empty_cache()
 
@@ -240,8 +253,10 @@ class Tester_llm:
 
         # Final scores
         bleu, codebleu, em, norm_em = self.compute_scores(predictions)
-        print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em} | EM (indentation-normalized)={norm_em} "
-              f"(over {len(predictions)}/{len(self.dataset)} cases)")
+        text, warning = prediction_files.describe(len(predictions), len(self.dataset))
+        print(f"Evaluation: BLEU={bleu} | CodeBLEU={codebleu} | EM={em} | EM (indentation-normalized)={norm_em} ({text})")
+        if warning:
+            print(warning)
 
         return predictions
 

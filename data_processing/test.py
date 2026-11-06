@@ -1,3 +1,4 @@
+import json
 import re
 
 import pandas as pd
@@ -6,6 +7,8 @@ from accelerate import Accelerator
 from datetime import datetime
 from tqdm import tqdm
 
+from data_processing import prediction_files
+from data_processing.atomic_io import sigterm_as_keyboard_interrupt
 from data_processing.metrics import exact_match_flags
 from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
@@ -22,8 +25,27 @@ class Tester:
         self.checkpoint_dir = self.out_path / self.model / str(self.train_fraction) / "checkpoint-best"
         self.split_dir = self.out_path / self.model / str(self.train_fraction) / "splits"
 
-    def validate(self):
-        df = pd.read_json(self.split_dir / "test.json")
+    def validate(self, save_every=10, resume=True):
+        """
+        Generate the beam candidates of every case of splits/test.json and write test_predictions.json.
+        The predictions are saved every `save_every` cases (atomically) and when the run is interrupted, and a run
+        that finds a predictions file continues with the cases that have no prediction yet (resume=False starts over).
+        """
+        with sigterm_as_keyboard_interrupt():
+            return self._validate(save_every, resume)
+
+    def _validate(self, save_every, resume):
+        with open(self.split_dir / "test.json", encoding="utf-8") as f:
+            rows = json.load(f)
+        df = pd.DataFrame(rows)
+        predictions_file = self.out_path / self.model / str(self.train_fraction) / "test_predictions.json"
+
+        predictions = []
+        if resume and predictions_file.exists():
+            predictions = prediction_files.load(predictions_file)
+            prediction_files.check_matches_test_split(predictions, rows)
+            print(f"Resuming from {predictions_file}: {len(predictions)} of {len(df)} cases already have predictions")
+        done = {p["ID"] for p in predictions}
 
         # Load best model checkpoint
         accelerator = Accelerator()
@@ -56,25 +78,37 @@ class Tester:
             assert decoder_sid < model.config.vocab_size
             generation_args["decoder_start_token_id"] = decoder_sid
 
-        predictions = []
-        for idx, row in tqdm(df.iterrows(), total=len(df), desc="Generating predictions"):
-            input_ids = self.tokenizer(row["input"], return_tensors="pt", truncation=True, padding=True).input_ids.to(
-                accelerator.device)
+        unsaved = 0
+        try:
+            for idx, row in tqdm(df.iterrows(), total=len(df), desc="Generating predictions"):
+                if int(idx) in done:
+                    continue
+                input_ids = self.tokenizer(row["input"], return_tensors="pt", truncation=True, padding=True).input_ids.to(
+                    accelerator.device)
 
-            outputs = model.generate(input_ids=input_ids, **generation_args)
-            outputs = self.new_tokens(model, outputs, input_ids)
-            decoded = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-            predictions.append({
-                "ID": idx,
-                "target": row["output"],
-                "preds": [pred.replace("<TAB>", "    ").replace("<NL>", "\n") for pred in decoded]
-            })
+                outputs = model.generate(input_ids=input_ids, **generation_args)
+                outputs = self.new_tokens(model, outputs, input_ids)
+                decoded = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+                predictions.append({
+                    "ID": int(idx),
+                    "target": row["output"],
+                    "preds": [pred.replace("<TAB>", "    ").replace("<NL>", "\n") for pred in decoded]
+                })
+                unsaved += 1
+                if unsaved >= save_every:
+                    prediction_files.save(predictions, predictions_file)
+                    unsaved = 0
+        finally:
+            if unsaved:                       # also when interrupted: keep what was generated
+                prediction_files.save(predictions, predictions_file)
 
-        pred_df = pd.DataFrame(predictions)
-        pred_df.to_json(self.out_path / self.model / str(self.train_fraction) / "test_predictions.json", indent=2)
-
-        bleu_score, code_bleu_score, em, norm_em = self.compute_scores(pred_df)
-        print(f"BLEU: {bleu_score} | CodeBLEU: {code_bleu_score} | EM: {em} | EM (indentation-normalized): {norm_em}")
+        prediction_files.save(predictions, predictions_file)
+        bleu_score, code_bleu_score, em, norm_em = self.compute_scores(pd.DataFrame(predictions))
+        text, warning = prediction_files.describe(len(predictions), len(df))
+        print(f"BLEU: {bleu_score} | CodeBLEU: {code_bleu_score} | EM: {em} | EM (indentation-normalized): {norm_em} ({text})")
+        if warning:
+            print(warning)
+        return bleu_score, code_bleu_score, em, norm_em
 
     @staticmethod
     def new_tokens(model, outputs, input_ids):

@@ -1,0 +1,3335 @@
+"repository_name"|"annotated_code"|"relative_path"|"broken_hash"|"repaired_hash"|"outdated_test_log"|"test_name"|"broken_date"|"repaired_date"
+"oleiade/etcaetera"|"[<TESTCONTEXT>]
+import pytest
+from etcaetera.formatters import (
+    uppercased,
+    lowercased,
+    environ
+)
+
+def test_environ():
+[<BREAKAGE>]
+    assert environ.format(""aBc 123"") == ""ABC_123""
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    assert environ(""aBc 123"") == ""ABC_123""
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def environ(s):
+    return s.strip().upper().replace(' ', '_')
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def lowercased(s):
+    return s.lower()
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def uppercased(s):
+    return s.upper()
+[</ADD>]
+
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_formatters.py"|"cd5cd0d858fe87a38e44f208fd7b527cfacde94f"|"b214d7ca8187a9d0d53350dd56e9a8220ac59a1c"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+____________________________________________________________________________ test_environ _____________________________________________________________________________
+
+    def test_environ():
+>       assert environ.format(""aBc 123"") == ""ABC_123""
+               ^^^^^^^^^^^^^^
+E       AttributeError: 'function' object has no attribute 'format'
+
+tests/test_formatters.py:27: AttributeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_formatters.py::test_environ - AttributeError: 'function' object has no attribute 'format'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.07s
+
+
+[</TESTLOG>]
+"|"test_environ"|"2014-04-08T16:32:10+02:00"|"2014-04-08T16:52:09+02:00"
+"oleiade/etcaetera"|"[<TESTCONTEXT>]
+import pytest
+from etcaetera.formatters import (
+    uppercased,
+    lowercased,
+    environ
+)
+
+def test_uppercased_with_uppercased_str():
+[<BREAKAGE>]
+    assert uppercased.format(""ABC"") == ""ABC""
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    assert uppercased(""ABC"") == ""ABC""
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def environ(s):
+    return s.strip().upper().replace(' ', '_')
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def lowercased(s):
+    return s.lower()
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def uppercased(s):
+    return s.upper()
+[</ADD>]
+
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_formatters.py"|"cd5cd0d858fe87a38e44f208fd7b527cfacde94f"|"b214d7ca8187a9d0d53350dd56e9a8220ac59a1c"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________ test_uppercased_with_uppercased_str _________________________________________________________________
+
+    def test_uppercased_with_uppercased_str():
+>       assert uppercased.format(""ABC"") == ""ABC""
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: 'function' object has no attribute 'format'
+
+tests/test_formatters.py:15: AttributeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_formatters.py::test_uppercased_with_uppercased_str - AttributeError: 'function' object has no attribute 'format'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.07s
+
+
+[</TESTLOG>]
+"|"test_uppercased_with_uppercased_str"|"2014-04-08T16:32:10+02:00"|"2014-04-08T16:52:09+02:00"
+"oleiade/etcaetera"|"[<TESTCONTEXT>]
+import pytest
+from etcaetera.formatters import (
+    uppercased,
+    lowercased,
+    environ
+)
+
+def test_uppercased_with_lowercased_str():
+[<BREAKAGE>]
+    assert uppercased.format(""abc"") == ""ABC""
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    assert uppercased(""abc"") == ""ABC""
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def environ(s):
+    return s.strip().upper().replace(' ', '_')
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def lowercased(s):
+    return s.lower()
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def uppercased(s):
+    return s.upper()
+[</ADD>]
+
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_formatters.py"|"cd5cd0d858fe87a38e44f208fd7b527cfacde94f"|"b214d7ca8187a9d0d53350dd56e9a8220ac59a1c"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________ test_uppercased_with_lowercased_str _________________________________________________________________
+
+    def test_uppercased_with_lowercased_str():
+>       assert uppercased.format(""abc"") == ""ABC""
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: 'function' object has no attribute 'format'
+
+tests/test_formatters.py:11: AttributeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_formatters.py::test_uppercased_with_lowercased_str - AttributeError: 'function' object has no attribute 'format'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.07s
+
+
+[</TESTLOG>]
+"|"test_uppercased_with_lowercased_str"|"2014-04-08T16:32:10+02:00"|"2014-04-08T16:52:09+02:00"
+"oleiade/etcaetera"|"[<TESTCONTEXT>]
+import pytest
+from etcaetera.formatters import (
+    uppercased,
+    lowercased,
+    environ
+)
+
+def test_lowercased_with_uppercased_str():
+[<BREAKAGE>]
+    assert lowercased.format(""ABC"") == ""abc""
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    assert lowercased(""ABC"") == ""abc""
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def environ(s):
+    return s.strip().upper().replace(' ', '_')
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def lowercased(s):
+    return s.lower()
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<ADD>]
+def uppercased(s):
+    return s.upper()
+[</ADD>]
+
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_formatters.py"|"cd5cd0d858fe87a38e44f208fd7b527cfacde94f"|"b214d7ca8187a9d0d53350dd56e9a8220ac59a1c"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________ test_lowercased_with_uppercased_str _________________________________________________________________
+
+    def test_lowercased_with_uppercased_str():
+>       assert lowercased.format(""ABC"") == ""abc""
+               ^^^^^^^^^^^^^^^^^
+E       AttributeError: 'function' object has no attribute 'format'
+
+tests/test_formatters.py:19: AttributeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_formatters.py::test_lowercased_with_uppercased_str - AttributeError: 'function' object has no attribute 'format'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.07s
+
+
+[</TESTLOG>]
+"|"test_lowercased_with_uppercased_str"|"2014-04-08T16:32:10+02:00"|"2014-04-08T16:52:09+02:00"
+"lifelonglab/pyCLAD"|"[<TESTCONTEXT>]
+import numpy as np
+from pyclad.models.adapters.pyod_adapters import (
+    COPODAdapter,
+    ECODAdapter,
+    IsolationForestAdapter,
+    LocalOutlierFactorAdapter,
+    OneClassSVMAdapter,
+)
+
+def test_one_class_svm_adapter_smoke_run():
+    model = OneClassSVMAdapter(contamination=0.001)
+[<BREAKAGE>]
+    model.learn(np.array([[1, 2], [3, 4], [5, 6]]))
+[</BREAKAGE>]
+    model.predict(np.array([[1, 2], [3, 4], [5, 6]]))
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    model.fit(np.array([[1, 2], [3, 4], [5, 6]]))
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class COPODAdapter:
+
+[<HUNK>] COPODAdapter.__init__
+def __init__(self, contamination=0.00001):
+        super().__init__(model_name=""COPOD"", model=COPOD(contamination=contamination))
+[</HUNK>]
+
+class ECODAdapter:
+
+[<HUNK>] ECODAdapter.__init__
+def __init__(self, contamination=0.00001):
+        super().__init__(model_name=""ECOD"", model=ECOD(contamination=contamination))
+[</HUNK>]
+
+class InfoProvider:
+
+[<HUNK>] InfoProvider.info
+def info(self) -> Dict[str, Any]: ...
+[</HUNK>]
+
+class IsolationForestAdapter:
+
+[<HUNK>] IsolationForestAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""IsolationForest"", model=IForest(**kwargs))
+[</HUNK>]
+
+class LocalOutlierFactorAdapter:
+
+[<HUNK>] LocalOutlierFactorAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""LOF"", model=LOF(novelty=True, **kwargs))
+[</HUNK>]
+
+class Model:
+
+[<HUNK>] Model.additional_info
+def additional_info(self):
+        return {}
+[</HUNK>]
+
+class Model:
+
+[<HUNK>]
+
+[<ADD>]
+def fit(self, data: np.ndarray): ...
+[</ADD>]
+
+[</HUNK>]
+
+
+class Model:
+
+[<HUNK>] Model.info
+def info(self) -> Dict[str, Any]:
+        return {""model"": {""name"": self.name(), **self.additional_info()}}
+[</HUNK>]
+
+class Model:
+
+[<HUNK>]
+
+[<DEL>]
+def learn(self, data: np.ndarray): ...
+[</DEL>]
+
+[</HUNK>]
+
+
+class Model:
+
+[<HUNK>] Model.name
+def name(self) -> str: ...
+[</HUNK>]
+
+class Model:
+
+[<HUNK>] Model.predict
+def predict(self, data: np.ndarray) -> (np.ndarray, np.ndarray):
+        """"""
+
+        :param data:
+        :return: (predicted labels (0 for normal class, 1 for anomaly), anomaly scores (the higher the more anomalous))
+        """"""
+        ...
+[</HUNK>]
+
+class OneClassSVMAdapter:
+
+[<HUNK>] OneClassSVMAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""OneClassSVM"", model=OCSVM(**kwargs))
+[</HUNK>]
+
+class OutputWriter:
+
+[<HUNK>] OutputWriter.write
+def write(self, providers: List[InfoProvider]): ...
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.__init__
+def __init__(self, model: BaseDetector, model_name: str):
+        self._model = model
+        self._model_name = model_name
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.additional_info
+def additional_info(self):
+        return self._model.get_params()
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>]
+
+[<ADD>]
+def fit(self, data: np.ndarray):
+        self._model.fit(data)
+[</ADD>]
+
+[</HUNK>]
+
+
+class PyODAdapter:
+
+[<HUNK>]
+
+[<DEL>]
+def learn(self, data: np.ndarray):
+        self._model.fit(data)
+[</DEL>]
+
+[</HUNK>]
+
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.name
+def name(self) -> str:
+        return self._model_name
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.predict
+def predict(self, data: np.ndarray) -> (np.ndarray, np.ndarray):
+        return self._model.predict(data), self._model.decision_function(data)
+[</HUNK>]
+[</REPAIRCONTEXT>]"|"tests/models/adapters/test_pyod_models_adapters.py"|"a1a291015bf52d1c68a6b0980feb2f16246dd32f"|"5ec1e0d48143c950402536b5eca4669513d5fdf4"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+________________________________________________________________ test_one_class_svm_adapter_smoke_run _________________________________________________________________
+
+    def test_one_class_svm_adapter_smoke_run():
+        model = OneClassSVMAdapter(contamination=0.001)
+>       model.learn(np.array([[1, 2], [3, 4], [5, 6]]))
+        ^^^^^^^^^^^
+E       AttributeError: 'OneClassSVMAdapter' object has no attribute 'learn'
+
+tests/models/adapters/test_pyod_models_adapters.py:26: AttributeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/models/adapters/test_pyod_models_adapters.py::test_one_class_svm_adapter_smoke_run - AttributeError: 'OneClassSVMAdapter' object has no attribute 'learn'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 2.80s
+
+
+[</TESTLOG>]
+"|"test_one_class_svm_adapter_smoke_run"|"2024-08-06T20:27:37+02:00"|"2024-08-07T00:25:26+02:00"
+"lifelonglab/pyCLAD"|"[<TESTCONTEXT>]
+import numpy as np
+from pyclad.models.adapters.pyod_adapters import (
+    COPODAdapter,
+    ECODAdapter,
+    IsolationForestAdapter,
+    LocalOutlierFactorAdapter,
+    OneClassSVMAdapter,
+)
+
+def test_isolation_forest_smoke_run():
+    model = IsolationForestAdapter(n_estimators=20, contamination=0.001)
+[<BREAKAGE>]
+    model.learn(np.array([[1, 2], [3, 4], [5, 6]]))
+[</BREAKAGE>]
+    model.predict(np.array([[1, 2], [3, 4], [5, 6]]))
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    model.fit(np.array([[1, 2], [3, 4], [5, 6]]))
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class COPODAdapter:
+
+[<HUNK>] COPODAdapter.__init__
+def __init__(self, contamination=0.00001):
+        super().__init__(model_name=""COPOD"", model=COPOD(contamination=contamination))
+[</HUNK>]
+
+class ECODAdapter:
+
+[<HUNK>] ECODAdapter.__init__
+def __init__(self, contamination=0.00001):
+        super().__init__(model_name=""ECOD"", model=ECOD(contamination=contamination))
+[</HUNK>]
+
+class InfoProvider:
+
+[<HUNK>] InfoProvider.info
+def info(self) -> Dict[str, Any]: ...
+[</HUNK>]
+
+class IsolationForestAdapter:
+
+[<HUNK>] IsolationForestAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""IsolationForest"", model=IForest(**kwargs))
+[</HUNK>]
+
+class LocalOutlierFactorAdapter:
+
+[<HUNK>] LocalOutlierFactorAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""LOF"", model=LOF(novelty=True, **kwargs))
+[</HUNK>]
+
+class Model:
+
+[<HUNK>] Model.additional_info
+def additional_info(self):
+        return {}
+[</HUNK>]
+
+class Model:
+
+[<HUNK>]
+
+[<ADD>]
+def fit(self, data: np.ndarray): ...
+[</ADD>]
+
+[</HUNK>]
+
+
+class Model:
+
+[<HUNK>] Model.info
+def info(self) -> Dict[str, Any]:
+        return {""model"": {""name"": self.name(), **self.additional_info()}}
+[</HUNK>]
+
+class Model:
+
+[<HUNK>]
+
+[<DEL>]
+def learn(self, data: np.ndarray): ...
+[</DEL>]
+
+[</HUNK>]
+
+
+class Model:
+
+[<HUNK>] Model.name
+def name(self) -> str: ...
+[</HUNK>]
+
+class Model:
+
+[<HUNK>] Model.predict
+def predict(self, data: np.ndarray) -> (np.ndarray, np.ndarray):
+        """"""
+
+        :param data:
+        :return: (predicted labels (0 for normal class, 1 for anomaly), anomaly scores (the higher the more anomalous))
+        """"""
+        ...
+[</HUNK>]
+
+class OneClassSVMAdapter:
+
+[<HUNK>] OneClassSVMAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""OneClassSVM"", model=OCSVM(**kwargs))
+[</HUNK>]
+
+class OutputWriter:
+
+[<HUNK>] OutputWriter.write
+def write(self, providers: List[InfoProvider]): ...
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.__init__
+def __init__(self, model: BaseDetector, model_name: str):
+        self._model = model
+        self._model_name = model_name
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.additional_info
+def additional_info(self):
+        return self._model.get_params()
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>]
+
+[<ADD>]
+def fit(self, data: np.ndarray):
+        self._model.fit(data)
+[</ADD>]
+
+[</HUNK>]
+
+
+class PyODAdapter:
+
+[<HUNK>]
+
+[<DEL>]
+def learn(self, data: np.ndarray):
+        self._model.fit(data)
+[</DEL>]
+
+[</HUNK>]
+
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.name
+def name(self) -> str:
+        return self._model_name
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.predict
+def predict(self, data: np.ndarray) -> (np.ndarray, np.ndarray):
+        return self._model.predict(data), self._model.decision_function(data)
+[</HUNK>]
+[</REPAIRCONTEXT>]"|"tests/models/adapters/test_pyod_models_adapters.py"|"a1a291015bf52d1c68a6b0980feb2f16246dd32f"|"5ec1e0d48143c950402536b5eca4669513d5fdf4"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+___________________________________________________________________ test_isolation_forest_smoke_run ___________________________________________________________________
+
+    def test_isolation_forest_smoke_run():
+        model = IsolationForestAdapter(n_estimators=20, contamination=0.001)
+>       model.learn(np.array([[1, 2], [3, 4], [5, 6]]))
+        ^^^^^^^^^^^
+E       AttributeError: 'IsolationForestAdapter' object has no attribute 'learn'
+
+tests/models/adapters/test_pyod_models_adapters.py:14: AttributeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/models/adapters/test_pyod_models_adapters.py::test_isolation_forest_smoke_run - AttributeError: 'IsolationForestAdapter' object has no attribute 'learn'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 2.61s
+
+
+[</TESTLOG>]
+"|"test_isolation_forest_smoke_run"|"2024-08-06T20:27:37+02:00"|"2024-08-07T00:25:26+02:00"
+"lifelonglab/pyCLAD"|"[<TESTCONTEXT>]
+import numpy as np
+from pyclad.models.adapters.pyod_adapters import (
+    COPODAdapter,
+    ECODAdapter,
+    IsolationForestAdapter,
+    LocalOutlierFactorAdapter,
+    OneClassSVMAdapter,
+)
+
+def test_local_outlier_factor_smoke_run():
+    model = LocalOutlierFactorAdapter(contamination=0.001)
+[<BREAKAGE>]
+    model.learn(np.array([[1, 2], [3, 4], [5, 6]]))
+[</BREAKAGE>]
+    model.predict(np.array([[1, 2], [3, 4], [5, 6]]))
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    model.fit(np.array([[1, 2], [3, 4], [5, 6]]))
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class COPODAdapter:
+
+[<HUNK>] COPODAdapter.__init__
+def __init__(self, contamination=0.00001):
+        super().__init__(model_name=""COPOD"", model=COPOD(contamination=contamination))
+[</HUNK>]
+
+class ECODAdapter:
+
+[<HUNK>] ECODAdapter.__init__
+def __init__(self, contamination=0.00001):
+        super().__init__(model_name=""ECOD"", model=ECOD(contamination=contamination))
+[</HUNK>]
+
+class InfoProvider:
+
+[<HUNK>] InfoProvider.info
+def info(self) -> Dict[str, Any]: ...
+[</HUNK>]
+
+class IsolationForestAdapter:
+
+[<HUNK>] IsolationForestAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""IsolationForest"", model=IForest(**kwargs))
+[</HUNK>]
+
+class LocalOutlierFactorAdapter:
+
+[<HUNK>] LocalOutlierFactorAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""LOF"", model=LOF(novelty=True, **kwargs))
+[</HUNK>]
+
+class Model:
+
+[<HUNK>] Model.additional_info
+def additional_info(self):
+        return {}
+[</HUNK>]
+
+class Model:
+
+[<HUNK>]
+
+[<ADD>]
+def fit(self, data: np.ndarray): ...
+[</ADD>]
+
+[</HUNK>]
+
+
+class Model:
+
+[<HUNK>] Model.info
+def info(self) -> Dict[str, Any]:
+        return {""model"": {""name"": self.name(), **self.additional_info()}}
+[</HUNK>]
+
+class Model:
+
+[<HUNK>]
+
+[<DEL>]
+def learn(self, data: np.ndarray): ...
+[</DEL>]
+
+[</HUNK>]
+
+
+class Model:
+
+[<HUNK>] Model.name
+def name(self) -> str: ...
+[</HUNK>]
+
+class Model:
+
+[<HUNK>] Model.predict
+def predict(self, data: np.ndarray) -> (np.ndarray, np.ndarray):
+        """"""
+
+        :param data:
+        :return: (predicted labels (0 for normal class, 1 for anomaly), anomaly scores (the higher the more anomalous))
+        """"""
+        ...
+[</HUNK>]
+
+class OneClassSVMAdapter:
+
+[<HUNK>] OneClassSVMAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""OneClassSVM"", model=OCSVM(**kwargs))
+[</HUNK>]
+
+class OutputWriter:
+
+[<HUNK>] OutputWriter.write
+def write(self, providers: List[InfoProvider]): ...
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.__init__
+def __init__(self, model: BaseDetector, model_name: str):
+        self._model = model
+        self._model_name = model_name
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.additional_info
+def additional_info(self):
+        return self._model.get_params()
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>]
+
+[<ADD>]
+def fit(self, data: np.ndarray):
+        self._model.fit(data)
+[</ADD>]
+
+[</HUNK>]
+
+
+class PyODAdapter:
+
+[<HUNK>]
+
+[<DEL>]
+def learn(self, data: np.ndarray):
+        self._model.fit(data)
+[</DEL>]
+
+[</HUNK>]
+
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.name
+def name(self) -> str:
+        return self._model_name
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.predict
+def predict(self, data: np.ndarray) -> (np.ndarray, np.ndarray):
+        return self._model.predict(data), self._model.decision_function(data)
+[</HUNK>]
+[</REPAIRCONTEXT>]"|"tests/models/adapters/test_pyod_models_adapters.py"|"a1a291015bf52d1c68a6b0980feb2f16246dd32f"|"5ec1e0d48143c950402536b5eca4669513d5fdf4"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________ test_local_outlier_factor_smoke_run _________________________________________________________________
+
+    def test_local_outlier_factor_smoke_run():
+        model = LocalOutlierFactorAdapter(contamination=0.001)
+>       model.learn(np.array([[1, 2], [3, 4], [5, 6]]))
+        ^^^^^^^^^^^
+E       AttributeError: 'LocalOutlierFactorAdapter' object has no attribute 'learn'
+
+tests/models/adapters/test_pyod_models_adapters.py:20: AttributeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/models/adapters/test_pyod_models_adapters.py::test_local_outlier_factor_smoke_run - AttributeError: 'LocalOutlierFactorAdapter' object has no attribute...
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 2.69s
+
+
+[</TESTLOG>]
+"|"test_local_outlier_factor_smoke_run"|"2024-08-06T20:27:37+02:00"|"2024-08-07T00:25:26+02:00"
+"lifelonglab/pyCLAD"|"[<TESTCONTEXT>]
+import numpy as np
+from pyclad.models.adapters.pyod_adapters import (
+    COPODAdapter,
+    ECODAdapter,
+    IsolationForestAdapter,
+    LocalOutlierFactorAdapter,
+    OneClassSVMAdapter,
+)
+
+def test_ecod_smoke_run():
+    model = ECODAdapter(contamination=0.001)
+[<BREAKAGE>]
+    model.learn(np.array([[1, 2], [3, 4], [5, 6]]))
+[</BREAKAGE>]
+    model.predict(np.array([[1, 2], [3, 4], [5, 6]]))
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    model.fit(np.array([[1, 2], [3, 4], [5, 6]]))
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class COPODAdapter:
+
+[<HUNK>] COPODAdapter.__init__
+def __init__(self, contamination=0.00001):
+        super().__init__(model_name=""COPOD"", model=COPOD(contamination=contamination))
+[</HUNK>]
+
+class ECODAdapter:
+
+[<HUNK>] ECODAdapter.__init__
+def __init__(self, contamination=0.00001):
+        super().__init__(model_name=""ECOD"", model=ECOD(contamination=contamination))
+[</HUNK>]
+
+class InfoProvider:
+
+[<HUNK>] InfoProvider.info
+def info(self) -> Dict[str, Any]: ...
+[</HUNK>]
+
+class IsolationForestAdapter:
+
+[<HUNK>] IsolationForestAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""IsolationForest"", model=IForest(**kwargs))
+[</HUNK>]
+
+class LocalOutlierFactorAdapter:
+
+[<HUNK>] LocalOutlierFactorAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""LOF"", model=LOF(novelty=True, **kwargs))
+[</HUNK>]
+
+class Model:
+
+[<HUNK>] Model.additional_info
+def additional_info(self):
+        return {}
+[</HUNK>]
+
+class Model:
+
+[<HUNK>]
+
+[<ADD>]
+def fit(self, data: np.ndarray): ...
+[</ADD>]
+
+[</HUNK>]
+
+
+class Model:
+
+[<HUNK>] Model.info
+def info(self) -> Dict[str, Any]:
+        return {""model"": {""name"": self.name(), **self.additional_info()}}
+[</HUNK>]
+
+class Model:
+
+[<HUNK>]
+
+[<DEL>]
+def learn(self, data: np.ndarray): ...
+[</DEL>]
+
+[</HUNK>]
+
+
+class Model:
+
+[<HUNK>] Model.name
+def name(self) -> str: ...
+[</HUNK>]
+
+class Model:
+
+[<HUNK>] Model.predict
+def predict(self, data: np.ndarray) -> (np.ndarray, np.ndarray):
+        """"""
+
+        :param data:
+        :return: (predicted labels (0 for normal class, 1 for anomaly), anomaly scores (the higher the more anomalous))
+        """"""
+        ...
+[</HUNK>]
+
+class OneClassSVMAdapter:
+
+[<HUNK>] OneClassSVMAdapter.__init__
+def __init__(self, **kwargs):
+        super().__init__(model_name=""OneClassSVM"", model=OCSVM(**kwargs))
+[</HUNK>]
+
+class OutputWriter:
+
+[<HUNK>] OutputWriter.write
+def write(self, providers: List[InfoProvider]): ...
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.__init__
+def __init__(self, model: BaseDetector, model_name: str):
+        self._model = model
+        self._model_name = model_name
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.additional_info
+def additional_info(self):
+        return self._model.get_params()
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>]
+
+[<ADD>]
+def fit(self, data: np.ndarray):
+        self._model.fit(data)
+[</ADD>]
+
+[</HUNK>]
+
+
+class PyODAdapter:
+
+[<HUNK>]
+
+[<DEL>]
+def learn(self, data: np.ndarray):
+        self._model.fit(data)
+[</DEL>]
+
+[</HUNK>]
+
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.name
+def name(self) -> str:
+        return self._model_name
+[</HUNK>]
+
+class PyODAdapter:
+
+[<HUNK>] PyODAdapter.predict
+def predict(self, data: np.ndarray) -> (np.ndarray, np.ndarray):
+        return self._model.predict(data), self._model.decision_function(data)
+[</HUNK>]
+[</REPAIRCONTEXT>]"|"tests/models/adapters/test_pyod_models_adapters.py"|"a1a291015bf52d1c68a6b0980feb2f16246dd32f"|"5ec1e0d48143c950402536b5eca4669513d5fdf4"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________________ test_ecod_smoke_run _________________________________________________________________________
+
+    def test_ecod_smoke_run():
+        model = ECODAdapter(contamination=0.001)
+>       model.learn(np.array([[1, 2], [3, 4], [5, 6]]))
+        ^^^^^^^^^^^
+E       AttributeError: 'ECODAdapter' object has no attribute 'learn'
+
+tests/models/adapters/test_pyod_models_adapters.py:38: AttributeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/models/adapters/test_pyod_models_adapters.py::test_ecod_smoke_run - AttributeError: 'ECODAdapter' object has no attribute 'learn'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 2.71s
+
+
+[</TESTLOG>]
+"|"test_ecod_smoke_run"|"2024-08-06T20:27:37+02:00"|"2024-08-07T00:25:26+02:00"
+"orsinium-labs/eff"|"[<TESTCONTEXT>]
+import pytest
+import eff
+
+def test_deep_context():
+    sent1 = object()
+    sent2 = object()
+[<BREAKAGE>]
+    with Effects(sent=sent1) as e1:
+        assert e1.sent is sent1
+        assert Effects.sent is sent1
+
+        with Effects(sent=sent2) as e2:
+            assert e1.sent is sent1
+            assert e2.sent is sent2
+            assert Effects.sent is sent2
+
+        assert e1.sent is sent1
+        assert Effects.sent is sent1
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    with eff.Effects(sent=sent1) as e1:
+        assert e1.sent is sent1
+        assert eff.Effects.sent is sent1
+
+        with eff.Effects(sent=sent2) as e2:
+            assert e1.sent is sent1
+            assert e2.sent is sent2
+            assert eff.Effects.sent is sent2
+
+        assert e1.sent is sent1
+        assert eff.Effects.sent is sent1
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Effects:
+
+[<HUNK>] Effects.__enter__
+def __enter__(self) -> 'Effects':
+        self._stack._push(self)
+        return self
+[</HUNK>]
+
+class Effects:
+
+[<HUNK>] Effects.__exit__
+def __exit__(self, *exc) -> bool:
+        self._stack._drop()
+        return False
+[</HUNK>]
+
+class Effects:
+
+[<HUNK>] Effects.__init__
+def __init__(self, **kwargs: Dict[str, Callable]) -> None:
+        self.__dict__.update(kwargs)
+[</HUNK>]
+
+class Meta:
+
+[<HUNK>] Meta.__getattr__
+def __getattr__(cls: Type['Effects'], name: str) -> Callable:
+        instance = cls._stack._head()
+        return getattr(instance, name)
+[</HUNK>]
+
+class Meta:
+
+[<HUNK>] Meta.__new__
+def __new__(*args) -> Type['Effects']:
+        effects = type.__new__(*args)
+        effects._stack = Stack()
+        return effects
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack.__init__
+def __init__(self) -> None:
+        self._items = []
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._drop
+def _drop(self) -> None:
+        if not self._items:
+            raise StackError('the stack is empty')
+        del self._items[-1]
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._head
+def _head(self) -> 'Effects':
+        if not self._items:
+            raise StackError('the stack is empty')
+        return self._items[-1]
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._push
+def _push(self, instance: 'Effects'):
+        self._items.append(instance)
+[</HUNK>]
+[</REPAIRCONTEXT>]"|"tests/test_effects.py"|"429fd064bd8e4cf6bd8ba9ef8526d3fe66870ea9"|"f8ea35950cc434cf42cc82ae8cf926ba706ba9b3"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+__________________________________________________________________________ test_deep_context __________________________________________________________________________
+
+    def test_deep_context():
+        sent1 = object()
+        sent2 = object()
+>       with Effects(sent=sent1) as e1:
+             ^^^^^^^
+E       NameError: name 'Effects' is not defined
+
+tests/test_effects.py:41: NameError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_effects.py::test_deep_context - NameError: name 'Effects' is not defined
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.07s
+
+
+[</TESTLOG>]
+"|"test_deep_context"|"2020-11-16T12:38:21+01:00"|"2020-11-17T16:12:20+01:00"
+"orsinium-labs/eff"|"[<TESTCONTEXT>]
+import pytest
+import eff
+
+def test_no_attr():
+[<BREAKAGE>]
+    e = Effects()
+[</BREAKAGE>]
+    with pytest.raises(AttributeError):
+        e.print
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    e = eff.Effects()
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Effects:
+
+[<HUNK>] Effects.__enter__
+def __enter__(self) -> 'Effects':
+        self._stack._push(self)
+        return self
+[</HUNK>]
+
+class Effects:
+
+[<HUNK>] Effects.__exit__
+def __exit__(self, *exc) -> bool:
+        self._stack._drop()
+        return False
+[</HUNK>]
+
+class Effects:
+
+[<HUNK>] Effects.__init__
+def __init__(self, **kwargs: Dict[str, Callable]) -> None:
+        self.__dict__.update(kwargs)
+[</HUNK>]
+
+class Meta:
+
+[<HUNK>] Meta.__getattr__
+def __getattr__(cls: Type['Effects'], name: str) -> Callable:
+        instance = cls._stack._head()
+        return getattr(instance, name)
+[</HUNK>]
+
+class Meta:
+
+[<HUNK>] Meta.__new__
+def __new__(*args) -> Type['Effects']:
+        effects = type.__new__(*args)
+        effects._stack = Stack()
+        return effects
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack.__init__
+def __init__(self) -> None:
+        self._items = []
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._drop
+def _drop(self) -> None:
+        if not self._items:
+            raise StackError('the stack is empty')
+        del self._items[-1]
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._head
+def _head(self) -> 'Effects':
+        if not self._items:
+            raise StackError('the stack is empty')
+        return self._items[-1]
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._push
+def _push(self, instance: 'Effects'):
+        self._items.append(instance)
+[</HUNK>]
+[</REPAIRCONTEXT>]"|"tests/test_effects.py"|"429fd064bd8e4cf6bd8ba9ef8526d3fe66870ea9"|"f8ea35950cc434cf42cc82ae8cf926ba706ba9b3"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+____________________________________________________________________________ test_no_attr _____________________________________________________________________________
+
+    def test_no_attr():
+>       e = Effects()
+            ^^^^^^^
+E       NameError: name 'Effects' is not defined
+
+tests/test_effects.py:17: NameError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_effects.py::test_no_attr - NameError: name 'Effects' is not defined
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.07s
+
+
+[</TESTLOG>]
+"|"test_no_attr"|"2020-11-16T12:38:21+01:00"|"2020-11-17T16:12:20+01:00"
+"orsinium-labs/eff"|"[<TESTCONTEXT>]
+import pytest
+import eff
+
+def test_init():
+[<BREAKAGE>]
+    e = Effects(print=print)
+[</BREAKAGE>]
+    assert e.print is print
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    e = eff.Effects(print=print)
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Effects:
+
+[<HUNK>] Effects.__enter__
+def __enter__(self) -> 'Effects':
+        self._stack._push(self)
+        return self
+[</HUNK>]
+
+class Effects:
+
+[<HUNK>] Effects.__exit__
+def __exit__(self, *exc) -> bool:
+        self._stack._drop()
+        return False
+[</HUNK>]
+
+class Effects:
+
+[<HUNK>] Effects.__init__
+def __init__(self, **kwargs: Dict[str, Callable]) -> None:
+        self.__dict__.update(kwargs)
+[</HUNK>]
+
+class Meta:
+
+[<HUNK>] Meta.__getattr__
+def __getattr__(cls: Type['Effects'], name: str) -> Callable:
+        instance = cls._stack._head()
+        return getattr(instance, name)
+[</HUNK>]
+
+class Meta:
+
+[<HUNK>] Meta.__new__
+def __new__(*args) -> Type['Effects']:
+        effects = type.__new__(*args)
+        effects._stack = Stack()
+        return effects
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack.__init__
+def __init__(self) -> None:
+        self._items = []
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._drop
+def _drop(self) -> None:
+        if not self._items:
+            raise StackError('the stack is empty')
+        del self._items[-1]
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._head
+def _head(self) -> 'Effects':
+        if not self._items:
+            raise StackError('the stack is empty')
+        return self._items[-1]
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._push
+def _push(self, instance: 'Effects'):
+        self._items.append(instance)
+[</HUNK>]
+[</REPAIRCONTEXT>]"|"tests/test_effects.py"|"429fd064bd8e4cf6bd8ba9ef8526d3fe66870ea9"|"f8ea35950cc434cf42cc82ae8cf926ba706ba9b3"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+______________________________________________________________________________ test_init ______________________________________________________________________________
+
+    def test_init():
+>       e = Effects(print=print)
+            ^^^^^^^
+E       NameError: name 'Effects' is not defined
+
+tests/test_effects.py:6: NameError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_effects.py::test_init - NameError: name 'Effects' is not defined
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.08s
+
+
+[</TESTLOG>]
+"|"test_init"|"2020-11-16T12:38:21+01:00"|"2020-11-17T16:12:20+01:00"
+"orsinium-labs/eff"|"[<TESTCONTEXT>]
+import pytest
+import eff
+
+def test_context():
+[<BREAKAGE>]
+    with Effects(print=print) as e:
+[</BREAKAGE>]
+        assert e.print is print
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    with eff.Effects(print=print) as e:
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Effects:
+
+[<HUNK>] Effects.__enter__
+def __enter__(self) -> 'Effects':
+        self._stack._push(self)
+        return self
+[</HUNK>]
+
+class Effects:
+
+[<HUNK>] Effects.__exit__
+def __exit__(self, *exc) -> bool:
+        self._stack._drop()
+        return False
+[</HUNK>]
+
+class Effects:
+
+[<HUNK>] Effects.__init__
+def __init__(self, **kwargs: Dict[str, Callable]) -> None:
+        self.__dict__.update(kwargs)
+[</HUNK>]
+
+class Meta:
+
+[<HUNK>] Meta.__getattr__
+def __getattr__(cls: Type['Effects'], name: str) -> Callable:
+        instance = cls._stack._head()
+        return getattr(instance, name)
+[</HUNK>]
+
+class Meta:
+
+[<HUNK>] Meta.__new__
+def __new__(*args) -> Type['Effects']:
+        effects = type.__new__(*args)
+        effects._stack = Stack()
+        return effects
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack.__init__
+def __init__(self) -> None:
+        self._items = []
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._drop
+def _drop(self) -> None:
+        if not self._items:
+            raise StackError('the stack is empty')
+        del self._items[-1]
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._head
+def _head(self) -> 'Effects':
+        if not self._items:
+            raise StackError('the stack is empty')
+        return self._items[-1]
+[</HUNK>]
+
+class Stack:
+
+[<HUNK>] Stack._push
+def _push(self, instance: 'Effects'):
+        self._items.append(instance)
+[</HUNK>]
+[</REPAIRCONTEXT>]"|"tests/test_effects.py"|"429fd064bd8e4cf6bd8ba9ef8526d3fe66870ea9"|"f8ea35950cc434cf42cc82ae8cf926ba706ba9b3"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+____________________________________________________________________________ test_context _____________________________________________________________________________
+
+    def test_context():
+>       with Effects(print=print) as e:
+             ^^^^^^^
+E       NameError: name 'Effects' is not defined
+
+tests/test_effects.py:23: NameError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_effects.py::test_context - NameError: name 'Effects' is not defined
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.09s
+
+
+[</TESTLOG>]
+"|"test_context"|"2020-11-16T12:38:21+01:00"|"2020-11-17T16:12:20+01:00"
+"microsoft/agent-lightning"|"[<TESTCONTEXT>]
+from __future__ import annotations
+from agl_lite.gateway.config import WILDCARD, GatewayConfig, RouteConfig, load_config
+
+def test_with_routes(self):
+[<BREAKAGE>]
+        c = GatewayConfig(routes={""gpt-4"": RouteConfig(model_out=""qwen-7b"")})
+        assert ""gpt-4"" in c.routes
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+        c = GatewayConfig(routes=[RouteConfig(model_in=""gpt-4"", model_out=""qwen-7b"")])
+        assert len(c.routes) == 1
+        assert c.routes[0].model_in == ""gpt-4""
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+ def load_config(path: str) -> GatewayConfig:
+     """"""Load gateway config from a YAML file.
+ 
+[<DEL>]
+    Expected format:
+[</DEL>]
+
+[<ADD>]
+    Expected format (list-based, priority order):
+[</ADD>]
+
+         routes:
+[<DEL>]
+          gpt-4:                    # model_in (what agent sends)
+            model: qwen-7b          # model_out (lookup key in store)
+[</DEL>]
+
+[<ADD>]
+          - model_in: gpt-4          # exact match
+            model_out: qwen-7b
+[</ADD>]
+
+             params:
+               add:
+                 temperature: 0.7
+                 max_tokens: 4096
+               drop:
+                 - frequency_penalty
+[<DEL>]
+          claude-3:
+            model: qwen-7b
+[</DEL>]
+
+[<ADD>]
+
+          - model_in: claude-3       # exact match
+            model_out: qwen-7b
+[</ADD>]
+
+             params:
+               add:
+                 temperature: 0.8
+[<ADD>]
+
+          - model_in: ""*""            # wildcard catch-all (lowest priority)
+            model_out: qwen-7b       # redirect all unmatched to qwen-7b
+            params:
+              drop:
+                - stream_options
+
+    Wildcard rules:
+      - model_in: ""*"" matches any model name not matched by earlier rules.
+      - model_out: ""*"" means keep the original model name (passthrough).
+      - Order matters: first match wins. Put specific rules before wildcards.
+[</ADD>]
+
+     """"""
+     raw = yaml.safe_load(Path(path).read_text())
+     if not raw or ""routes"" not in raw:
+         return GatewayConfig()
+ 
+[<DEL>]
+    routes: dict[str, RouteConfig] = {}
+    for model_in, route_raw in raw[""routes""].items():
+[</DEL>]
+
+[<ADD>]
+    routes: list[RouteConfig] = []
+    for route_raw in raw[""routes""]:
+[</ADD>]
+
+         params = route_raw.get(""params"", {})
+[<DEL>]
+        routes[model_in] = RouteConfig(
+            model_out=route_raw[""model""],
+            params_add=params.get(""add"", {}),
+            params_drop=params.get(""drop"", []),
+[</DEL>]
+
+[<ADD>]
+        routes.append(
+            RouteConfig(
+                model_in=str(route_raw[""model_in""]),
+                model_out=str(route_raw[""model_out""]),
+                params_add=params.get(""add"", {}),
+                params_drop=params.get(""drop"", []),
+            )
+[</ADD>]
+
+         )
+     return GatewayConfig(routes=routes)
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/gateway/test_config.py"|"0b6985d1b01bbf256f65ef83c95e5c1863d3194d"|"c49a99978297d12229176ae25972c9064dbe9699"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________ TestGatewayConfig.test_with_routes __________________________________________________________________
+
+self = <tests.gateway.test_config.TestGatewayConfig object at 0x14ad1e3ddf70>
+
+    def test_with_routes(self):
+>       c = GatewayConfig(routes={""gpt-4"": RouteConfig(model_out=""qwen-7b"")})
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: RouteConfig.__init__() missing 1 required positional argument: 'model_in'
+
+tests/gateway/test_config.py:34: TypeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/gateway/test_config.py::TestGatewayConfig::test_with_routes - TypeError: RouteConfig.__init__() missing 1 required positional argument: 'model_in'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.11s
+
+/tmp/repo_venv_microsoft_agent-lightning_qi147_ui/lib/python3.12/site-packages/pytest_asyncio/plugin.py:300: PytestDeprecationWarning: The configuration option ""asyncio_default_fixture_loop_scope"" is unset.
+The event loop scope for asynchronous fixtures will default to the ""fixture"" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to ""function"" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: ""function"", ""class"", ""module"", ""package"", ""session""
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+
+[</TESTLOG>]
+"|"TestGatewayConfig.test_with_routes"|"2026-03-21T05:48:40-07:00"|"2026-03-21T06:16:47-07:00"
+"microsoft/agent-lightning"|"[<TESTCONTEXT>]
+from __future__ import annotations
+from agl_lite.gateway.config import WILDCARD, GatewayConfig, RouteConfig, load_config
+
+def test_empty(self):
+        c = GatewayConfig()
+[<BREAKAGE>]
+        assert c.routes == {}
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+        assert c.routes == []
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+ def load_config(path: str) -> GatewayConfig:
+     """"""Load gateway config from a YAML file.
+ 
+[<DEL>]
+    Expected format:
+[</DEL>]
+
+[<ADD>]
+    Expected format (list-based, priority order):
+[</ADD>]
+
+         routes:
+[<DEL>]
+          gpt-4:                    # model_in (what agent sends)
+            model: qwen-7b          # model_out (lookup key in store)
+[</DEL>]
+
+[<ADD>]
+          - model_in: gpt-4          # exact match
+            model_out: qwen-7b
+[</ADD>]
+
+             params:
+               add:
+                 temperature: 0.7
+                 max_tokens: 4096
+               drop:
+                 - frequency_penalty
+[<DEL>]
+          claude-3:
+            model: qwen-7b
+[</DEL>]
+
+[<ADD>]
+
+          - model_in: claude-3       # exact match
+            model_out: qwen-7b
+[</ADD>]
+
+             params:
+               add:
+                 temperature: 0.8
+[<ADD>]
+
+          - model_in: ""*""            # wildcard catch-all (lowest priority)
+            model_out: qwen-7b       # redirect all unmatched to qwen-7b
+            params:
+              drop:
+                - stream_options
+
+    Wildcard rules:
+      - model_in: ""*"" matches any model name not matched by earlier rules.
+      - model_out: ""*"" means keep the original model name (passthrough).
+      - Order matters: first match wins. Put specific rules before wildcards.
+[</ADD>]
+
+     """"""
+     raw = yaml.safe_load(Path(path).read_text())
+     if not raw or ""routes"" not in raw:
+         return GatewayConfig()
+ 
+[<DEL>]
+    routes: dict[str, RouteConfig] = {}
+    for model_in, route_raw in raw[""routes""].items():
+[</DEL>]
+
+[<ADD>]
+    routes: list[RouteConfig] = []
+    for route_raw in raw[""routes""]:
+[</ADD>]
+
+         params = route_raw.get(""params"", {})
+[<DEL>]
+        routes[model_in] = RouteConfig(
+            model_out=route_raw[""model""],
+            params_add=params.get(""add"", {}),
+            params_drop=params.get(""drop"", []),
+[</DEL>]
+
+[<ADD>]
+        routes.append(
+            RouteConfig(
+                model_in=str(route_raw[""model_in""]),
+                model_out=str(route_raw[""model_out""]),
+                params_add=params.get(""add"", {}),
+                params_drop=params.get(""drop"", []),
+            )
+[</ADD>]
+
+         )
+     return GatewayConfig(routes=routes)
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/gateway/test_config.py"|"0b6985d1b01bbf256f65ef83c95e5c1863d3194d"|"c49a99978297d12229176ae25972c9064dbe9699"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+____________________________________________________________________ TestGatewayConfig.test_empty _____________________________________________________________________
+
+self = <tests.gateway.test_config.TestGatewayConfig object at 0x15078c485ac0>
+
+    def test_empty(self):
+        c = GatewayConfig()
+>       assert c.routes == {}
+E       assert [] == {}
+E         
+E         Use -v to get more diff
+
+tests/gateway/test_config.py:31: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED tests/gateway/test_config.py::TestGatewayConfig::test_empty - assert [] == {}
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.13s
+
+/tmp/repo_venv_microsoft_agent-lightning_qi147_ui/lib/python3.12/site-packages/pytest_asyncio/plugin.py:300: PytestDeprecationWarning: The configuration option ""asyncio_default_fixture_loop_scope"" is unset.
+The event loop scope for asynchronous fixtures will default to the ""fixture"" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to ""function"" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: ""function"", ""class"", ""module"", ""package"", ""session""
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+
+[</TESTLOG>]
+"|"TestGatewayConfig.test_empty"|"2026-03-21T05:48:40-07:00"|"2026-03-21T06:16:47-07:00"
+"microsoft/agent-lightning"|"[<TESTCONTEXT>]
+from __future__ import annotations
+from agl_lite.gateway.config import WILDCARD, GatewayConfig, RouteConfig, load_config
+
+def test_load_empty_yaml(self, tmp_path):
+        config_file = tmp_path / ""empty.yaml""
+        config_file.write_text("""")
+        config = load_config(str(config_file))
+[<BREAKAGE>]
+        assert config.routes == {}
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+        assert config.routes == []
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+ def load_config(path: str) -> GatewayConfig:
+     """"""Load gateway config from a YAML file.
+ 
+[<DEL>]
+    Expected format:
+[</DEL>]
+
+[<ADD>]
+    Expected format (list-based, priority order):
+[</ADD>]
+
+         routes:
+[<DEL>]
+          gpt-4:                    # model_in (what agent sends)
+            model: qwen-7b          # model_out (lookup key in store)
+[</DEL>]
+
+[<ADD>]
+          - model_in: gpt-4          # exact match
+            model_out: qwen-7b
+[</ADD>]
+
+             params:
+               add:
+                 temperature: 0.7
+                 max_tokens: 4096
+               drop:
+                 - frequency_penalty
+[<DEL>]
+          claude-3:
+            model: qwen-7b
+[</DEL>]
+
+[<ADD>]
+
+          - model_in: claude-3       # exact match
+            model_out: qwen-7b
+[</ADD>]
+
+             params:
+               add:
+                 temperature: 0.8
+[<ADD>]
+
+          - model_in: ""*""            # wildcard catch-all (lowest priority)
+            model_out: qwen-7b       # redirect all unmatched to qwen-7b
+            params:
+              drop:
+                - stream_options
+
+    Wildcard rules:
+      - model_in: ""*"" matches any model name not matched by earlier rules.
+      - model_out: ""*"" means keep the original model name (passthrough).
+      - Order matters: first match wins. Put specific rules before wildcards.
+[</ADD>]
+
+     """"""
+     raw = yaml.safe_load(Path(path).read_text())
+     if not raw or ""routes"" not in raw:
+         return GatewayConfig()
+ 
+[<DEL>]
+    routes: dict[str, RouteConfig] = {}
+    for model_in, route_raw in raw[""routes""].items():
+[</DEL>]
+
+[<ADD>]
+    routes: list[RouteConfig] = []
+    for route_raw in raw[""routes""]:
+[</ADD>]
+
+         params = route_raw.get(""params"", {})
+[<DEL>]
+        routes[model_in] = RouteConfig(
+            model_out=route_raw[""model""],
+            params_add=params.get(""add"", {}),
+            params_drop=params.get(""drop"", []),
+[</DEL>]
+
+[<ADD>]
+        routes.append(
+            RouteConfig(
+                model_in=str(route_raw[""model_in""]),
+                model_out=str(route_raw[""model_out""]),
+                params_add=params.get(""add"", {}),
+                params_drop=params.get(""drop"", []),
+            )
+[</ADD>]
+
+         )
+     return GatewayConfig(routes=routes)
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/gateway/test_config.py"|"0b6985d1b01bbf256f65ef83c95e5c1863d3194d"|"c49a99978297d12229176ae25972c9064dbe9699"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________ TestLoadConfig.test_load_empty_yaml _________________________________________________________________
+
+self = <tests.gateway.test_config.TestLoadConfig object at 0x14bbee8348f0>, tmp_path = PosixPath('/tmp/pytest-of-user/pytest-3594/test_load_empty_yaml0')
+
+    def test_load_empty_yaml(self, tmp_path):
+        config_file = tmp_path / ""empty.yaml""
+        config_file.write_text("""")
+        config = load_config(str(config_file))
+>       assert config.routes == {}
+E       assert [] == {}
+E         
+E         Use -v to get more diff
+
+tests/gateway/test_config.py:77: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED tests/gateway/test_config.py::TestLoadConfig::test_load_empty_yaml - assert [] == {}
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.12s
+
+/tmp/repo_venv_microsoft_agent-lightning_qi147_ui/lib/python3.12/site-packages/pytest_asyncio/plugin.py:300: PytestDeprecationWarning: The configuration option ""asyncio_default_fixture_loop_scope"" is unset.
+The event loop scope for asynchronous fixtures will default to the ""fixture"" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to ""function"" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: ""function"", ""class"", ""module"", ""package"", ""session""
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+
+[</TESTLOG>]
+"|"TestLoadConfig.test_load_empty_yaml"|"2026-03-21T05:48:40-07:00"|"2026-03-21T06:16:47-07:00"
+"microsoft/agent-lightning"|"[<TESTCONTEXT>]
+from __future__ import annotations
+from agl_lite.gateway.config import WILDCARD, GatewayConfig, RouteConfig, load_config
+
+def test_defaults(self):
+[<BREAKAGE>]
+        r = RouteConfig(model_out=""qwen-7b"")
+[</BREAKAGE>]
+        assert r.params_add == {}
+        assert r.params_drop == []
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+        r = RouteConfig(model_in=""gpt-4"", model_out=""qwen-7b"")
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+ def load_config(path: str) -> GatewayConfig:
+     """"""Load gateway config from a YAML file.
+ 
+[<DEL>]
+    Expected format:
+[</DEL>]
+
+[<ADD>]
+    Expected format (list-based, priority order):
+[</ADD>]
+
+         routes:
+[<DEL>]
+          gpt-4:                    # model_in (what agent sends)
+            model: qwen-7b          # model_out (lookup key in store)
+[</DEL>]
+
+[<ADD>]
+          - model_in: gpt-4          # exact match
+            model_out: qwen-7b
+[</ADD>]
+
+             params:
+               add:
+                 temperature: 0.7
+                 max_tokens: 4096
+               drop:
+                 - frequency_penalty
+[<DEL>]
+          claude-3:
+            model: qwen-7b
+[</DEL>]
+
+[<ADD>]
+
+          - model_in: claude-3       # exact match
+            model_out: qwen-7b
+[</ADD>]
+
+             params:
+               add:
+                 temperature: 0.8
+[<ADD>]
+
+          - model_in: ""*""            # wildcard catch-all (lowest priority)
+            model_out: qwen-7b       # redirect all unmatched to qwen-7b
+            params:
+              drop:
+                - stream_options
+
+    Wildcard rules:
+      - model_in: ""*"" matches any model name not matched by earlier rules.
+      - model_out: ""*"" means keep the original model name (passthrough).
+      - Order matters: first match wins. Put specific rules before wildcards.
+[</ADD>]
+
+     """"""
+     raw = yaml.safe_load(Path(path).read_text())
+     if not raw or ""routes"" not in raw:
+         return GatewayConfig()
+ 
+[<DEL>]
+    routes: dict[str, RouteConfig] = {}
+    for model_in, route_raw in raw[""routes""].items():
+[</DEL>]
+
+[<ADD>]
+    routes: list[RouteConfig] = []
+    for route_raw in raw[""routes""]:
+[</ADD>]
+
+         params = route_raw.get(""params"", {})
+[<DEL>]
+        routes[model_in] = RouteConfig(
+            model_out=route_raw[""model""],
+            params_add=params.get(""add"", {}),
+            params_drop=params.get(""drop"", []),
+[</DEL>]
+
+[<ADD>]
+        routes.append(
+            RouteConfig(
+                model_in=str(route_raw[""model_in""]),
+                model_out=str(route_raw[""model_out""]),
+                params_add=params.get(""add"", {}),
+                params_drop=params.get(""drop"", []),
+            )
+[</ADD>]
+
+         )
+     return GatewayConfig(routes=routes)
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/gateway/test_config.py"|"0b6985d1b01bbf256f65ef83c95e5c1863d3194d"|"c49a99978297d12229176ae25972c9064dbe9699"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+____________________________________________________________________ TestRouteConfig.test_defaults ____________________________________________________________________
+
+self = <tests.gateway.test_config.TestRouteConfig object at 0x14a875931c70>
+
+    def test_defaults(self):
+>       r = RouteConfig(model_out=""qwen-7b"")
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: RouteConfig.__init__() missing 1 required positional argument: 'model_in'
+
+tests/gateway/test_config.py:10: TypeError
+======================================================================= short test summary info =======================================================================
+FAILED tests/gateway/test_config.py::TestRouteConfig::test_defaults - TypeError: RouteConfig.__init__() missing 1 required positional argument: 'model_in'
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.11s
+
+/tmp/repo_venv_microsoft_agent-lightning_qi147_ui/lib/python3.12/site-packages/pytest_asyncio/plugin.py:300: PytestDeprecationWarning: The configuration option ""asyncio_default_fixture_loop_scope"" is unset.
+The event loop scope for asynchronous fixtures will default to the ""fixture"" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to ""function"" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: ""function"", ""class"", ""module"", ""package"", ""session""
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+
+[</TESTLOG>]
+"|"TestRouteConfig.test_defaults"|"2026-03-21T05:48:40-07:00"|"2026-03-21T06:16:47-07:00"
+"fluentpython/example-code-2e"|"[<TESTCONTEXT>]
+from tree import tree
+
+def test_4_levels_1_leaf():
+    class Level0: pass
+    class Level1(Level0): pass
+    class Level2(Level1): pass
+    class Level3(Level2): pass
+    expected = [
+        ('Level0', 0, True),
+            ('Level1', 1, True),
+                ('Level2', 2, True),
+                    ('Level3', 3, True),
+    ]
+
+[<BREAKAGE>]
+    result = list(tree(Level0))
+[</BREAKAGE>]
+    assert expected == result
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    result = [(cls.__name__, level, last)
+              for cls, level, last in tree(Level0)]
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+ def display(cls):
+[<DEL>]
+    for cls_name, level, _ in tree(cls):
+[</DEL>]
+
+[<ADD>]
+    for cls, level, _ in tree(cls):
+[</ADD>]
+
+         indent = ' ' * 4 * level
+[<DEL>]
+        print(f'{indent}{cls_name}')
+[</DEL>]
+
+[<ADD>]
+        print(f'{indent}{cls.__name__}')
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<DEL>]
+def tree(cls, level=0, last_in_level=True):
+    yield cls.__name__, level, last_in_level
+[</DEL>]
+
+[<ADD>]
+def tree(cls, level=0, last_sibling=True):
+    yield cls, level, last_sibling
+[</ADD>]
+
+     subclasses = cls.__subclasses__()
+     if subclasses:
+         last = subclasses[-1]
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"17-it-generator/tree/extra/test_tree.py"|"e3ee75adbb119384ab1678ffab8f29f642e20909"|"c41611668dbc9431370b1b61dfdab80497794432"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+________________________________________________________________________ test_4_levels_1_leaf _________________________________________________________________________
+
+    def test_4_levels_1_leaf():
+        class Level0: pass
+        class Level1(Level0): pass
+        class Level2(Level1): pass
+        class Level3(Level2): pass
+        expected = [
+            ('Level0', 0, True),
+                ('Level1', 1, True),
+                    ('Level2', 2, True),
+                        ('Level3', 3, True),
+        ]
+    
+        result = list(tree(Level0))
+>       assert expected == result
+E       AssertionError: assert [('Level0', 0...l3', 3, True)] == [(<class 'tes...3'>, 3, True)]
+E         
+E         At index 0 diff: ('Level0', 0, True) != (<class 'test_tree.test_4_levels_1_leaf.<locals>.Level0'>, 0, True)
+E         Use -v to get more diff
+
+17-it-generator/tree/extra/test_tree.py:53: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED 17-it-generator/tree/extra/test_tree.py::test_4_levels_1_leaf - AssertionError: assert [('Level0', 0...l3', 3, True)] == [(<class 'tes...3'>, 3, True)]
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.07s
+
+
+[</TESTLOG>]
+"|"test_4_levels_1_leaf"|"2021-10-18T14:44:13-03:00"|"2021-10-18T14:57:06-03:00"
+"fluentpython/example-code-2e"|"[<TESTCONTEXT>]
+from tree import tree
+
+def test_3_levels_1_leaf():
+    class X: pass
+    class Y(X): pass
+    class Z(Y): pass
+    expected = [
+        ('X', 0, True),
+            ('Y', 1, True),
+                ('Z', 2, True),
+    ]
+[<BREAKAGE>]
+    result = list(tree(X))
+[</BREAKAGE>]
+    assert expected == result
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    result = [(cls.__name__, level, last)
+              for cls, level, last in tree(X)]
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+ def display(cls):
+[<DEL>]
+    for cls_name, level, _ in tree(cls):
+[</DEL>]
+
+[<ADD>]
+    for cls, level, _ in tree(cls):
+[</ADD>]
+
+         indent = ' ' * 4 * level
+[<DEL>]
+        print(f'{indent}{cls_name}')
+[</DEL>]
+
+[<ADD>]
+        print(f'{indent}{cls.__name__}')
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<DEL>]
+def tree(cls, level=0, last_in_level=True):
+    yield cls.__name__, level, last_in_level
+[</DEL>]
+
+[<ADD>]
+def tree(cls, level=0, last_sibling=True):
+    yield cls, level, last_sibling
+[</ADD>]
+
+     subclasses = cls.__subclasses__()
+     if subclasses:
+         last = subclasses[-1]
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"17-it-generator/tree/extra/test_tree.py"|"e3ee75adbb119384ab1678ffab8f29f642e20909"|"c41611668dbc9431370b1b61dfdab80497794432"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+________________________________________________________________________ test_3_levels_1_leaf _________________________________________________________________________
+
+    def test_3_levels_1_leaf():
+        class X: pass
+        class Y(X): pass
+        class Z(Y): pass
+        expected = [
+            ('X', 0, True),
+                ('Y', 1, True),
+                    ('Z', 2, True),
+        ]
+        result = list(tree(X))
+>       assert expected == result
+E       AssertionError: assert [('X', 0, Tru...'Z', 2, True)] == [(<class 'tes...Z'>, 2, True)]
+E         
+E         At index 0 diff: ('X', 0, True) != (<class 'test_tree.test_3_levels_1_leaf.<locals>.X'>, 0, True)
+E         Use -v to get more diff
+
+17-it-generator/tree/extra/test_tree.py:36: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED 17-it-generator/tree/extra/test_tree.py::test_3_levels_1_leaf - AssertionError: assert [('X', 0, Tru...'Z', 2, True)] == [(<class 'tes...Z'>, 2, True)]
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.09s
+
+
+[</TESTLOG>]
+"|"test_3_levels_1_leaf"|"2021-10-18T14:44:13-03:00"|"2021-10-18T14:57:06-03:00"
+"fluentpython/example-code-2e"|"[<TESTCONTEXT>]
+from tree import tree
+
+def test_1_level():
+    class One: pass
+    expected = [('One', 0, True)]
+[<BREAKAGE>]
+    result = list(tree(One))
+[</BREAKAGE>]
+    assert expected == result
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    result = [(cls.__name__, level, last)
+              for cls, level, last in tree(One)]
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+ def display(cls):
+[<DEL>]
+    for cls_name, level, _ in tree(cls):
+[</DEL>]
+
+[<ADD>]
+    for cls, level, _ in tree(cls):
+[</ADD>]
+
+         indent = ' ' * 4 * level
+[<DEL>]
+        print(f'{indent}{cls_name}')
+[</DEL>]
+
+[<ADD>]
+        print(f'{indent}{cls.__name__}')
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<DEL>]
+def tree(cls, level=0, last_in_level=True):
+    yield cls.__name__, level, last_in_level
+[</DEL>]
+
+[<ADD>]
+def tree(cls, level=0, last_sibling=True):
+    yield cls, level, last_sibling
+[</ADD>]
+
+     subclasses = cls.__subclasses__()
+     if subclasses:
+         last = subclasses[-1]
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"17-it-generator/tree/extra/test_tree.py"|"e3ee75adbb119384ab1678ffab8f29f642e20909"|"c41611668dbc9431370b1b61dfdab80497794432"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+____________________________________________________________________________ test_1_level _____________________________________________________________________________
+
+    def test_1_level():
+        class One: pass
+        expected = [('One', 0, True)]
+        result = list(tree(One))
+>       assert expected == result
+E       AssertionError: assert [('One', 0, True)] == [(<class 'tes...e'>, 0, True)]
+E         
+E         At index 0 diff: ('One', 0, True) != (<class 'test_tree.test_1_level.<locals>.One'>, 0, True)
+E         Use -v to get more diff
+
+17-it-generator/tree/extra/test_tree.py:8: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED 17-it-generator/tree/extra/test_tree.py::test_1_level - AssertionError: assert [('One', 0, True)] == [(<class 'tes...e'>, 0, True)]
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.09s
+
+
+[</TESTLOG>]
+"|"test_1_level"|"2021-10-18T14:44:13-03:00"|"2021-10-18T14:57:06-03:00"
+"fluentpython/example-code-2e"|"[<TESTCONTEXT>]
+from tree import tree
+
+def test_2_levels_2_leaves():
+    class Branch: pass
+    class Leaf1(Branch): pass
+    class Leaf2(Branch): pass
+    expected = [
+        ('Branch', 0, True),
+            ('Leaf1', 1, False),
+            ('Leaf2', 1, True),
+    ]
+[<BREAKAGE>]
+    result = list(tree(Branch))
+[</BREAKAGE>]
+    assert expected == result
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    result = [(cls.__name__, level, last)
+              for cls, level, last in tree(Branch)]
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+ def display(cls):
+[<DEL>]
+    for cls_name, level, _ in tree(cls):
+[</DEL>]
+
+[<ADD>]
+    for cls, level, _ in tree(cls):
+[</ADD>]
+
+         indent = ' ' * 4 * level
+[<DEL>]
+        print(f'{indent}{cls_name}')
+[</DEL>]
+
+[<ADD>]
+        print(f'{indent}{cls.__name__}')
+[</ADD>]
+
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+[<DEL>]
+def tree(cls, level=0, last_in_level=True):
+    yield cls.__name__, level, last_in_level
+[</DEL>]
+
+[<ADD>]
+def tree(cls, level=0, last_sibling=True):
+    yield cls, level, last_sibling
+[</ADD>]
+
+     subclasses = cls.__subclasses__()
+     if subclasses:
+         last = subclasses[-1]
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"17-it-generator/tree/extra/test_tree.py"|"e3ee75adbb119384ab1678ffab8f29f642e20909"|"c41611668dbc9431370b1b61dfdab80497794432"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_______________________________________________________________________ test_2_levels_2_leaves ________________________________________________________________________
+
+    def test_2_levels_2_leaves():
+        class Branch: pass
+        class Leaf1(Branch): pass
+        class Leaf2(Branch): pass
+        expected = [
+            ('Branch', 0, True),
+                ('Leaf1', 1, False),
+                ('Leaf2', 1, True),
+        ]
+        result = list(tree(Branch))
+>       assert expected == result
+E       AssertionError: assert [('Branch', 0...f2', 1, True)] == [(<class 'tes...2'>, 1, True)]
+E         
+E         At index 0 diff: ('Branch', 0, True) != (<class 'test_tree.test_2_levels_2_leaves.<locals>.Branch'>, 0, True)
+E         Use -v to get more diff
+
+17-it-generator/tree/extra/test_tree.py:22: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED 17-it-generator/tree/extra/test_tree.py::test_2_levels_2_leaves - AssertionError: assert [('Branch', 0...f2', 1, True)] == [(<class 'tes...2'>, 1, True)]
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.08s
+
+
+[</TESTLOG>]
+"|"test_2_levels_2_leaves"|"2021-10-18T14:44:13-03:00"|"2021-10-18T14:57:06-03:00"
+"Andyyyy64/whichllm"|"[<TESTCONTEXT>]
+from pathlib import Path
+import pytest
+from whichllm.utils import _cache_dir, parse_context_length, CONTEXT_LENGTH
+
+def test_parse_whitespace_is_stripped():
+[<BREAKAGE>]
+    assert parse_context_length(""  64k  "") == 64_000
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    assert parse_context_length(""  64k  "") == 64 * 1024
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class ContextLengthType:
+
+[<HUNK>] ContextLengthType.convert
+def convert(self, value, param, ctx):
+        if isinstance(value, int):
+            return value
+        try:
+            return parse_context_length(str(value))
+        except ValueError as e:
+            self.fail(str(e), param, ctx)
+[</HUNK>]
+
+class Global:
+
+[<HUNK>] Global._cache_dir
+def _cache_dir() -> Path:
+    """"""Return the whichllm cache directory, respecting XDG_CACHE_HOME.""""""
+    base = os.environ.get(""XDG_CACHE_HOME"")
+    if base and Path(base).is_absolute():
+        return Path(base) / ""whichllm""
+    return Path.home() / "".cache"" / ""whichllm""
+[</HUNK>]
+
+class Global:
+
+[<HUNK>] Global._current_version
+def _current_version() -> str:
+    """"""Return installed package version.""""""
+    try:
+        return version(""whichllm"")
+    except PackageNotFoundError:
+        return ""unknown""
+[</HUNK>]
+
+class Global:
+
+[<HUNK>]
+
+     """"""Parse a context length string, supporting shorthand like 64k or 128K.
+ 
+     Accepts plain integers (e.g. ""4096"") or shorthand with a suffix:
+[<DEL>]
+      k/K = x1,000  (64k -> 64000)
+      m/M = x1,000,000
+      b/B = x1,000,000,000
+[</DEL>]
+
+[<ADD>]
+      k/K = x1,024  (64k -> 65536)
+      m/M = x1,048,576
+      b/B = x1,073,741,824
+[</ADD>]
+
+ 
+     Returns the integer context length. Raises ValueError on bad input.
+     """"""
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_utils.py"|"1339e2d9a65d2ba3bed77653d734c6dae684c2d4"|"1469d227b49e7c0155a46c01ae4768aafbd43f06"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+__________________________________________________________________ test_parse_whitespace_is_stripped __________________________________________________________________
+
+    def test_parse_whitespace_is_stripped():
+>       assert parse_context_length(""  64k  "") == 64_000
+E       AssertionError: assert 65536 == 64000
+E        +  where 65536 = parse_context_length('  64k  ')
+
+tests/test_utils.py:58: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_utils.py::test_parse_whitespace_is_stripped - AssertionError: assert 65536 == 64000
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.14s
+
+
+[</TESTLOG>]
+"|"test_parse_whitespace_is_stripped"|"2026-05-22T17:09:46+09:00"|"2026-05-22T11:36:05-04:00"
+"Andyyyy64/whichllm"|"[<TESTCONTEXT>]
+from pathlib import Path
+import pytest
+from whichllm.utils import _cache_dir, parse_context_length, CONTEXT_LENGTH
+
+def test_click_type_parses_shorthand():
+[<BREAKAGE>]
+    assert CONTEXT_LENGTH.convert(""64k"", None, None) == 64_000
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    assert CONTEXT_LENGTH.convert(""64k"", None, None) == 64 * 1024
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class ContextLengthType:
+
+[<HUNK>] ContextLengthType.convert
+def convert(self, value, param, ctx):
+        if isinstance(value, int):
+            return value
+        try:
+            return parse_context_length(str(value))
+        except ValueError as e:
+            self.fail(str(e), param, ctx)
+[</HUNK>]
+
+class Global:
+
+[<HUNK>] Global._cache_dir
+def _cache_dir() -> Path:
+    """"""Return the whichllm cache directory, respecting XDG_CACHE_HOME.""""""
+    base = os.environ.get(""XDG_CACHE_HOME"")
+    if base and Path(base).is_absolute():
+        return Path(base) / ""whichllm""
+    return Path.home() / "".cache"" / ""whichllm""
+[</HUNK>]
+
+class Global:
+
+[<HUNK>] Global._current_version
+def _current_version() -> str:
+    """"""Return installed package version.""""""
+    try:
+        return version(""whichllm"")
+    except PackageNotFoundError:
+        return ""unknown""
+[</HUNK>]
+
+class Global:
+
+[<HUNK>]
+
+     """"""Parse a context length string, supporting shorthand like 64k or 128K.
+ 
+     Accepts plain integers (e.g. ""4096"") or shorthand with a suffix:
+[<DEL>]
+      k/K = x1,000  (64k -> 64000)
+      m/M = x1,000,000
+      b/B = x1,000,000,000
+[</DEL>]
+
+[<ADD>]
+      k/K = x1,024  (64k -> 65536)
+      m/M = x1,048,576
+      b/B = x1,073,741,824
+[</ADD>]
+
+ 
+     Returns the integer context length. Raises ValueError on bad input.
+     """"""
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_utils.py"|"1339e2d9a65d2ba3bed77653d734c6dae684c2d4"|"1469d227b49e7c0155a46c01ae4768aafbd43f06"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+__________________________________________________________________ test_click_type_parses_shorthand ___________________________________________________________________
+
+    def test_click_type_parses_shorthand():
+>       assert CONTEXT_LENGTH.convert(""64k"", None, None) == 64_000
+E       AssertionError: assert 65536 == 64000
+E        +  where 65536 = convert('64k', None, None)
+E        +    where convert = CONTEXT_LENGTH.convert
+
+tests/test_utils.py:81: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_utils.py::test_click_type_parses_shorthand - AssertionError: assert 65536 == 64000
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.14s
+
+
+[</TESTLOG>]
+"|"test_click_type_parses_shorthand"|"2026-05-22T17:09:46+09:00"|"2026-05-22T11:36:05-04:00"
+"Andyyyy64/whichllm"|"[<TESTCONTEXT>]
+from pathlib import Path
+import pytest
+from whichllm.utils import _cache_dir, parse_context_length, CONTEXT_LENGTH
+
+def test_parse_m_suffix():
+[<BREAKAGE>]
+    assert parse_context_length(""1m"") == 1_000_000
+    assert parse_context_length(""2M"") == 2_000_000
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    assert parse_context_length(""1m"") == 1024 * 1024
+    assert parse_context_length(""2M"") == 2 * 1024 * 1024
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class ContextLengthType:
+
+[<HUNK>] ContextLengthType.convert
+def convert(self, value, param, ctx):
+        if isinstance(value, int):
+            return value
+        try:
+            return parse_context_length(str(value))
+        except ValueError as e:
+            self.fail(str(e), param, ctx)
+[</HUNK>]
+
+class Global:
+
+[<HUNK>] Global._cache_dir
+def _cache_dir() -> Path:
+    """"""Return the whichllm cache directory, respecting XDG_CACHE_HOME.""""""
+    base = os.environ.get(""XDG_CACHE_HOME"")
+    if base and Path(base).is_absolute():
+        return Path(base) / ""whichllm""
+    return Path.home() / "".cache"" / ""whichllm""
+[</HUNK>]
+
+class Global:
+
+[<HUNK>] Global._current_version
+def _current_version() -> str:
+    """"""Return installed package version.""""""
+    try:
+        return version(""whichllm"")
+    except PackageNotFoundError:
+        return ""unknown""
+[</HUNK>]
+
+class Global:
+
+[<HUNK>]
+
+     """"""Parse a context length string, supporting shorthand like 64k or 128K.
+ 
+     Accepts plain integers (e.g. ""4096"") or shorthand with a suffix:
+[<DEL>]
+      k/K = x1,000  (64k -> 64000)
+      m/M = x1,000,000
+      b/B = x1,000,000,000
+[</DEL>]
+
+[<ADD>]
+      k/K = x1,024  (64k -> 65536)
+      m/M = x1,048,576
+      b/B = x1,073,741,824
+[</ADD>]
+
+ 
+     Returns the integer context length. Raises ValueError on bad input.
+     """"""
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_utils.py"|"1339e2d9a65d2ba3bed77653d734c6dae684c2d4"|"1469d227b49e7c0155a46c01ae4768aafbd43f06"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________________ test_parse_m_suffix _________________________________________________________________________
+
+    def test_parse_m_suffix():
+>       assert parse_context_length(""1m"") == 1_000_000
+E       AssertionError: assert 1048576 == 1000000
+E        +  where 1048576 = parse_context_length('1m')
+
+tests/test_utils.py:48: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_utils.py::test_parse_m_suffix - AssertionError: assert 1048576 == 1000000
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.15s
+
+
+[</TESTLOG>]
+"|"test_parse_m_suffix"|"2026-05-22T17:09:46+09:00"|"2026-05-22T11:36:05-04:00"
+"Andyyyy64/whichllm"|"[<TESTCONTEXT>]
+from pathlib import Path
+import pytest
+from whichllm.utils import _cache_dir, parse_context_length, CONTEXT_LENGTH
+
+def test_parse_k_suffix():
+[<BREAKAGE>]
+    assert parse_context_length(""64k"") == 64_000
+    assert parse_context_length(""128K"") == 128_000
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+    assert parse_context_length(""64k"") == 64 * 1024
+    assert parse_context_length(""128K"") == 128 * 1024
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class ContextLengthType:
+
+[<HUNK>] ContextLengthType.convert
+def convert(self, value, param, ctx):
+        if isinstance(value, int):
+            return value
+        try:
+            return parse_context_length(str(value))
+        except ValueError as e:
+            self.fail(str(e), param, ctx)
+[</HUNK>]
+
+class Global:
+
+[<HUNK>] Global._cache_dir
+def _cache_dir() -> Path:
+    """"""Return the whichllm cache directory, respecting XDG_CACHE_HOME.""""""
+    base = os.environ.get(""XDG_CACHE_HOME"")
+    if base and Path(base).is_absolute():
+        return Path(base) / ""whichllm""
+    return Path.home() / "".cache"" / ""whichllm""
+[</HUNK>]
+
+class Global:
+
+[<HUNK>] Global._current_version
+def _current_version() -> str:
+    """"""Return installed package version.""""""
+    try:
+        return version(""whichllm"")
+    except PackageNotFoundError:
+        return ""unknown""
+[</HUNK>]
+
+class Global:
+
+[<HUNK>]
+
+     """"""Parse a context length string, supporting shorthand like 64k or 128K.
+ 
+     Accepts plain integers (e.g. ""4096"") or shorthand with a suffix:
+[<DEL>]
+      k/K = x1,000  (64k -> 64000)
+      m/M = x1,000,000
+      b/B = x1,000,000,000
+[</DEL>]
+
+[<ADD>]
+      k/K = x1,024  (64k -> 65536)
+      m/M = x1,048,576
+      b/B = x1,073,741,824
+[</ADD>]
+
+ 
+     Returns the integer context length. Raises ValueError on bad input.
+     """"""
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_utils.py"|"1339e2d9a65d2ba3bed77653d734c6dae684c2d4"|"1469d227b49e7c0155a46c01ae4768aafbd43f06"|"[<TESTLOG>]
+F
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________________ test_parse_k_suffix _________________________________________________________________________
+
+    def test_parse_k_suffix():
+>       assert parse_context_length(""64k"") == 64_000
+E       AssertionError: assert 65536 == 64000
+E        +  where 65536 = parse_context_length('64k')
+
+tests/test_utils.py:43: AssertionError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_utils.py::test_parse_k_suffix - AssertionError: assert 65536 == 64000
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 0.16s
+
+
+[</TESTLOG>]
+"|"test_parse_k_suffix"|"2026-05-22T17:09:46+09:00"|"2026-05-22T11:36:05-04:00"
+"rmax/scrapy-redis"|"[<TESTCONTEXT>]
+import mock
+from scrapy.settings import Settings
+from scrapy_redis import defaults
+from scrapy_redis.connection import (
+    from_settings,
+    get_redis,
+    get_redis_from_settings,
+)
+
+def test_redis_cls_default(self):
+        server = from_settings(Settings())
+[<BREAKAGE>]
+        assert isinstance(server, DEFAULT_REDIS_CLS)
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+        assert isinstance(server, defaults.REDIS_CLS)
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+         Redis client instance.
+ 
+     """"""
+[<DEL>]
+    redis_cls = kwargs.pop('redis_cls', DEFAULT_REDIS_CLS)
+[</DEL>]
+
+[<ADD>]
+    redis_cls = kwargs.pop('redis_cls', defaults.REDIS_CLS)
+[</ADD>]
+
+     url = kwargs.pop('url', None)
+     if url:
+         return redis_cls.from_url(url, **kwargs)
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+     """"""Returns a redis client instance from given Scrapy settings object.
+ 
+     This function uses ``get_client`` to instantiate the client and uses
+[<DEL>]
+    ``DEFAULT_PARAMS`` global as defaults values for the parameters. You can
+    override them using the ``REDIS_PARAMS`` setting.
+[</DEL>]
+
+[<ADD>]
+    ``defaults.REDIS_PARAMS`` global as defaults values for the parameters. You
+    can override them using the ``REDIS_PARAMS`` setting.
+[</ADD>]
+
+ 
+     Parameters
+     ----------
+         Server host.
+     REDIS_PORT : str, optional
+         Server port.
+[<ADD>]
+    REDIS_ENCODING : str, optional
+        Data encoding.
+[</ADD>]
+
+     REDIS_PARAMS : dict, optional
+         Additional client parameters.
+ 
+     """"""
+[<DEL>]
+    params = DEFAULT_PARAMS.copy()
+[</DEL>]
+
+[<ADD>]
+    params = defaults.REDIS_PARAMS.copy()
+[</ADD>]
+
+     params.update(settings.getdict('REDIS_PARAMS'))
+     # XXX: Deprecate REDIS_* settings.
+     for source, dest in SETTINGS_PARAMS_MAP.items():
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_connection.py"|"ace2585767f3603c4a6c2a79b884a7332b541e92"|"e5851279ddb8c307747d01f1821bb988e8ddb70b"|"[<TESTLOG>]
+========================================================================= test session starts =========================================================================
+platform linux -- Python 3.12.3, pytest-6.2.5, py-1.11.0, pluggy-1.7.0
+rootdir: /home/user/repos_v2_pr59/slot1/scrapy-redis, configfile: pytest.ini
+plugins: platformdirs-4.14.2, cov-6.3.0
+collected 1 item
+
+tests/test_connection.py F                                                                                                                                      [100%]
+
+============================================================================== FAILURES ===============================================================================
+_______________________________________________________________ TestFromSettings.test_redis_cls_default _______________________________________________________________
+
+self = <test_connection.TestFromSettings object at 0x148fae952960>
+
+    def test_redis_cls_default(self):
+        server = from_settings(Settings())
+>       assert isinstance(server, DEFAULT_REDIS_CLS)
+E       NameError: name 'DEFAULT_REDIS_CLS' is not defined
+
+tests/test_connection.py:47: NameError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_connection.py::TestFromSettings::test_redis_cls_default - NameError: name 'DEFAULT_REDIS_CLS' is not defined
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+=================================================================== 1 failed, 112 warnings in 0.47s ===================================================================
+
+
+[</TESTLOG>]
+"|"TestFromSettings.test_redis_cls_default"|"2016-12-18T01:55:36-04:00"|"2016-12-18T01:57:53-04:00"
+"rmax/scrapy-redis"|"[<TESTCONTEXT>]
+import mock
+from scrapy.settings import Settings
+from scrapy_redis import defaults
+from scrapy_redis.connection import (
+    from_settings,
+    get_redis,
+    get_redis_from_settings,
+)
+
+def test_default_instance(self):
+        server = get_redis()
+[<BREAKAGE>]
+        assert isinstance(server, DEFAULT_REDIS_CLS)
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+        assert isinstance(server, defaults.REDIS_CLS)
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+         Redis client instance.
+ 
+     """"""
+[<DEL>]
+    redis_cls = kwargs.pop('redis_cls', DEFAULT_REDIS_CLS)
+[</DEL>]
+
+[<ADD>]
+    redis_cls = kwargs.pop('redis_cls', defaults.REDIS_CLS)
+[</ADD>]
+
+     url = kwargs.pop('url', None)
+     if url:
+         return redis_cls.from_url(url, **kwargs)
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+     """"""Returns a redis client instance from given Scrapy settings object.
+ 
+     This function uses ``get_client`` to instantiate the client and uses
+[<DEL>]
+    ``DEFAULT_PARAMS`` global as defaults values for the parameters. You can
+    override them using the ``REDIS_PARAMS`` setting.
+[</DEL>]
+
+[<ADD>]
+    ``defaults.REDIS_PARAMS`` global as defaults values for the parameters. You
+    can override them using the ``REDIS_PARAMS`` setting.
+[</ADD>]
+
+ 
+     Parameters
+     ----------
+         Server host.
+     REDIS_PORT : str, optional
+         Server port.
+[<ADD>]
+    REDIS_ENCODING : str, optional
+        Data encoding.
+[</ADD>]
+
+     REDIS_PARAMS : dict, optional
+         Additional client parameters.
+ 
+     """"""
+[<DEL>]
+    params = DEFAULT_PARAMS.copy()
+[</DEL>]
+
+[<ADD>]
+    params = defaults.REDIS_PARAMS.copy()
+[</ADD>]
+
+     params.update(settings.getdict('REDIS_PARAMS'))
+     # XXX: Deprecate REDIS_* settings.
+     for source, dest in SETTINGS_PARAMS_MAP.items():
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_connection.py"|"ace2585767f3603c4a6c2a79b884a7332b541e92"|"e5851279ddb8c307747d01f1821bb988e8ddb70b"|"[<TESTLOG>]
+========================================================================= test session starts =========================================================================
+platform linux -- Python 3.12.3, pytest-6.2.5, py-1.11.0, pluggy-1.7.0
+rootdir: /home/user/repos_v2_pr59/slot1/scrapy-redis, configfile: pytest.ini
+plugins: platformdirs-4.14.2, cov-6.3.0
+collected 1 item
+
+tests/test_connection.py F                                                                                                                                      [100%]
+
+============================================================================== FAILURES ===============================================================================
+_________________________________________________________________ TestGetRedis.test_default_instance __________________________________________________________________
+
+self = <test_connection.TestGetRedis object at 0x145c4fbf6db0>
+
+    def test_default_instance(self):
+        server = get_redis()
+>       assert isinstance(server, DEFAULT_REDIS_CLS)
+E       NameError: name 'DEFAULT_REDIS_CLS' is not defined
+
+tests/test_connection.py:17: NameError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_connection.py::TestGetRedis::test_default_instance - NameError: name 'DEFAULT_REDIS_CLS' is not defined
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+=================================================================== 1 failed, 111 warnings in 0.50s ===================================================================
+
+
+[</TESTLOG>]
+"|"TestGetRedis.test_default_instance"|"2016-12-18T01:55:36-04:00"|"2016-12-18T01:57:53-04:00"
+"rmax/scrapy-redis"|"[<TESTCONTEXT>]
+import mock
+from scrapy.settings import Settings
+from scrapy_redis import defaults
+from scrapy_redis.connection import (
+    from_settings,
+    get_redis,
+    get_redis_from_settings,
+)
+
+def test_default_params(self):
+        server = from_settings(self.settings)
+        assert server is self.redis_cls.return_value
+[<BREAKAGE>]
+        self.redis_cls.assert_called_with(**dict(DEFAULT_PARAMS, **self.expected_params))
+[</BREAKAGE>]
+
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+        self.redis_cls.assert_called_with(**dict(defaults.REDIS_PARAMS, **self.expected_params))
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+         Redis client instance.
+ 
+     """"""
+[<DEL>]
+    redis_cls = kwargs.pop('redis_cls', DEFAULT_REDIS_CLS)
+[</DEL>]
+
+[<ADD>]
+    redis_cls = kwargs.pop('redis_cls', defaults.REDIS_CLS)
+[</ADD>]
+
+     url = kwargs.pop('url', None)
+     if url:
+         return redis_cls.from_url(url, **kwargs)
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+     """"""Returns a redis client instance from given Scrapy settings object.
+ 
+     This function uses ``get_client`` to instantiate the client and uses
+[<DEL>]
+    ``DEFAULT_PARAMS`` global as defaults values for the parameters. You can
+    override them using the ``REDIS_PARAMS`` setting.
+[</DEL>]
+
+[<ADD>]
+    ``defaults.REDIS_PARAMS`` global as defaults values for the parameters. You
+    can override them using the ``REDIS_PARAMS`` setting.
+[</ADD>]
+
+ 
+     Parameters
+     ----------
+         Server host.
+     REDIS_PORT : str, optional
+         Server port.
+[<ADD>]
+    REDIS_ENCODING : str, optional
+        Data encoding.
+[</ADD>]
+
+     REDIS_PARAMS : dict, optional
+         Additional client parameters.
+ 
+     """"""
+[<DEL>]
+    params = DEFAULT_PARAMS.copy()
+[</DEL>]
+
+[<ADD>]
+    params = defaults.REDIS_PARAMS.copy()
+[</ADD>]
+
+     params.update(settings.getdict('REDIS_PARAMS'))
+     # XXX: Deprecate REDIS_* settings.
+     for source, dest in SETTINGS_PARAMS_MAP.items():
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_connection.py"|"ace2585767f3603c4a6c2a79b884a7332b541e92"|"e5851279ddb8c307747d01f1821bb988e8ddb70b"|"[<TESTLOG>]
+========================================================================= test session starts =========================================================================
+platform linux -- Python 3.12.3, pytest-6.2.5, py-1.11.0, pluggy-1.7.0
+rootdir: /home/user/repos_v2_pr59/slot1/scrapy-redis, configfile: pytest.ini
+plugins: platformdirs-4.14.2, cov-6.3.0
+collected 1 item
+
+tests/test_connection.py F                                                                                                                                      [100%]
+
+============================================================================== FAILURES ===============================================================================
+________________________________________________________________ TestFromSettings.test_default_params _________________________________________________________________
+
+self = <test_connection.TestFromSettings object at 0x1488d6f46930>
+
+    def test_default_params(self):
+        server = from_settings(self.settings)
+        assert server is self.redis_cls.return_value
+>       self.redis_cls.assert_called_with(**dict(DEFAULT_PARAMS, **self.expected_params))
+E       NameError: name 'DEFAULT_PARAMS' is not defined
+
+tests/test_connection.py:57: NameError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_connection.py::TestFromSettings::test_default_params - NameError: name 'DEFAULT_PARAMS' is not defined
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+=================================================================== 1 failed, 112 warnings in 0.50s ===================================================================
+
+
+[</TESTLOG>]
+"|"TestFromSettings.test_default_params"|"2016-12-18T01:55:36-04:00"|"2016-12-18T01:57:53-04:00"
+"rmax/scrapy-redis"|"[<TESTCONTEXT>]
+import mock
+from scrapy.settings import Settings
+from scrapy_redis import defaults
+from scrapy_redis.connection import (
+    from_settings,
+    get_redis,
+    get_redis_from_settings,
+)
+
+def test_override_default_params(self):
+[<BREAKAGE>]
+        for key, val in DEFAULT_PARAMS.items():
+[</BREAKAGE>]
+            self.expected_params[key] = self.settings['REDIS_PARAMS'][key] = object()
+
+        server = from_settings(self.settings)
+        assert server is self.redis_cls.return_value
+        self.redis_cls.assert_called_with(**self.expected_params)
+[</TESTCONTEXT>]
+
+[<REPAIREDTEST>]
+        for key, val in defaults.REDIS_PARAMS.items():
+[</REPAIREDTEST>]
+
+[<REPAIRCONTEXT>]
+class Global:
+
+[<HUNK>]
+
+         Redis client instance.
+ 
+     """"""
+[<DEL>]
+    redis_cls = kwargs.pop('redis_cls', DEFAULT_REDIS_CLS)
+[</DEL>]
+
+[<ADD>]
+    redis_cls = kwargs.pop('redis_cls', defaults.REDIS_CLS)
+[</ADD>]
+
+     url = kwargs.pop('url', None)
+     if url:
+         return redis_cls.from_url(url, **kwargs)
+[</HUNK>]
+
+
+class Global:
+
+[<HUNK>]
+
+     """"""Returns a redis client instance from given Scrapy settings object.
+ 
+     This function uses ``get_client`` to instantiate the client and uses
+[<DEL>]
+    ``DEFAULT_PARAMS`` global as defaults values for the parameters. You can
+    override them using the ``REDIS_PARAMS`` setting.
+[</DEL>]
+
+[<ADD>]
+    ``defaults.REDIS_PARAMS`` global as defaults values for the parameters. You
+    can override them using the ``REDIS_PARAMS`` setting.
+[</ADD>]
+
+ 
+     Parameters
+     ----------
+         Server host.
+     REDIS_PORT : str, optional
+         Server port.
+[<ADD>]
+    REDIS_ENCODING : str, optional
+        Data encoding.
+[</ADD>]
+
+     REDIS_PARAMS : dict, optional
+         Additional client parameters.
+ 
+     """"""
+[<DEL>]
+    params = DEFAULT_PARAMS.copy()
+[</DEL>]
+
+[<ADD>]
+    params = defaults.REDIS_PARAMS.copy()
+[</ADD>]
+
+     params.update(settings.getdict('REDIS_PARAMS'))
+     # XXX: Deprecate REDIS_* settings.
+     for source, dest in SETTINGS_PARAMS_MAP.items():
+[</HUNK>]
+
+[</REPAIRCONTEXT>]"|"tests/test_connection.py"|"ace2585767f3603c4a6c2a79b884a7332b541e92"|"e5851279ddb8c307747d01f1821bb988e8ddb70b"|"[<TESTLOG>]
+========================================================================= test session starts =========================================================================
+platform linux -- Python 3.12.3, pytest-6.2.5, py-1.11.0, pluggy-1.7.0
+rootdir: /home/user/repos_v2_pr59/slot1/scrapy-redis, configfile: pytest.ini
+plugins: platformdirs-4.14.2, cov-6.3.0
+collected 1 item
+
+tests/test_connection.py F                                                                                                                                      [100%]
+
+============================================================================== FAILURES ===============================================================================
+____________________________________________________________ TestFromSettings.test_override_default_params ____________________________________________________________
+
+self = <test_connection.TestFromSettings object at 0x15550c8469c0>
+
+    def test_override_default_params(self):
+>       for key, val in DEFAULT_PARAMS.items():
+E       NameError: name 'DEFAULT_PARAMS' is not defined
+
+tests/test_connection.py:60: NameError
+======================================================================= short test summary info =======================================================================
+FAILED tests/test_connection.py::TestFromSettings::test_override_default_params - NameError: name 'DEFAULT_PARAMS' is not defined
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+=================================================================== 1 failed, 112 warnings in 0.48s ===================================================================
+
+
+[</TESTLOG>]
+"|"TestFromSettings.test_override_default_params"|"2016-12-18T01:55:36-04:00"|"2016-12-18T01:57:53-04:00"
