@@ -194,6 +194,16 @@ class Encoder:
             return match.group(1).rstrip()
         return ""
 
+    def max_input_tokens(self):
+        """
+        Tokens the input may use. A decoder-only model (CodeGen) generates the repair in the same window as it reads the
+        input, so the input gets two thirds of it (Dataset.get_max_input_len); filling all of it left no room for the
+        repair and the dataset dropped about 90% of the cases. Encoder-decoder models and the instruction-tuned LLMs
+        (which build their own prompt) keep the whole window.
+        """
+        max_length = self.tokenizer.model_max_length
+        return max_length if self.is_llm else self.dataset_class.get_max_input_len(max_length)
+
     def select_changes(self, row):
         pr_changes_cnt = len(row["prioritized_changes"])
         selected_changes = []
@@ -207,7 +217,7 @@ class Encoder:
             new_selected_changes = selected_changes + [row["prioritized_changes"][i]]
             # The +2 is for Tokens.TEST_CONTEXT and Tokens.REPAIR_CONTEXT
             new_input_len = len(test_context_e) + sum(len(c["annotated_doc_seq"]) for c in new_selected_changes) + 2
-            max_input_length = self.tokenizer.model_max_length
+            max_input_length = self.max_input_tokens()
             if new_input_len <= max_input_length:
                 selected_changes = new_selected_changes
                 row["prioritized_changes"][i]["selected"] = True
