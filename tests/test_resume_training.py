@@ -268,3 +268,15 @@ class TestFinishedAndFreshRuns:
         trainer(tiny, tmp_path, epochs=1).train()
         assert saved_epoch(tmp_path) == 1
         assert (broken / "optimizer.pt").exists()
+
+
+class TestInputs:
+    def test_an_empty_validation_set_is_a_clear_error_not_a_crash_in_the_loop(self, tiny, tmp_path):
+        trainer(tiny, tmp_path)                                          # copies the encoded data
+        valid_file = experiment(tmp_path) / "valid.pkl"
+        empty = pickle.load(open(valid_file, "rb"))
+        empty.data = []
+        pickle.dump(empty, open(valid_file, "wb"))
+        with pytest.raises(ValueError, match="validation"):
+            trainer(tiny, tmp_path).train()
+        assert not (experiment(tmp_path) / "checkpoint-last").exists()   # nothing was started

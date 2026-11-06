@@ -168,13 +168,16 @@ class Eftt:
         encoder = Encoder(self.annotated_cases_path, self.out_path, self.train_size, self.tokenizer, self.dataset_class, self.model, self.is_llm, Tokens)
         encoder.encode()
 
-    def train(self):
-        trainer = Trainer(self.model, self.model_path, self.tokenizer, self.out_path, self.model_class, self.train_size)
-        trainer.train()
+    def train(self, resume=True, **trainer_options):
+        """trainer_options: epochs, batch_size, eval_batch_size, early_stop, learning_rate, seed, grad_accum_steps."""
+        trainer = Trainer(self.model, self.model_path, self.tokenizer, self.out_path, self.model_class, self.train_size,
+                          **trainer_options)
+        trainer.train(resume=resume)
 
-    def validate(self):
+    def validate(self, **tester_options):
+        """tester_options: save_every, resume, limit (see Tester.validate)."""
         tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size)
-        tester.validate()
+        return tester.validate(**tester_options)
 
     def validate_llm(self, generation=None):
         """generation: optional decoding overrides, see Tester_llm.resolve_generation."""

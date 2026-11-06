@@ -25,25 +25,29 @@ class Tester:
         self.checkpoint_dir = self.out_path / self.model / str(self.train_fraction) / "checkpoint-best"
         self.split_dir = self.out_path / self.model / str(self.train_fraction) / "splits"
 
-    def validate(self, save_every=10, resume=True):
+    def validate(self, save_every=10, resume=True, limit=None):
         """
         Generate the beam candidates of every case of splits/test.json and write test_predictions.json.
         The predictions are saved every `save_every` cases (atomically) and when the run is interrupted, and a run
         that finds a predictions file continues with the cases that have no prediction yet (resume=False starts over).
+        limit: only the first `limit` cases (a smoke test); the scores are then over that many cases.
         """
         with sigterm_as_keyboard_interrupt():
-            return self._validate(save_every, resume)
+            return self._validate(save_every, resume, limit)
 
-    def _validate(self, save_every, resume):
+    def _validate(self, save_every, resume, limit):
         with open(self.split_dir / "test.json", encoding="utf-8") as f:
             rows = json.load(f)
         df = pd.DataFrame(rows)
+        if limit is not None:
+            df = df.head(limit)
         predictions_file = self.out_path / self.model / str(self.train_fraction) / "test_predictions.json"
 
         predictions = []
         if resume and predictions_file.exists():
             predictions = prediction_files.load(predictions_file)
             prediction_files.check_matches_test_split(predictions, rows)
+            predictions = [p for p in predictions if p["ID"] < len(df)]
             print(f"Resuming from {predictions_file}: {len(predictions)} of {len(df)} cases already have predictions")
         done = {p["ID"] for p in predictions}
 

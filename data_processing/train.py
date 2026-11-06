@@ -125,6 +125,10 @@ class Trainer:
         # Load datasets
         train_dataset = pickle.load(open(directory / "train.pkl", "rb"))
         eval_dataset = pickle.load(open(directory / "valid.pkl", "rb"))
+        if len(train_dataset) == 0 or len(eval_dataset) == 0:
+            raise ValueError(f"Cannot train: {len(train_dataset)} training and {len(eval_dataset)} validation samples in "
+                             f"{directory}. Training needs both (encode with a train fraction between 0 and 1 and at "
+                             f"least two held-out commits).")
 
         stats_file = directory / "training_stats.json"
         if resume and stats_file.exists() and json.loads(stats_file.read_text(encoding="utf-8")).get("completed"):

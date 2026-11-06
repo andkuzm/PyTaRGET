@@ -150,6 +150,13 @@ class TestSeq2SeqTester:
             seq2seq["tester"].validate()
         assert seq2seq["file"].read_text().startswith('{"ID"')
 
+    def test_limit_runs_only_the_first_cases_and_a_later_full_run_continues(self, seq2seq, capsys, reference):
+        seq2seq["tester"].validate(limit=3)
+        assert [r["ID"] for r in prediction_files.load(seq2seq["file"])] == [0, 1, 2]
+        assert "over 3/3 cases" in capsys.readouterr().out
+        seq2seq["tester"].validate()
+        assert prediction_files.load(seq2seq["file"]) == reference
+
     def test_resume_false_starts_over(self, seq2seq):
         prediction_files.save([{"ID": 0, "target": "x", "preds": ["y"]}], seq2seq["file"])
         seq2seq["tester"].validate(resume=False)
@@ -292,6 +299,33 @@ class TestLlmTester:
 # ---- Eftt --------------------------------------------------------------------------------------------------------------
 
 class TestEftt:
+    def test_train_and_validate_pass_their_options_on(self, monkeypatch):
+        seen = {}
+
+        class FakeTrainer:
+            def __init__(self, *args, **options):
+                seen["trainer"] = options
+
+            def train(self, resume=True):
+                seen["resume"] = resume
+
+        class FakeTester:
+            def __init__(self, *args, **options):
+                pass
+
+            def validate(self, **options):
+                seen["tester"] = options
+                return "scores"
+        monkeypatch.setattr(encode_tune_test, "Trainer", FakeTrainer)
+        monkeypatch.setattr(encode_tune_test, "Tester", FakeTester)
+        eftt = Eftt.__new__(Eftt)
+        eftt.model, eftt.model_path, eftt.tokenizer, eftt.out_path = "codet5p", "p", None, "o"
+        eftt.model_class, eftt.train_size, eftt.beam_size = None, 0.8, 20
+        eftt.train(resume=False, epochs=1, batch_size=2)
+        assert seen["trainer"] == {"epochs": 1, "batch_size": 2} and seen["resume"] is False
+        assert eftt.validate(limit=5, save_every=1) == "scores" and seen["tester"] == {"limit": 5, "save_every": 1}
+
+
     def test_no_login_without_a_token(self, monkeypatch):
         calls = []
         monkeypatch.setattr(encode_tune_test, "login", lambda token=None: calls.append(token))

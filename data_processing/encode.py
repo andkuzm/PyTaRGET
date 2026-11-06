@@ -86,17 +86,26 @@ class Encoder:
             # Evaluation-only run (instruction-tuned models): everything is test data
             return train_ds, eval_ds.iloc[0:0].reset_index(drop=True), eval_ds.reset_index(drop=True)
 
-        # Stratified split for validation & test sets
-        grouped = eval_ds.groupby("broken_hash")
-        valid_ds_list, test_ds_list = [], []
+        # Validation and test are split by commit too: the oldest held-out commits (about 25% of the held-out cases)
+        # are the validation set, the rest is the test set, so train < validation < test in time and no commit
+        # contributes to two sets. (Splitting every commit 25/75 would let the checkpoint be chosen on commit-mates
+        # of the test cases.)
+        eval_commits = list(eval_ds["broken_hash"].unique())        # in commit order, ds is sorted by time
+        valid_target = int(0.25 * len(eval_ds))
+        valid_commits, current_size = [], 0
+        for commit in eval_commits:
+            commit_size = int((eval_ds["broken_hash"] == commit).sum())
+            if current_size + commit_size > valid_target:
+                if not valid_commits and len(eval_commits) > 1:
+                    valid_commits.append(commit)    # the oldest commit alone is above 25%: the validation set must not be empty
+                break
+            valid_commits.append(commit)
+            current_size += commit_size
+        if not valid_commits:
+            print("WARNING: only one held-out commit, so there is no validation set (training needs one).")
 
-        for _, group in grouped:
-            split_idx = int(0.25 * len(group))  # 25% to validation, 75% to test
-            valid_ds_list.append(group.iloc[:split_idx])
-            test_ds_list.append(group.iloc[split_idx:])
-
-        valid_ds = pd.concat(valid_ds_list).reset_index(drop=True)
-        test_ds = pd.concat(test_ds_list).reset_index(drop=True)
+        valid_ds = eval_ds[eval_ds["broken_hash"].isin(valid_commits)].reset_index(drop=True)
+        test_ds = eval_ds[~eval_ds["broken_hash"].isin(valid_commits)].reset_index(drop=True)
 
         return train_ds, valid_ds, test_ds
 

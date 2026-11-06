@@ -127,7 +127,7 @@ annotated_cases.csv
        │  • filter non-ASCII, NaN
        │  • HunkPrioritizer (TF-IDF) trims hunks to fit context window
        │  • injects special tokens → input/output pairs
-       │  • commit-based stratified train/valid/test split
+       │  • commit-based, chronological train < valid < test split (no commit in two sets)
        ▼
   train.pkl / valid.pkl / test.pkl  (pickled Dataset objects)
        │
@@ -198,7 +198,7 @@ Java CodeBLEU requires the TaRGET virtual environment with its own Java parser d
 
 ### Key design decisions
 
-- **Commit-based split**: entire commits go to one split to prevent data leakage across train/valid/test.
+- **Commit-based split**: entire commits go to one split (oldest commits train, then validation, then test) to prevent data leakage across train/valid/test.
 - **Hunk prioritization**: `prioritizer.py` uses TF-IDF cosine similarity to select the most relevant diff hunks when the full diff exceeds token budget.
 - **Incremental LLM output**: `validate_llm()` appends predictions as they are produced so interrupted runs can resume without reprocessing.
 - **Java language detection**: controlled by the string value `"ref"` passed as `train_size`, not by the `java` bool. The `java` bool only switches the CodeBLEU implementation used for metrics.
