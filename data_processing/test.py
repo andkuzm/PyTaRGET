@@ -15,6 +15,22 @@ from data_processing.CodeBLEU.bleu import corpus_bleu
 from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
+MARKER_SPACE = re.compile(r" ?(<TAB>|<NL>) ?")
+
+
+def marker_spaces_added_by_decode(tokenizer):
+    """True when decoding puts a space on both sides of the added <NL>/<TAB> tokens (PLBART's sentencepiece does:
+    "a<NL><TAB>b" comes back as "a <NL> <TAB> b"). Without undoing that, every line of a prediction ends with a space
+    and is indented by 5 spaces per level instead of 4."""
+    ids = tokenizer.encode("a<NL><TAB>b", add_special_tokens=False)
+    return " <NL> " in tokenizer.decode(ids, skip_special_tokens=True)
+
+
+def restore_markers(text):
+    """Remove the one space decoding added on each side of a marker (a space of the code itself would be a second one)."""
+    return MARKER_SPACE.sub(r"\1", text)
+
+
 class Tester:
     def __init__(self, model, model_class, tokenizer, out_path, beam_size, train_fraction, dataset_class=EncDecDataset):
         self.model = model
@@ -22,6 +38,7 @@ class Tester:
         # tokens, PLBART's "</s>__python__" suffix, ...): a model must see at test time what it saw in training.
         self.dataset = object.__new__(dataset_class)
         self.dataset.initialize_tokens(tokenizer)
+        self.marker_spaces = marker_spaces_added_by_decode(tokenizer)
         self.model_class = model_class
         self.tokenizer = tokenizer
         self.out_path = Path(out_path)
@@ -97,6 +114,8 @@ class Tester:
                 outputs = model.generate(input_ids=input_ids, **generation_args)
                 outputs = self.new_tokens(model, outputs, input_ids)
                 decoded = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+                if self.marker_spaces:
+                    decoded = [restore_markers(text) for text in decoded]
                 predictions.append({
                     "ID": int(idx),
                     "target": row["output"],

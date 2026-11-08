@@ -68,3 +68,26 @@ def test_the_prompt_given_to_generate_is_the_training_prompt(
             trained = trained[:len(prompt)]
         assert prompt.tolist() == trained.tolist()
         assert nl in prompt.tolist()
+
+
+# ---- decoding: PLBART's tokenizer puts spaces around <NL>/<TAB> ----------------------------------------------------
+
+def test_spaces_that_decoding_adds_around_the_markers_are_removed():
+    from data_processing.test import restore_markers
+    decoded = "<NL> <TAB> <TAB> result = f(x) <NL> <TAB> <TAB> return result"
+    text = restore_markers(decoded).replace("<TAB>", "    ").replace("<NL>", "\n")
+    assert text == "\n        result = f(x)\n        return result"
+    # an odd indentation stays what the model wrote: a real space is a second space after the marker
+    assert restore_markers("<NL> <TAB>  x").replace("<TAB>", "    ").replace("<NL>", "\n") == "\n     x"
+
+
+def test_only_tokenizers_that_add_the_spaces_are_corrected():
+    from data_processing.test import marker_spaces_added_by_decode
+
+    class Spacing:
+        def encode(self, text, add_special_tokens=False): return [1]
+        def decode(self, ids, skip_special_tokens=True): return "a <NL> <TAB> b"
+
+    class Plain(Spacing):
+        def decode(self, ids, skip_special_tokens=True): return "a<NL><TAB>b"
+    assert marker_spaces_added_by_decode(Spacing()) and not marker_spaces_added_by_decode(Plain())
