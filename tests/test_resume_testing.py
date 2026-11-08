@@ -17,6 +17,7 @@ import pytest
 import tiny_eval_fixtures as fixtures
 from data_processing import encode_tune_test, prediction_files
 from data_processing.encode_tune_test import Eftt
+from data_processing.dataset_types import PLBARTDataset
 from data_processing.llm_test import Tester_llm
 from data_processing.test import Tester
 from transformers import AutoTokenizer, T5ForConditionalGeneration
@@ -334,7 +335,7 @@ class TestEftt:
 
         class FakeTester:
             def __init__(self, *args, **options):
-                pass
+                seen["tester_args"] = args
 
             def validate(self, **options):
                 seen["tester"] = options
@@ -344,9 +345,11 @@ class TestEftt:
         eftt = Eftt.__new__(Eftt)
         eftt.model, eftt.model_path, eftt.tokenizer, eftt.out_path = "codet5p", "p", None, "o"
         eftt.model_class, eftt.train_size, eftt.beam_size = None, 0.8, 20
+        eftt.dataset_class = PLBARTDataset
         eftt.train(resume=False, epochs=1, batch_size=2)
         assert seen["trainer"] == {"epochs": 1, "batch_size": 2} and seen["resume"] is False
         assert eftt.validate(limit=5, save_every=1) == "scores" and seen["tester"] == {"limit": 5, "save_every": 1}
+        assert seen["tester_args"][-1] is PLBARTDataset      # the prompts are built like the training inputs
 
 
     def test_no_login_without_a_token(self, monkeypatch):

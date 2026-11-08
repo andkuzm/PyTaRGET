@@ -8,6 +8,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 from data_processing import prediction_files
+from data_processing.dataset_types import EncDecDataset
 from data_processing.atomic_io import sigterm_as_keyboard_interrupt
 from data_processing.metrics import exact_match_flags
 from data_processing.CodeBLEU.bleu import corpus_bleu
@@ -15,8 +16,12 @@ from data_processing.CodeBLEU.code_bleu import calc_code_bleu
 
 
 class Tester:
-    def __init__(self, model, model_class, tokenizer, out_path, beam_size, train_fraction):
+    def __init__(self, model, model_class, tokenizer, out_path, beam_size, train_fraction, dataset_class=EncDecDataset):
         self.model = model
+        # The prompt of a test case is built by the same dataset class that built the training inputs (<NL>/<TAB>
+        # tokens, PLBART's "</s>__python__" suffix, ...): a model must see at test time what it saw in training.
+        self.dataset = object.__new__(dataset_class)
+        self.dataset.initialize_tokens(tokenizer)
         self.model_class = model_class
         self.tokenizer = tokenizer
         self.out_path = Path(out_path)
@@ -87,8 +92,7 @@ class Tester:
             for idx, row in tqdm(df.iterrows(), total=len(df), desc="Generating predictions"):
                 if int(idx) in done:
                     continue
-                input_ids = self.tokenizer(row["input"], return_tensors="pt", truncation=True, padding=True).input_ids.to(
-                    accelerator.device)
+                input_ids = self.dataset.get_inference_input(row, self.tokenizer).to(accelerator.device)
 
                 outputs = model.generate(input_ids=input_ids, **generation_args)
                 outputs = self.new_tokens(model, outputs, input_ids)

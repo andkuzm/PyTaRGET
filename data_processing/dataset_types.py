@@ -119,6 +119,7 @@ class PLBARTDataset(EncDecDataset):
 
 
 class DecoderDataset(ATRDataset):
+    is_llm = False      # class default: Tester builds prompts from an instance created without __init__
     def __init__(self, ds, tokenizer, split, out_path, save_os_id=False, is_llm=False):
         self.is_llm = is_llm
         super().__init__(ds, tokenizer, split, out_path, save_os_id)

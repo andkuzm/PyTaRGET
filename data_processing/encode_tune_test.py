@@ -182,7 +182,8 @@ class Eftt:
 
     def validate(self, **tester_options):
         """tester_options: save_every, resume, limit (see Tester.validate)."""
-        tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size)
+        tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size,
+                        self.dataset_class)
         return tester.validate(**tester_options)
 
     def validate_llm(self, generation=None):
@@ -218,7 +219,8 @@ class Eftt:
         return bleu, codebleu, em, norm_em
 
     def get_metrics(self):
-        tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size)
+        tester = Tester(self.model, self.model_class, self.tokenizer, self.out_path, self.beam_size, self.train_size,
+                        self.dataset_class)
         pred_path = self.out_path / self.model / str(self.train_size) / f"test_predictions.json"
         preds = prediction_files.load(pred_path)
         self._check_complete(preds)
