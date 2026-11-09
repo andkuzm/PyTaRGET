@@ -46,7 +46,7 @@ REPO_TIMEOUT = int(os.environ.get("PLAUSIBILITY_REPO_TIMEOUT", 90 * 60))   # wit
 CLONE_TIMEOUT = 900
 KEPT_ENVIRONMENT = ("PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "PLAUSIBILITY_TAG")       # nothing else of the caller reaches the tests
 MAX_FILE_SIZE = 4 * 2**30
-PLUGINS = ["pytest", "pytest-timeout", "pytest-asyncio", "pytest-mock", "pytest-cov"]   # many projects configure them
+PLUGINS = ["pytest", "pytest-timeout", "pytest-mock", "pytest-cov"]   # many projects configure them (pytest-asyncio only on demand: its warnings break projects that turn warnings into errors)
 # Missing modules a control run may ask for, installed only from this list (never a package named by an import error
 # alone: that would let a repository pick what gets installed). {import name: PyPI name}
 KNOWN_PACKAGES = {
@@ -365,13 +365,15 @@ class PlausibilityTester:
         for option in re.findall(r"Unknown config option: (\w+)", output):
             if option in CONFIG_PLUGINS:
                 wanted.append(CONFIG_PLUGINS[option])
+        if re.search(r"async def functions are not natively supported|You need to install a suitable plugin", output):
+            wanted.append("pytest-asyncio")
         return [w for w in dict.fromkeys(wanted) if w not in self.installed.setdefault(python, set())]
 
     def run_control(self, python, repo_dir, nodeid):
         """The control run; an 'error' that names known missing packages is run again after installing them."""
         verdict = self.run_test(python, repo_dir, nodeid)
         for _ in range(3):
-            if verdict != "error" or not self.use_venv:
+            if verdict not in ("error", "fail") or not self.use_venv:
                 break
             wanted = self.missing_packages(python, self.last_full_output)
             if not wanted:

@@ -217,6 +217,7 @@ def test_missing_packages_come_only_from_the_known_lists(tmp_path):
               "ModuleNotFoundError: No module named 'totally_unknown_pkg'\nERROR: Unknown config option: timeout\n"
               "ERROR: Unknown config option: some_other_option")
     assert tester.missing_packages("py", output) == ["pyyaml", "opencv-python-headless", "pytest-timeout"]
+    assert tester.missing_packages("py", "async def functions are not natively supported.") == ["pytest-asyncio"]
     tester.installed["py"] = {"pyyaml"}
     assert "pyyaml" not in tester.missing_packages("py", output)
 
