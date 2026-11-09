@@ -39,7 +39,8 @@ class Eftt:
     MODEL_MAX_LENGTH = {"codet5p": 1024, "plbart": 1024}
 
     def __init__(self, annotated_cases_path, out_path, model, train_size, beam_size=40, batch_size=4, hftoken=None, java=False,
-                 max_length=None):
+                 max_length=None, split_mode="global"):
+        self.split_mode = split_mode            # "per_project": the TaRGet paper's split, see Encoder.split_per_project
         self.max_length = max_length            # overrides MODEL_MAX_LENGTH
         self.annotated_cases_path = annotated_cases_path
         self.out_path = out_path
@@ -171,7 +172,8 @@ class Eftt:
         self.validate()
 
     def encode(self):
-        encoder = Encoder(self.annotated_cases_path, self.out_path, self.train_size, self.tokenizer, self.dataset_class, self.model, self.is_llm, Tokens)
+        encoder = Encoder(self.annotated_cases_path, self.out_path, self.train_size, self.tokenizer, self.dataset_class, self.model, self.is_llm, Tokens,
+                          split_mode=self.split_mode)
         encoder.encode()
 
     def train(self, resume=True, **trainer_options):

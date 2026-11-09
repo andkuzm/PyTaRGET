@@ -8,7 +8,13 @@ from data_processing.prioritizer import HunkPrioritizer
 
 
 class Encoder:
-    def __init__(self, annotated_cases_path, out_path, train_size, tokenizer, dataset_class, model, is_llm, Tokens):
+    split_mode = "global"        # class defaults, so an Encoder built without __init__ (tests) splits as before
+    valid_share = 0.05
+
+    def __init__(self, annotated_cases_path, out_path, train_size, tokenizer, dataset_class, model, is_llm, Tokens,
+                 split_mode="global", valid_share=0.05):
+        self.split_mode = split_mode        # "global" (default) or "per_project" (the TaRGet paper's split)
+        self.valid_share = valid_share      # per_project only: share of every project's cases that validates
         self.annotated_cases_path = annotated_cases_path
         self.out_path = out_path
         self.train_size = train_size
@@ -60,7 +66,35 @@ class Encoder:
         )
         return ds.sort_values("broken_hash").reset_index(drop=True)
 
+    def split_per_project(self, ds):
+        """
+        The split of the TaRGet paper (section 4.2.5): inside every project the older commits are the training set
+        (about train_size of the project's cases), the next ones the validation set (valid_share) and the newest ones
+        the test set; a commit goes to the set in which the middle of its cases falls; no commit contributes to two sets. A project's first commit is always training data, so every
+        project that has validation or test cases is also in the training set (a project with one commit is training
+        only). Unlike the global split, no test case comes from a repository the model has not seen.
+        """
+        ds = self.order_by_commit_time(ds)
+        train_end, valid_end = self.train_size, self.train_size + self.valid_share
+        part = pd.Series("test", index=ds.index)
+        for _, group in ds.groupby("repository_name", sort=False):
+            sizes = group.groupby("broken_hash", sort=False).size()        # commits in time order
+            total, before = len(group), 0
+            for number, (commit, size) in enumerate(sizes.items()):
+                middle = (before + size / 2) / total          # where the commit's cases lie in the project's history
+                before += size
+                if number == 0 or middle <= train_end:
+                    label = "train"
+                elif middle <= valid_end:
+                    label = "valid"
+                else:
+                    label = "test"
+                part[group.index[group["broken_hash"] == commit]] = label
+        return tuple(ds[part == label].reset_index(drop=True) for label in ("train", "valid", "test"))
+
     def split(self, ds):
+        if self.split_mode == "per_project":
+            return self.split_per_project(ds)
         ds = self.order_by_commit_time(ds)
 
         # Compute absolute number of training samples based on fraction

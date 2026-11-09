@@ -71,3 +71,41 @@ class TestSplit:
         b = encoder.split(dataset([5, 4, 6, 3, 7]).sample(frac=1, random_state=11))
         for x, y in zip(a, b):
             assert commits(x) == commits(y)
+
+
+class TestPerProjectSplit:
+    """The TaRGet paper's split: inside every project the older commits train, the newer ones validate and test."""
+
+    @staticmethod
+    def make(projects):
+        rows = []
+        for repo, sizes in projects.items():
+            for i, size in enumerate(sizes):
+                for j in range(size):
+                    rows.append({"repository_name": repo, "broken_hash": f"{repo}-c{i:02d}",
+                                 "broken_date": str(pd.Timestamp("2020-01-01") + pd.Timedelta(days=i)), "case": j})
+        return pd.DataFrame(rows).sample(frac=1, random_state=5).reset_index(drop=True)
+
+    @staticmethod
+    def run(ds, train_size=0.8, valid_share=0.05):
+        encoder = Encoder.__new__(Encoder)
+        encoder.train_size, encoder.valid_share, encoder.split_mode = train_size, valid_share, "per_project"
+        return encoder.split(ds)
+
+    def test_every_project_is_cut_in_time_and_no_commit_is_in_two_sets(self):
+        ds = self.make({"a/a": [2] * 20, "b/b": [1] * 40})
+        train, valid, test = self.run(ds)
+        check_separated(train, valid, test)
+        for repo in ("a/a", "b/b"):
+            t, v, e = (x[x["repository_name"] == repo] for x in (train, valid, test))
+            assert max(t["broken_date"]) < min(e["broken_date"]) and max(t["broken_date"]) < min(v["broken_date"])
+            assert max(v["broken_date"]) < min(e["broken_date"])
+        assert len(train) + len(valid) + len(test) == len(ds)
+        assert 0.78 <= len(train) / len(ds) <= 0.82 and 0.13 <= len(test) / len(ds) <= 0.17
+
+    def test_a_project_with_one_commit_only_trains_so_no_test_repository_is_unseen(self):
+        ds = self.make({"a/a": [2] * 20, "solo/solo": [7], "two/two": [3, 3]})
+        train, valid, test = self.run(ds)
+        assert set(train["repository_name"]) >= {"solo/solo", "two/two"}
+        assert "solo/solo" not in set(valid["repository_name"]) | set(test["repository_name"])
+        assert set(valid["repository_name"]) | set(test["repository_name"]) <= set(train["repository_name"])
