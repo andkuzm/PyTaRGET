@@ -46,7 +46,7 @@ def parse_args(argv=None):
     parser.add_argument("--beam", type=int, default=20, help="beam size = number of candidates per case")
     parser.add_argument("--max-length", type=int, default=None,
                         help="tokens per input (default: 1024 for codet5p and plbart, the model's own for codegen)")
-    parser.add_argument("--split-mode", choices=["global", "per_project"], default="global",
+    parser.add_argument("--split-mode", choices=["global", "per_project"], default=os.environ.get("SPLIT_MODE", "global"),
                         help="per_project = the TaRGet paper's split (older commits of every project train)")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=8)
