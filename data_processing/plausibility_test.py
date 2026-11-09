@@ -46,6 +46,26 @@ REPO_TIMEOUT = int(os.environ.get("PLAUSIBILITY_REPO_TIMEOUT", 90 * 60))   # wit
 CLONE_TIMEOUT = 900
 KEPT_ENVIRONMENT = ("PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "PLAUSIBILITY_TAG")       # nothing else of the caller reaches the tests
 MAX_FILE_SIZE = 4 * 2**30
+PLUGINS = ["pytest", "pytest-timeout", "pytest-asyncio", "pytest-mock", "pytest-cov"]   # many projects configure them
+# Missing modules a control run may ask for, installed only from this list (never a package named by an import error
+# alone: that would let a repository pick what gets installed). {import name: PyPI name}
+KNOWN_PACKAGES = {
+    "yaml": "pyyaml", "cv2": "opencv-python-headless", "PIL": "pillow", "sklearn": "scikit-learn", "bs4": "beautifulsoup4",
+    "dotenv": "python-dotenv", "dateutil": "python-dateutil", "attr": "attrs", "numpy": "numpy", "pandas": "pandas",
+    "scipy": "scipy", "requests": "requests", "httpx": "httpx", "aiohttp": "aiohttp", "fastapi": "fastapi",
+    "pydantic": "pydantic", "click": "click", "rich": "rich", "tqdm": "tqdm", "jinja2": "jinja2", "flask": "flask",
+    "mock": "mock", "responses": "responses", "freezegun": "freezegun", "toml": "toml", "tomli": "tomli",
+    "anyio": "anyio", "aiofiles": "aiofiles", "websockets": "websockets", "uvicorn": "uvicorn", "starlette": "starlette",
+    "markdown": "markdown", "lxml": "lxml", "cryptography": "cryptography", "psutil": "psutil", "tabulate": "tabulate",
+    "openai": "openai", "anthropic": "anthropic", "tiktoken": "tiktoken", "feedparser": "feedparser",
+    "pytest_asyncio": "pytest-asyncio", "pytest_mock": "pytest-mock", "hypothesis": "hypothesis", "typer": "typer",
+    "sqlalchemy": "sqlalchemy", "networkx": "networkx", "matplotlib": "matplotlib", "pytz": "pytz", "six": "six",
+    "tenacity": "tenacity", "loguru": "loguru", "orjson": "orjson", "ujson": "ujson", "yarl": "yarl",
+}
+# "Unknown config option: X" (a project that configures a plugin that is not installed) -> plugin
+CONFIG_PLUGINS = {"timeout": "pytest-timeout", "asyncio_mode": "pytest-asyncio", "asyncio_default_fixture_loop_scope": "pytest-asyncio",
+                  "mock_use_standalone_module": "pytest-mock", "env": "pytest-env", "xfail_strict": "pytest",
+                  "django_find_project": "pytest-django", "pythonpath": "pytest"}
 ROOT = Path(__file__).resolve().parent.parent
 DELETED = "# Deleted"  # what the Encoder writes as the reference when the repair only removes lines
 
@@ -258,8 +278,10 @@ class PlausibilityTester:
         self.repo_timeout = repo_timeout
         self.pip_cache = pip_cache
         self.pythons = {}
+        self.installed = {}
         self.controls = {}
         self.last_output = ""
+        self.last_full_output = ""
         self.env = None
         self.stop = threading.Event()
         self._lock = threading.Lock()
@@ -308,7 +330,7 @@ class PlausibilityTester:
         python = venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
         if not python.exists():
             self.run_cmd([sys.executable, "-m", "venv", str(venv_dir)], timeout=600)
-            self.run_cmd([str(python), "-m", "pip", "install", "-q", "pytest"], timeout=900)
+            self.run_cmd([str(python), "-m", "pip", "install", "-q", *PLUGINS], timeout=900)
             if self.install_requirements:
                 for requirements in sorted(repo_dir.glob("requirements*.txt")):
                     self.run_cmd([str(python), "-m", "pip", "install", "-q", "-r", str(requirements)], timeout=1800)
@@ -325,12 +347,39 @@ class PlausibilityTester:
                f"--junit-xml={junit}", nodeid]
         code, output = self.run_cmd(cmd, cwd=repo_dir, timeout=self.timeout)
         self.last_output = output.strip()[-400:]
+        self.last_full_output = output[-20000:]
         try:
             report = junit.read_text(encoding="utf-8", errors="ignore")[:4000]
         except OSError:
             report = ""
         shutil.rmtree(junit.parent, ignore_errors=True)
         return verdict_from(code, output, report)
+
+    def missing_packages(self, python, output):
+        """Packages (from KNOWN_PACKAGES / CONFIG_PLUGINS only) that the output of a failed run asks for."""
+        wanted = []
+        for name in re.findall(r"No module named '([\w.]+)'", output):
+            top = name.split(".")[0]
+            if top in KNOWN_PACKAGES:
+                wanted.append(KNOWN_PACKAGES[top])
+        for option in re.findall(r"Unknown config option: (\w+)", output):
+            if option in CONFIG_PLUGINS:
+                wanted.append(CONFIG_PLUGINS[option])
+        return [w for w in dict.fromkeys(wanted) if w not in self.installed.setdefault(python, set())]
+
+    def run_control(self, python, repo_dir, nodeid):
+        """The control run; an 'error' that names known missing packages is run again after installing them."""
+        verdict = self.run_test(python, repo_dir, nodeid)
+        for _ in range(3):
+            if verdict != "error" or not self.use_venv:
+                break
+            wanted = self.missing_packages(python, self.last_full_output)
+            if not wanted:
+                break
+            self.run_cmd([python, "-m", "pip", "install", "-q", *wanted], cwd=repo_dir, timeout=900)
+            self.installed[python].update(wanted)
+            verdict = self.run_test(python, repo_dir, nodeid)
+        return verdict
 
     # ---- cases -----------------------------------------------------------------------------------------------
 
@@ -361,7 +410,7 @@ class PlausibilityTester:
         python = self.python_for(row["repository_name"], repo_dir)
         control_key = (row["repository_name"], row["repaired_hash"], nodeid)   # the same case of another model
         if control_key not in self.controls:
-            verdict = self.run_test(python, repo_dir, nodeid)
+            verdict = self.run_control(python, repo_dir, nodeid)
             self.controls[control_key] = (verdict, "" if verdict == "pass" else self.last_output)
         control, control_output = self.controls[control_key]
         if control != "pass":                 # a control that times out is a failure too: nothing can be judged
@@ -396,7 +445,7 @@ class PlausibilityTester:
         return self.run_many([{"name": "run", "test_json": test_json, "predictions_json": predictions_json,
                                "out_path": out_path}])["run"]
 
-    def run_many(self, tasks, max_repos=None):
+    def run_many(self, tasks, max_repos=None, retry_statuses=()):
         """
         tasks: [{"name", "test_json", "predictions_json", "out_path"}], e.g. the three models of one experiment. The
         cases of all tasks are grouped by repository, so a repository is cloned and its environment built once, and
@@ -407,6 +456,7 @@ class PlausibilityTester:
         self.workdir.mkdir(parents=True, exist_ok=True)
         self.run_root = Path(tempfile.mkdtemp(prefix="run_", dir=self.workdir))
         self.pip_cache = self.pip_cache or str(self.run_root / "pip-cache")
+        self.retry_statuses = set(retry_statuses)
         self.results = {t["name"]: {} for t in tasks}
         self.out_paths = {t["name"]: Path(t["out_path"]) for t in tasks}
         self._last_save = 0.0
@@ -450,7 +500,8 @@ class PlausibilityTester:
         name, out_path = task["name"], Path(task["out_path"])
         predictions = load_predictions(task["predictions_json"])
         if out_path.exists():
-            self.results[name] = {int(k): v for k, v in json.loads(out_path.read_text(encoding="utf-8"))["results"].items()}
+            self.results[name] = {int(k): v for k, v in json.loads(out_path.read_text(encoding="utf-8"))["results"].items()
+                                  if v.get("status") not in self.retry_statuses}     # these are run again
             print(f"{name}: resuming, {len(self.results[name])} cases already done", flush=True)
         todo = {i for i in predictions if i not in self.results[name]}
         for i, row in enumerate(iter_rows(task["test_json"])):
@@ -593,6 +644,8 @@ def main(argv=None):
     parser.add_argument("--no-venv", action="store_true", help="use the current interpreter instead of a venv per repo")
     parser.add_argument("--out-name", default="plausibility.json", help="result file name inside <model>/<train size>/")
     parser.add_argument("--max-repos", type=int, default=None, help="pilot: only a random sample of N repositories")
+    parser.add_argument("--retry-statuses", nargs="*", default=[],
+                        help="statuses of an earlier run whose cases are run again, e.g. reference_fails setup_failed")
     parser.add_argument("--child", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.child:
@@ -607,7 +660,7 @@ def main(argv=None):
             tasks.append({"name": model, "test_json": experiment / "splits" / "test.json",
                           "predictions_json": experiment / "test_predictions.json",
                           "out_path": experiment / args.out_name})
-        tester.run_many(tasks, max_repos=args.max_repos)
+        tester.run_many(tasks, max_repos=args.max_repos, retry_statuses=args.retry_statuses)
     else:
         tester.run(args.test_json, args.predictions_json, args.out or Path(args.workdir) / "plausibility.json")
 
