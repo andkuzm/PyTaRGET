@@ -231,3 +231,19 @@ def test_cases_with_a_retry_status_run_again(tmp_path, tester_for):
     assert results_of(task)["status"] == "reference_fails"
     tester_for().run_many([task], retry_statuses=["reference_fails"])
     assert results_of(task)["status"] == "evaluated" and results_of(task)["verdicts"] == ["fail"]
+
+
+def test_later_candidates_extend_an_earlier_run(tmp_path):
+    sha = make_repo(tmp_path / "git", "acme/proj", PASSING)
+    candidates = ["\n    assert x == 3", "\n    assert x == 4", "\n    assert x == 3", "\n    assert x > 1", ""]
+    task = write_model(tmp_path, "m1", "acme/proj", sha, "test_value", candidates)
+    git = str(tmp_path / "git" / "{name}")
+    first = pt.PlausibilityTester(tmp_path / "work1", k=2, timeout=30, use_venv=False, repo_url=git)
+    first.run_many([task])
+    assert results_of(task)["verdicts"] == ["fail", "fail"]
+    extension = dict(task, out_path=tmp_path / "later.json", restrict_to=task["out_path"])
+    later = pt.PlausibilityTester(tmp_path / "work2", k=5, timeout=30, use_venv=False, repo_url=git, first_rank=2)
+    summary = later.run_many([extension])["m1"]
+    result = results_of(extension)
+    assert result["first_rank"] == 2 and result["verdicts"] == ["fail", "pass", "empty"]   # ranks 3, 4 and 5
+    assert "plausible@1" not in summary and summary["plausible@k"] == 100.0

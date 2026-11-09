@@ -173,7 +173,8 @@ def summarize(results):
     summary = {"cases": len(results), "evaluated": len(evaluated), "statuses": statuses,
                "candidate_timeouts": sum(r.get("timeouts", 0) for r in evaluated)}   # counted as failures
     if evaluated:
-        summary["plausible@1"] = round(100 * sum(r["verdicts"][0] == "pass" for r in evaluated) / len(evaluated), 2)
+        if not any(r.get("first_rank") for r in evaluated):      # a run over the later candidates has no "first"
+            summary["plausible@1"] = round(100 * sum(r["verdicts"][0] == "pass" for r in evaluated) / len(evaluated), 2)
         summary["plausible@k"] = round(100 * sum("pass" in r["verdicts"] for r in evaluated) / len(evaluated), 2)
     return summary
 
@@ -267,9 +268,10 @@ def remove_tree(path):
 
 class PlausibilityTester:
     def __init__(self, workdir, k=5, timeout=120, use_venv=True, install_requirements=True,
-                 repo_url="https://github.com/{name}.git", workers=1, repo_timeout=REPO_TIMEOUT, pip_cache=None):
+                 repo_url="https://github.com/{name}.git", workers=1, repo_timeout=REPO_TIMEOUT, pip_cache=None, first_rank=0):
         self.workdir = Path(workdir)
         self.k = k
+        self.first_rank = first_rank              # candidates before this rank were judged by an earlier run
         self.timeout = timeout
         self.use_venv = use_venv
         self.install_requirements = install_requirements
@@ -385,7 +387,10 @@ class PlausibilityTester:
 
     # ---- cases -----------------------------------------------------------------------------------------------
 
-    def evaluate_case(self, row, candidates):
+    def evaluate_case(self, row, candidates, prior=None):
+        """prior: [(candidate, verdict)] of an earlier run over the first `first_rank` candidates of this case. The case
+        is then known to be run-able (its control passed): the control is not run again, and a candidate whose text
+        was judged before keeps that verdict instead of being executed again."""
         result = {"status": None, "nodeid": None, "verdicts": []}
         reference = row["output"]
         recorded = row.get("test_name")
@@ -411,6 +416,8 @@ class PlausibilityTester:
 
         python = self.python_for(row["repository_name"], repo_dir)
         control_key = (row["repository_name"], row["repaired_hash"], nodeid)   # the same case of another model
+        if prior is not None and control_key not in self.controls:
+            self.controls[control_key] = ("pass", "")
         if control_key not in self.controls:
             verdict = self.run_control(python, repo_dir, nodeid)
             self.controls[control_key] = (verdict, "" if verdict == "pass" else self.last_output)
@@ -419,9 +426,12 @@ class PlausibilityTester:
             return {**result, "status": "reference_fails", "detail": f"{control}: {control_output}" if control_output else control}
 
         known = {normalize_indentation(reference): "pass"}  # equal to the reference: the control already passed
+        for earlier, earlier_verdict in prior or []:
+            known.setdefault(normalize_indentation(earlier), earlier_verdict)
         timeouts = 0
+        result["first_rank"] = self.first_rank
         try:
-            for candidate in candidates[:self.k]:
+            for candidate in candidates[self.first_rank:self.k]:
                 key = normalize_indentation(candidate)
                 if not key.strip():
                     verdict = "empty"
@@ -506,6 +516,12 @@ class PlausibilityTester:
                                   if v.get("status") not in self.retry_statuses}     # these are run again
             print(f"{name}: resuming, {len(self.results[name])} cases already done", flush=True)
         todo = {i for i in predictions if i not in self.results[name]}
+        earlier = {}
+        if task.get("restrict_to"):               # candidates beyond the first_rank-th, only for the cases judged before
+            earlier = {int(k): v for k, v in json.loads(Path(task["restrict_to"]).read_text(encoding="utf-8"))["results"].items()
+                       if v.get("status") == "evaluated"}
+            todo &= set(earlier)
+            print(f"{name}: {len(todo)} cases evaluated by the earlier run to extend", flush=True)
         for i, row in enumerate(iter_rows(task["test_json"])):
             if i not in todo:
                 continue
@@ -514,8 +530,10 @@ class PlausibilityTester:
             if target.rstrip() != row["output"].rstrip():
                 self.results[name][i] = {"status": "id_mismatch", "nodeid": None, "verdicts": []}
             else:
-                groups.setdefault(row["repository_name"], []).append(
-                    {"model": name, "id": i, "row": row, "candidates": candidates[:self.k]})
+                item = {"model": name, "id": i, "row": row, "candidates": candidates[:self.k]}
+                if i in earlier:
+                    item["prior"] = list(zip(candidates[:self.first_rank], earlier[i]["verdicts"][:self.first_rank]))
+                groups.setdefault(row["repository_name"], []).append(item)
         for items in groups.values():
             items.sort(key=lambda item: (item["row"]["repaired_hash"], item["model"], item["id"]))
 
@@ -541,7 +559,7 @@ class PlausibilityTester:
         payload.write_text(json.dumps({
             "workdir": str(repo_root / "work"), "k": self.k, "timeout": self.timeout, "use_venv": self.use_venv,
             "install_requirements": self.install_requirements, "repo_url": self.repo_url,
-            "pip_cache": self.pip_cache, "items": items, "results_file": str(results_file)}), encoding="utf-8")
+            "pip_cache": self.pip_cache, "first_rank": self.first_rank, "items": items, "results_file": str(results_file)}), encoding="utf-8")
         tag = repo_root.name
         env = dict(os.environ, PYTHONPATH=str(ROOT), PLAUSIBILITY_TAG=tag)
         started, offset, reason = time.time(), 0, None
@@ -618,11 +636,12 @@ def child_main(payload_path):
     """The process of one repository: evaluates its cases and appends each result to a file as soon as it is known."""
     payload = json.loads(Path(payload_path).read_text(encoding="utf-8"))
     tester = PlausibilityTester(payload["workdir"], payload["k"], payload["timeout"], payload["use_venv"],
-                                payload["install_requirements"], payload["repo_url"], pip_cache=payload["pip_cache"])
+                                payload["install_requirements"], payload["repo_url"], pip_cache=payload["pip_cache"],
+                                first_rank=payload.get("first_rank", 0))
     with open(payload["results_file"], "a", encoding="utf-8") as out:
         for item in payload["items"]:
             try:
-                result = tester.evaluate_case(item["row"], item["candidates"])
+                result = tester.evaluate_case(item["row"], item["candidates"], item.get("prior"))
             except Exception as error:            # one broken case must not cost the others of the repository
                 result = {"status": "error", "nodeid": None, "verdicts": [], "detail": repr(error)[:300]}
             out.write(json.dumps({"model": item["model"], "id": item["id"], "result": result}) + "\n")
@@ -645,6 +664,10 @@ def main(argv=None):
     parser.add_argument("--repo-url", default="https://github.com/{name}.git", help="clone url, {name} = owner/repository")
     parser.add_argument("--no-venv", action="store_true", help="use the current interpreter instead of a venv per repo")
     parser.add_argument("--out-name", default="plausibility.json", help="result file name inside <model>/<train size>/")
+    parser.add_argument("--first-rank", type=int, default=0, help="skip the first N candidates (judged by an earlier run)")
+    parser.add_argument("--extend", default=None,
+                        help="result file of an earlier run (inside <model>/<train size>/): only its evaluated cases, "
+                             "candidates from --first-rank on; its verdicts are reused for identical candidates")
     parser.add_argument("--max-repos", type=int, default=None, help="pilot: only a random sample of N repositories")
     parser.add_argument("--retry-statuses", nargs="*", default=[],
                         help="statuses of an earlier run whose cases are run again, e.g. reference_fails setup_failed")
@@ -654,14 +677,16 @@ def main(argv=None):
         child_main(args.child)
         return
     tester = PlausibilityTester(args.workdir, args.k, args.timeout, use_venv=not args.no_venv,
-                                repo_url=args.repo_url, workers=args.workers, repo_timeout=args.repo_timeout)
+                                repo_url=args.repo_url, workers=args.workers, repo_timeout=args.repo_timeout,
+                                first_rank=args.first_rank)
     if args.results:
         tasks = []
         for model in args.models:
             experiment = Path(args.results) / model / args.train_size
             tasks.append({"name": model, "test_json": experiment / "splits" / "test.json",
                           "predictions_json": experiment / "test_predictions.json",
-                          "out_path": experiment / args.out_name})
+                          "out_path": experiment / args.out_name,
+                          **({"restrict_to": experiment / args.extend} if args.extend else {})})
         tester.run_many(tasks, max_repos=args.max_repos, retry_statuses=args.retry_statuses)
     else:
         tester.run(args.test_json, args.predictions_json, args.out or Path(args.workdir) / "plausibility.json")
