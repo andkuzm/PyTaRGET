@@ -185,3 +185,24 @@ def test_an_interrupted_run_stops_its_repositories_and_cleans_up(tmp_path):
     assert wait_until_gone() == []
     saved = json.loads(task["out_path"].read_text(encoding="utf-8"))["results"]
     assert saved == {}                                    # interrupted cases get no result: they run again next time
+
+
+def test_a_project_whose_addopts_hide_the_summary_still_passes(tmp_path, tester_for):
+    sha = make_repo(tmp_path / "git", "acme/quiet", PASSING)
+    repo = tmp_path / "git" / "acme" / "quiet"
+    (repo / "pytest.ini").write_text("[pytest]\naddopts = -q\n", encoding="utf-8")      # -q -q: no "1 passed" line
+    subprocess.run(GIT + ["add", "-A"], cwd=repo, check=True)
+    subprocess.run(GIT + ["commit", "-qm", "quiet"], cwd=repo, check=True)
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
+    task = write_model(tmp_path, "m1", "acme/quiet", sha, "test_value", ["\n    assert x == 3", "\n    assert x == 2"])
+    tester_for().run_many([task])
+    assert results_of(task)["status"] == "evaluated" and results_of(task)["verdicts"] == ["fail", "pass"]
+
+
+def test_verdicts_from_the_junit_file():
+    suite = '<testsuites><testsuite name="pytest" errors="0" failures="0" skipped="%d" tests="%d">'
+    assert pt.verdict_from(0, "", suite % (0, 1)) == "pass"
+    assert pt.verdict_from(0, "", suite % (1, 1)) == "fail"        # skipped: nothing was checked
+    assert pt.verdict_from(0, "", suite % (0, 0)) == "fail"        # nothing collected
+    assert pt.verdict_from(1, "", None) == "fail" and pt.verdict_from(2, "", None) == "error"
+    assert pt.verdict_from(124, "", None) == "timeout"

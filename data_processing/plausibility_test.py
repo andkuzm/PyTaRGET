@@ -42,7 +42,7 @@ from pathlib import Path
 from data_processing.atomic_io import atomic_write_text, sigterm_as_keyboard_interrupt
 from data_processing.metrics import normalize_indentation
 
-REPO_TIMEOUT = int(os.environ.get("PLAUSIBILITY_REPO_TIMEOUT", 90 * 60))   # per repository, as in the searcher
+REPO_TIMEOUT = int(os.environ.get("PLAUSIBILITY_REPO_TIMEOUT", 90 * 60))   # without a new result, per repository
 CLONE_TIMEOUT = 900
 KEPT_ENVIRONMENT = ("PATH", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "PLAUSIBILITY_TAG")       # nothing else of the caller reaches the tests
 MAX_FILE_SIZE = 4 * 2**30
@@ -115,11 +115,25 @@ def patch_source(source, site, prediction):
     return "\n".join(lines[:site.start] + new + lines[site.start + site.length:])
 
 
-def verdict_from(returncode, output):
+def junit_counts(report):
+    """(tests, failures, errors, skipped) from the <testsuite> element of a junit file, None when there is none."""
+    suite = re.search(r"<testsuite\b[^>]*>", report)
+    if not suite:
+        return None
+    counts = {name: re.search(rf'\b{name}="(\d+)"', suite.group(0)) for name in ("tests", "failures", "errors", "skipped")}
+    return tuple(int(m.group(1)) if m else 0 for m in counts.values())
+
+
+def verdict_from(returncode, output, report=None):
     if returncode == 124:
         return "timeout"
-    if returncode == 0 and re.search(r"\d+ passed", output) and "failed" not in output:
-        return "pass"  # a skipped or deselected test also exits with 0, that is not a pass
+    if returncode == 0:
+        counts = junit_counts(report) if report else None
+        if counts is not None:             # exactly the run test passed: a skipped or deselected test exits with 0 too
+            tests, failures, errors, skipped = counts
+            return "pass" if tests >= 1 and failures == errors == skipped == 0 else "fail"
+        if re.search(r"\d+ passed", output) and "failed" not in output:
+            return "pass"
     return "fail" if returncode == 1 else "error"
 
 
@@ -245,6 +259,7 @@ class PlausibilityTester:
         self.pip_cache = pip_cache
         self.pythons = {}
         self.controls = {}
+        self.last_output = ""
         self.env = None
         self.stop = threading.Event()
         self._lock = threading.Lock()
@@ -303,8 +318,19 @@ class PlausibilityTester:
         return self.pythons[name]
 
     def run_test(self, python, repo_dir, nodeid):
-        cmd = [python, "-m", "pytest", "-x", "-q", "--disable-warnings", "-p", "no:cacheprovider", nodeid]
-        return verdict_from(*self.run_cmd(cmd, cwd=repo_dir, timeout=self.timeout))
+        # The verdict comes from pytest's junit file, not from its text: a project may put -q in its addopts, which
+        # hides the "1 passed" line (that made every test of such a project look like an error).
+        junit = Path(tempfile.mkdtemp(prefix="junit_", dir=self.workdir)) / "result.xml"
+        cmd = [python, "-m", "pytest", "-x", "-q", "--disable-warnings", "-p", "no:cacheprovider",
+               f"--junit-xml={junit}", nodeid]
+        code, output = self.run_cmd(cmd, cwd=repo_dir, timeout=self.timeout)
+        self.last_output = output.strip()[-400:]
+        try:
+            report = junit.read_text(encoding="utf-8", errors="ignore")[:4000]
+        except OSError:
+            report = ""
+        shutil.rmtree(junit.parent, ignore_errors=True)
+        return verdict_from(code, output, report)
 
     # ---- cases -----------------------------------------------------------------------------------------------
 
@@ -335,10 +361,11 @@ class PlausibilityTester:
         python = self.python_for(row["repository_name"], repo_dir)
         control_key = (row["repository_name"], row["repaired_hash"], nodeid)   # the same case of another model
         if control_key not in self.controls:
-            self.controls[control_key] = self.run_test(python, repo_dir, nodeid)
-        control = self.controls[control_key]
+            verdict = self.run_test(python, repo_dir, nodeid)
+            self.controls[control_key] = (verdict, "" if verdict == "pass" else self.last_output)
+        control, control_output = self.controls[control_key]
         if control != "pass":                 # a control that times out is a failure too: nothing can be judged
-            return {**result, "status": "reference_fails", "detail": control}
+            return {**result, "status": "reference_fails", "detail": f"{control}: {control_output}" if control_output else control}
 
         known = {normalize_indentation(reference): "pass"}  # equal to the reference: the control already passed
         timeouts = 0
@@ -390,7 +417,7 @@ class PlausibilityTester:
         if max_repos:                                 # a pilot: a fixed random sample of the repositories
             order = sorted(random.Random(1).sample(order, min(max_repos, len(order))), key=lambda repo: (-len(groups[repo]), repo))
         total, finished = len(order), 0
-        print(f"{sum(len(v) for v in groups.values())} cases in {total} repositories to run, {self.workers} workers", flush=True)
+        print(f"{sum(len(groups[repo]) for repo in order)} cases in {total} repositories to run, {self.workers} workers", flush=True)
         self._save(force=True)
         pool = ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="repo-worker")
         try:
@@ -465,6 +492,7 @@ class PlausibilityTester:
         tag = repo_root.name
         env = dict(os.environ, PYTHONPATH=str(ROOT), PLAUSIBILITY_TAG=tag)
         started, offset, reason = time.time(), 0, None
+        last_progress = started            # the repository's limit counts the time without a new result, not the total
         pending = {(item["model"], item["id"]) for item in items}
         with open(log_file, "wb") as log:
             proc = subprocess.Popen([sys.executable, "-u", "-m", "data_processing.plausibility_test", "--child", str(payload)],
@@ -479,11 +507,14 @@ class PlausibilityTester:
                     break
                 except subprocess.TimeoutExpired:
                     pass
+                before = len(pending)
                 offset = self._collect(results_file, offset, pending)
+                if len(pending) < before:
+                    last_progress = time.time()
                 if self.stop.is_set():
                     reason = "stopped"
                     break
-                if time.time() - started > self.repo_timeout:
+                if time.time() - last_progress > self.repo_timeout:
                     reason = "repo_timeout"
                     break
             if reason:
@@ -494,7 +525,7 @@ class PlausibilityTester:
             offset = self._collect(results_file, offset, pending)
             if reason != "stopped" and pending:
                 if reason == "repo_timeout":
-                    status = {"status": "repo_timeout", "detail": f"no result after {self.repo_timeout} s for the repository"}
+                    status = {"status": "repo_timeout", "detail": f"no new result for {self.repo_timeout} s in the repository"}
                 else:
                     tail = log_file.read_text(encoding="utf-8", errors="ignore")[-300:] if log_file.exists() else ""
                     status = {"status": "repo_crashed", "detail": f"exit status {proc.returncode}: {tail}"}
@@ -556,7 +587,7 @@ def main(argv=None):
     parser.add_argument("--out", default=None, help="result file (default: <workdir>/plausibility.json)")
     parser.add_argument("--k", type=int, default=5, help="how many top candidates to execute per case")
     parser.add_argument("--timeout", type=int, default=120, help="seconds per test run (a timeout is a failure)")
-    parser.add_argument("--repo-timeout", type=int, default=REPO_TIMEOUT, help="seconds per repository")
+    parser.add_argument("--repo-timeout", type=int, default=REPO_TIMEOUT, help="seconds a repository may go without a new result")
     parser.add_argument("--workers", type=int, default=1, help="repositories in parallel")
     parser.add_argument("--repo-url", default="https://github.com/{name}.git", help="clone url, {name} = owner/repository")
     parser.add_argument("--no-venv", action="store_true", help="use the current interpreter instead of a venv per repo")
