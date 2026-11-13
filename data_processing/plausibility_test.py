@@ -128,11 +128,45 @@ def common_margin(lines):
 
 
 def patch_source(source, site, prediction):
-    """`source` with the reference repair replaced by `prediction`, keeping its relative indentation."""
+    """
+    `source` with the reference repair replaced by `prediction`, keeping its relative indentation.
+
+    The dataset stores a repair that starts at the test's own decorator or `def` line with that first line stripped
+    of its indentation while the other lines keep their absolute indentation (`def f(self):` at column 0, the body at
+    8). Adding the span's margin to every line (what is right for a dedented snippet) puts the body one level too
+    deep: a collection error for every such method of a class. The margin is therefore added to all lines first;
+    only when the result is not valid Python, the variant that adds it to the first line alone is used if that is.
+    """
     lines = source.split("\n")
     margin = common_margin(lines[site.start:site.start + site.length])
-    new = [margin + line if line else line for line in normalize_indentation(prediction).split("\n")]
-    return "\n".join(lines[:site.start] + new + lines[site.start + site.length:])
+    new = normalize_indentation(prediction).split("\n")
+
+    def assemble(replacement):
+        return "\n".join(lines[:site.start] + replacement + lines[site.start + site.length:])
+
+    relative = assemble([margin + line if line else line for line in new])
+    if not margin or len(new) < 2 or not new[0].strip() or new[0] != new[0].lstrip():
+        return relative
+    if _parses(relative):
+        return relative
+    absolute = assemble([margin + new[0]] + new[1:])
+    return absolute if _parses(absolute) else relative
+
+
+ASSERTION = re.compile(r"\bassert\b|\.assert\w*\(|\braises\b|pytest\.fail|\bexpect")
+
+
+def has_assertion(text):
+    """Does the snippet check anything? An `assert`, a unittest/mock assertion method, `raises` or `pytest.fail`."""
+    return bool(ASSERTION.search(text))
+
+
+def _parses(source):
+    try:
+        ast.parse(source)
+        return True
+    except (SyntaxError, ValueError):
+        return False
 
 
 def junit_counts(report):
@@ -176,6 +210,32 @@ def summarize(results):
         if not any(r.get("first_rank") for r in evaluated):      # a run over the later candidates has no "first"
             summary["plausible@1"] = round(100 * sum(r["verdicts"][0] == "pass" for r in evaluated) / len(evaluated), 2)
         summary["plausible@k"] = round(100 * sum("pass" in r["verdicts"] for r in evaluated) / len(evaluated), 2)
+        checked = [r for r in evaluated if "span_removed" in r]
+        if checked:
+            # span_removed: "pass" = the test passes without the repaired span (not discriminating), "unparseable" =
+            # the span cannot be removed on its own (unknown); in both a pass counts only when the candidate still
+            # checks something while the reference does ("checked"); otherwise the test needed the span ("discriminating")
+            def settled(r):
+                return r["span_removed"] not in ("pass", "unparseable")
+
+            def counts(r, i):
+                kept = r.get("assertion_kept")
+                return r["verdicts"][i] == "pass" and (settled(r) or (kept is not None and kept[i]))
+
+            strict = [r for r in checked if settled(r)]
+            summary["not_discriminating"] = sum(r["span_removed"] == "pass" for r in checked)
+            summary["span_unparseable"] = sum(r["span_removed"] == "unparseable" for r in checked)
+            first = not any(r.get("first_rank") for r in checked)
+            if first:
+                summary["plausible@1_checked"] = round(100 * sum(counts(r, 0) for r in checked) / len(checked), 2)
+            summary["plausible@k_checked"] = round(
+                100 * sum(any(counts(r, i) for i in range(len(r["verdicts"]))) for r in checked) / len(checked), 2)
+            summary["checked_cases"] = len(checked)
+            if strict:
+                if first:
+                    summary["plausible@1_discriminating"] = round(100 * sum(r["verdicts"][0] == "pass" for r in strict) / len(strict), 2)
+                summary["plausible@k_discriminating"] = round(100 * sum("pass" in r["verdicts"] for r in strict) / len(strict), 2)
+                summary["discriminating_cases"] = len(strict)
     return summary
 
 
@@ -268,10 +328,14 @@ def remove_tree(path):
 
 class PlausibilityTester:
     def __init__(self, workdir, k=5, timeout=120, use_venv=True, install_requirements=True,
-                 repo_url="https://github.com/{name}.git", workers=1, repo_timeout=REPO_TIMEOUT, pip_cache=None, first_rank=0):
+                 repo_url="https://github.com/{name}.git", workers=1, repo_timeout=REPO_TIMEOUT, pip_cache=None, first_rank=0,
+                 trust_reference=True, span_control=False):
         self.workdir = Path(workdir)
         self.k = k
         self.first_rank = first_rank              # candidates before this rank were judged by an earlier run
+        self.trust_reference = trust_reference    # False: a candidate equal to the reference is executed too (audit)
+        self.span_control = span_control          # also run the test with the repaired span replaced by `pass`
+        self.span_controls = {}
         self.timeout = timeout
         self.use_venv = use_venv
         self.install_requirements = install_requirements
@@ -425,11 +489,30 @@ class PlausibilityTester:
         if control != "pass":                 # a control that times out is a failure too: nothing can be judged
             return {**result, "status": "reference_fails", "detail": f"{control}: {control_output}" if control_output else control}
 
-        known = {normalize_indentation(reference): "pass"}  # equal to the reference: the control already passed
+        # equal to the reference: the control already passed (not with trust_reference=False: the audit that feeds the
+        # reference in as the prediction must run it through the whole patch-and-test path)
+        known = {normalize_indentation(reference): "pass"} if self.trust_reference else {}
+        if self.span_control:
+            # A test that still passes with the repaired span removed cannot tell a repair from a deletion: "pass" here
+            # means the case is not discriminating (its plausibility is reported separately).
+            if control_key not in self.span_controls:
+                removed = patch_source(original.decode("utf-8"), site, "pass")
+                if not _parses(removed):
+                    # the span sits inside a statement (a keyword of a call, a list item): `pass` breaks the syntax, so
+                    # the run would fail whatever the test checks and say nothing about it
+                    self.span_controls[control_key] = "unparseable"
+                else:
+                    test_file.write_text(removed, encoding="utf-8")
+                    try:
+                        self.span_controls[control_key] = self.run_test(python, repo_dir, nodeid)
+                    finally:
+                        test_file.write_bytes(original)
+            result["span_removed"] = self.span_controls[control_key]
         for earlier, earlier_verdict in prior or []:
             known.setdefault(normalize_indentation(earlier), earlier_verdict)
         timeouts = 0
         result["first_rank"] = self.first_rank
+        result["assertion_kept"] = []      # per candidate: it checks something whenever the reference does
         try:
             for candidate in candidates[self.first_rank:self.k]:
                 key = normalize_indentation(candidate)
@@ -444,6 +527,7 @@ class PlausibilityTester:
                         verdict, timeouts = "fail", timeouts + 1
                     known[key] = verdict
                 result["verdicts"].append(verdict)
+                result["assertion_kept"].append(has_assertion(candidate) or not has_assertion(reference))
         finally:
             test_file.write_bytes(original)
         if timeouts:
@@ -559,7 +643,8 @@ class PlausibilityTester:
         payload.write_text(json.dumps({
             "workdir": str(repo_root / "work"), "k": self.k, "timeout": self.timeout, "use_venv": self.use_venv,
             "install_requirements": self.install_requirements, "repo_url": self.repo_url,
-            "pip_cache": self.pip_cache, "first_rank": self.first_rank, "items": items, "results_file": str(results_file)}), encoding="utf-8")
+            "pip_cache": self.pip_cache, "first_rank": self.first_rank, "trust_reference": self.trust_reference,
+            "span_control": self.span_control, "items": items, "results_file": str(results_file)}), encoding="utf-8")
         tag = repo_root.name
         env = dict(os.environ, PYTHONPATH=str(ROOT), PLAUSIBILITY_TAG=tag)
         started, offset, reason = time.time(), 0, None
@@ -637,7 +722,9 @@ def child_main(payload_path):
     payload = json.loads(Path(payload_path).read_text(encoding="utf-8"))
     tester = PlausibilityTester(payload["workdir"], payload["k"], payload["timeout"], payload["use_venv"],
                                 payload["install_requirements"], payload["repo_url"], pip_cache=payload["pip_cache"],
-                                first_rank=payload.get("first_rank", 0))
+                                first_rank=payload.get("first_rank", 0),
+                                trust_reference=payload.get("trust_reference", True),
+                                span_control=payload.get("span_control", False))
     with open(payload["results_file"], "a", encoding="utf-8") as out:
         for item in payload["items"]:
             try:
@@ -671,6 +758,11 @@ def main(argv=None):
     parser.add_argument("--max-repos", type=int, default=None, help="pilot: only a random sample of N repositories")
     parser.add_argument("--retry-statuses", nargs="*", default=[],
                         help="statuses of an earlier run whose cases are run again, e.g. reference_fails setup_failed")
+    parser.add_argument("--run-reference", action="store_true",
+                        help="audit: execute candidates equal to the reference too instead of counting them as passing")
+    parser.add_argument("--span-control", action="store_true",
+                        help="also run every case with the repaired span replaced by `pass`; cases that still pass are "
+                             "reported as not discriminating")
     parser.add_argument("--child", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.child:
@@ -678,7 +770,8 @@ def main(argv=None):
         return
     tester = PlausibilityTester(args.workdir, args.k, args.timeout, use_venv=not args.no_venv,
                                 repo_url=args.repo_url, workers=args.workers, repo_timeout=args.repo_timeout,
-                                first_rank=args.first_rank)
+                                first_rank=args.first_rank, trust_reference=not args.run_reference,
+                                span_control=args.span_control)
     if args.results:
         tasks = []
         for model in args.models:

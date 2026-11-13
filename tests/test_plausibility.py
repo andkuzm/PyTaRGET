@@ -247,3 +247,101 @@ def test_later_candidates_extend_an_earlier_run(tmp_path):
     result = results_of(extension)
     assert result["first_rank"] == 2 and result["verdicts"] == ["fail", "pass", "empty"]   # ranks 3, 4 and 5
     assert "plausible@1" not in summary and summary["plausible@k"] == 100.0
+
+
+# ---- indentation of a whole-method repair and the span control -----------------------------------------------------
+
+METHOD_SOURCE = (
+    "class TestThing:\n"
+    "    def test_value(self):\n"
+    "        x = 1 + 1\n"
+    "        assert x == 2\n"
+)
+
+
+def test_a_whole_method_repair_keeps_the_body_indentation():
+    # dataset format: first line stripped of its indentation, the body with its absolute indentation
+    site = pt.find_repair_site(METHOD_SOURCE, "test_value", "def test_value(self):\n        x = 1 + 1\n        assert x == 2")
+    assert site is not None
+    # a body that is merely nested deeper is valid Python with the same meaning, so it is not "repaired" by the fallback
+    import ast
+    patched = pt.patch_source(METHOD_SOURCE, site, "def test_value(self):\n        x = 1 + 1\n        assert x == 2")
+    assert ast.dump(ast.parse(patched)) == ast.dump(ast.parse(METHOD_SOURCE))
+    # the same repair with absolute indentation everywhere, and a dedented ("relative") one
+    assert pt.patch_source(METHOD_SOURCE, site, "    def test_value(self):\n        x = 1 + 1\n        assert x == 2") == METHOD_SOURCE
+    assert pt.patch_source(METHOD_SOURCE, site, "def test_value(self):\n    x = 1 + 1\n    assert x == 2") == METHOD_SOURCE
+
+
+def test_a_body_repair_is_still_indented_to_the_margin():
+    site = pt.find_repair_site(METHOD_SOURCE, "test_value", "        assert x == 2")
+    assert pt.patch_source(METHOD_SOURCE, site, "assert x != 3").endswith("        x = 1 + 1\n        assert x != 3\n")
+
+
+def test_the_span_control_marks_a_test_that_passes_without_the_repair(tmp_path, tester_for):
+    source = "def test_value():\n    x = 1\n    assert True\n"
+    sha = make_repo(tmp_path / "git", "r", source)
+    tester = tester_for(span_control=True)
+    row = {"repository_name": "r", "repaired_hash": sha, "relative_path": "test_value.py", "output": "    x = 1",
+           "test_name": "test_value"}
+    result = tester.evaluate_case(row, ["x = 2"])
+    assert result["status"] == "evaluated" and result["span_removed"] == "pass"
+    summary = pt.summarize({"0": result})
+    assert summary["not_discriminating"] == 1 and "plausible@k_discriminating" not in summary
+
+
+DECORATED_SOURCE = (
+    "import pytest\n\n\n"
+    "class TestThing:\n"
+    "    @pytest.mark.skipif(False, reason='x')\n"
+    "    def test_value(self):\n"
+    "        x = 1 + 1\n"
+    "        assert x == 2\n"
+)
+
+
+def test_a_decorated_whole_method_repair_keeps_its_indentation():
+    reference = "@pytest.mark.skipif(False, reason='x')\n    def test_value(self):\n        x = 1 + 1\n        assert x == 2"
+    site = pt.find_repair_site(DECORATED_SOURCE, "test_value", reference)
+    assert site is not None
+    assert pt.patch_source(DECORATED_SOURCE, site, reference) == DECORATED_SOURCE
+
+
+# ---- assertion-aware score and the span control on spans inside a statement -----------------------------------------
+
+def test_has_assertion_sees_asserts_raises_and_mock_checks():
+    assert pt.has_assertion("assert x == 1")
+    assert pt.has_assertion("self.assertEqual(a, b)")
+    assert pt.has_assertion("mock.assert_called_once_with(1)")
+    assert pt.has_assertion("with pytest.raises(ValueError):\n    f()")
+    assert not pt.has_assertion('"""docstring only"""')
+    assert not pt.has_assertion("x = compute()")
+
+
+def test_a_span_inside_a_call_is_unparseable_not_discriminating(tmp_path, tester_for):
+    source = "def test_value():\n    result = dict(\n        a=1,\n        b=2,\n    )\n    assert result['a'] == 1\n"
+    sha = make_repo(tmp_path / "git", "r", source)
+    tester = tester_for(span_control=True)
+    row = {"repository_name": "r", "repaired_hash": sha, "relative_path": "test_value.py", "output": "\n        a=1,",
+           "test_name": "test_value"}
+    result = tester.evaluate_case(row, ["        a=1,"])
+    assert result["status"] == "evaluated" and result["span_removed"] == "unparseable"
+    assert result["assertion_kept"] == [True]       # the reference has no assertion
+
+
+def test_the_checked_score_needs_an_assertion_where_the_test_does_not_need_the_span():
+    cases = {
+        # test passes without the span, candidate keeps no assertion -> does not count
+        "0": {"status": "evaluated", "verdicts": ["pass"], "assertion_kept": [False], "span_removed": "pass"},
+        # test passes without the span, candidate still asserts -> counts
+        "1": {"status": "evaluated", "verdicts": ["pass"], "assertion_kept": [True], "span_removed": "pass"},
+        # the test needs the span -> counts
+        "2": {"status": "evaluated", "verdicts": ["pass"], "assertion_kept": [False], "span_removed": "fail"},
+        # span cannot be removed on its own: treated like "not needed"
+        "3": {"status": "evaluated", "verdicts": ["pass"], "assertion_kept": [False], "span_removed": "unparseable"},
+        "4": {"status": "evaluated", "verdicts": ["fail"], "assertion_kept": [True], "span_removed": "fail"},
+    }
+    summary = pt.summarize(cases)
+    assert summary["plausible@1"] == 80.0                       # 4 of 5 pass
+    assert summary["plausible@1_checked"] == 40.0               # cases 1 and 2
+    assert summary["not_discriminating"] == 2 and summary["span_unparseable"] == 1
+    assert summary["discriminating_cases"] == 2
