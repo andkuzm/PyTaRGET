@@ -1,0 +1,21 @@
+===== ernie_flash (first pass + retry)
+solved {'evaluated': 150, 'pass (plain)': 78, 'pass (checked)': 77, 'empty answer': 15}
+unsolved {'evaluated': 150, 'pass (plain)': 12, 'pass (checked)': 11, 'empty answer': 30}
+pass (plain): solved-group 52.0%  unsolved-group 8.0%  weighted overall estimate 27.8%
+pass (checked): solved-group 51.3%  unsolved-group 7.3%  weighted overall estimate 27.1%
+solves 11 cases that none of the five solved; keeps 77 of the solved group; of 50 cases solved by exactly one other model it solves 16
+new solves: [('14', 'MahjongRepository/mahjong'), ('20', 'brokensandals/notesdir'), ('31', 'ludeeus/awesomeversion'), ('81', 'timlnx/bitmath'), ('104', 'microsoft/data-formulator'), ('111', 'Farama-Foundation/Gymnasium'), ('127', 'tw93/Waza'), ('137', 'NickZaitsev/ru-normalizr'), ('156', 'Maxteabag/sqlit'), ('181', 'MarcusJellinghaus/mcp-tools-py')]
+===== particle_1 (first pass + retry)
+solved {'evaluated': 150, 'pass (plain)': 91, 'pass (checked)': 91, 'empty answer': 1}
+unsolved {'evaluated': 150, 'pass (plain)': 15, 'pass (checked)': 15, 'empty answer': 1}
+pass (plain): solved-group 60.7%  unsolved-group 10.0%  weighted overall estimate 32.8%
+pass (checked): solved-group 60.7%  unsolved-group 10.0%  weighted overall estimate 32.8%
+solves 15 cases that none of the five solved; keeps 91 of the solved group; of 50 cases solved by exactly one other model it solves 20
+new solves: [('14', 'MahjongRepository/mahjong'), ('20', 'brokensandals/notesdir'), ('81', 'timlnx/bitmath'), ('104', 'microsoft/data-formulator'), ('110', 'OtterlySpaceLabs/speekify'), ('111', 'Farama-Foundation/Gymnasium'), ('127', 'tw93/Waza'), ('130', 'microsoft/data-formulator'), ('137', 'NickZaitsev/ru-normalizr'), ('156', 'Maxteabag/sqlit')]
+===== nemotron_ultra (first pass + retry)
+solved {'evaluated': 150, 'pass (plain)': 95, 'pass (checked)': 95}
+unsolved {'evaluated': 150, 'pass (plain)': 14, 'pass (checked)': 13, 'empty answer': 3}
+pass (plain): solved-group 63.3%  unsolved-group 9.3%  weighted overall estimate 33.6%
+pass (checked): solved-group 63.3%  unsolved-group 8.7%  weighted overall estimate 33.2%
+solves 13 cases that none of the five solved; keeps 95 of the solved group; of 50 cases solved by exactly one other model it solves 20
+new solves: [('4', 'jminardi/mecode'), ('14', 'MahjongRepository/mahjong'), ('31', 'ludeeus/awesomeversion'), ('58', 'coderamp-labs/gitingest'), ('80', 'iuyup/AgentFlow'), ('104', 'microsoft/data-formulator'), ('110', 'OtterlySpaceLabs/speekify'), ('111', 'Farama-Foundation/Gymnasium'), ('127', 'tw93/Waza'), ('156', 'Maxteabag/sqlit')]

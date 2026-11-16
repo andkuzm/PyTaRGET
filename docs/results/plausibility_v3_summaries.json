@@ -1,0 +1,260 @@
+{
+ "finetuned_perproject/codet5p": {
+  "cases": 1293,
+  "evaluated": 1100,
+  "statuses": {
+   "deleted_repair": 23,
+   "reference_fails": 159,
+   "evaluated": 1100,
+   "setup_failed": 6,
+   "repair_site_not_found": 5
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 15.45,
+  "plausible@k": 26.55,
+  "not_discriminating": 449,
+  "span_unparseable": 345,
+  "plausible@1_checked": 15.36,
+  "plausible@k_checked": 26.36,
+  "checked_cases": 1100,
+  "plausible@1_discriminating": 16.34,
+  "plausible@k_discriminating": 26.47,
+  "discriminating_cases": 306
+ },
+ "finetuned_perproject/plbart": {
+  "cases": 1342,
+  "evaluated": 1145,
+  "statuses": {
+   "deleted_repair": 23,
+   "reference_fails": 163,
+   "evaluated": 1145,
+   "setup_failed": 6,
+   "repair_site_not_found": 5
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 3.06,
+  "plausible@k": 7.6,
+  "not_discriminating": 462,
+  "span_unparseable": 368,
+  "plausible@1_checked": 3.06,
+  "plausible@k_checked": 7.42,
+  "checked_cases": 1145,
+  "plausible@1_discriminating": 3.81,
+  "plausible@k_discriminating": 7.94,
+  "discriminating_cases": 315
+ },
+ "finetuned_perproject/codegen": {
+  "cases": 1585,
+  "evaluated": 1324,
+  "statuses": {
+   "deleted_repair": 22,
+   "reference_fails": 225,
+   "evaluated": 1324,
+   "setup_failed": 12,
+   "repair_site_not_found": 2
+  },
+  "candidate_timeouts": 9,
+  "plausible@1": 7.85,
+  "plausible@k": 17.52,
+  "not_discriminating": 514,
+  "span_unparseable": 447,
+  "plausible@1_checked": 7.7,
+  "plausible@k_checked": 16.99,
+  "checked_cases": 1324,
+  "plausible@1_discriminating": 7.99,
+  "plausible@k_discriminating": 15.98,
+  "discriminating_cases": 363
+ },
+ "llm_matched/qwen3coder": {
+  "cases": 1155,
+  "evaluated": 981,
+  "statuses": {
+   "deleted_repair": 21,
+   "reference_fails": 151,
+   "evaluated": 981,
+   "repair_site_not_found": 2
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 17.02,
+  "plausible@k": 19.27,
+  "not_discriminating": 421,
+  "span_unparseable": 291,
+  "plausible@1_checked": 16.62,
+  "plausible@k_checked": 18.86,
+  "checked_cases": 981,
+  "plausible@1_discriminating": 21.19,
+  "plausible@k_discriminating": 23.42,
+  "discriminating_cases": 269
+ },
+ "llm_matched/gptoss20b": {
+  "cases": 1155,
+  "evaluated": 981,
+  "statuses": {
+   "deleted_repair": 21,
+   "reference_fails": 151,
+   "evaluated": 981,
+   "repair_site_not_found": 2
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 17.43,
+  "plausible@k": 29.87,
+  "not_discriminating": 421,
+  "span_unparseable": 291,
+  "plausible@1_checked": 15.7,
+  "plausible@k_checked": 27.12,
+  "checked_cases": 981,
+  "plausible@1_discriminating": 19.33,
+  "plausible@k_discriminating": 29.37,
+  "discriminating_cases": 269
+ },
+ "llm_full/qwen3coder": {
+  "cases": 1768,
+  "evaluated": 1464,
+  "statuses": {
+   "deleted_repair": 23,
+   "reference_fails": 279,
+   "evaluated": 1464,
+   "repair_site_not_found": 2
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 20.01,
+  "plausible@k": 22.95,
+  "not_discriminating": 514,
+  "span_unparseable": 539,
+  "plausible@1_checked": 18.37,
+  "plausible@k_checked": 20.9,
+  "checked_cases": 1464,
+  "plausible@1_discriminating": 23.84,
+  "plausible@k_discriminating": 27.01,
+  "discriminating_cases": 411
+ },
+ "llm_full/gptoss20b": {
+  "cases": 1768,
+  "evaluated": 1464,
+  "statuses": {
+   "deleted_repair": 23,
+   "reference_fails": 279,
+   "evaluated": 1464,
+   "repair_site_not_found": 2
+  },
+  "candidate_timeouts": 3,
+  "plausible@1": 18.72,
+  "plausible@k": 32.38,
+  "not_discriminating": 514,
+  "span_unparseable": 539,
+  "plausible@1_checked": 16.6,
+  "plausible@k_checked": 28.35,
+  "checked_cases": 1464,
+  "plausible@1_discriminating": 24.82,
+  "plausible@k_discriminating": 34.55,
+  "discriminating_cases": 411
+ },
+ "openrouter_contrast300/ernie_flash_first_pass": {
+  "cases": 300,
+  "evaluated": 300,
+  "statuses": {
+   "evaluated": 300
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 27.33,
+  "plausible@k": 27.33,
+  "not_discriminating": 117,
+  "span_unparseable": 92,
+  "plausible@1_checked": 27.0,
+  "plausible@k_checked": 27.0,
+  "checked_cases": 300,
+  "plausible@1_discriminating": 31.87,
+  "plausible@k_discriminating": 31.87,
+  "discriminating_cases": 91
+ },
+ "openrouter_contrast300/ernie_flash_retry_only": {
+  "cases": 102,
+  "evaluated": 102,
+  "statuses": {
+   "evaluated": 102
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 7.84,
+  "plausible@k": 7.84,
+  "not_discriminating": 34,
+  "span_unparseable": 41,
+  "plausible@1_checked": 6.86,
+  "plausible@k_checked": 6.86,
+  "checked_cases": 102,
+  "plausible@1_discriminating": 7.41,
+  "plausible@k_discriminating": 7.41,
+  "discriminating_cases": 27
+ },
+ "openrouter_contrast300/particle_1_first_pass": {
+  "cases": 299,
+  "evaluated": 299,
+  "statuses": {
+   "evaluated": 299
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 35.12,
+  "plausible@k": 35.12,
+  "not_discriminating": 116,
+  "span_unparseable": 92,
+  "plausible@1_checked": 35.12,
+  "plausible@k_checked": 35.12,
+  "checked_cases": 299,
+  "plausible@1_discriminating": 42.86,
+  "plausible@k_discriminating": 42.86,
+  "discriminating_cases": 91
+ },
+ "openrouter_contrast300/particle_1_retry_only": {
+  "cases": 22,
+  "evaluated": 22,
+  "statuses": {
+   "evaluated": 22
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 4.55,
+  "plausible@k": 4.55,
+  "not_discriminating": 9,
+  "span_unparseable": 9,
+  "plausible@1_checked": 4.55,
+  "plausible@k_checked": 4.55,
+  "checked_cases": 22,
+  "plausible@1_discriminating": 0.0,
+  "plausible@k_discriminating": 0.0,
+  "discriminating_cases": 4
+ },
+ "openrouter_contrast300/nemotron_ultra_first_pass": {
+  "cases": 300,
+  "evaluated": 300,
+  "statuses": {
+   "evaluated": 300
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 34.33,
+  "plausible@k": 34.33,
+  "not_discriminating": 117,
+  "span_unparseable": 92,
+  "plausible@1_checked": 34.0,
+  "plausible@k_checked": 34.0,
+  "checked_cases": 300,
+  "plausible@1_discriminating": 40.66,
+  "plausible@k_discriminating": 40.66,
+  "discriminating_cases": 91
+ },
+ "openrouter_contrast300/nemotron_ultra_retry_only": {
+  "cases": 36,
+  "evaluated": 36,
+  "statuses": {
+   "evaluated": 36
+  },
+  "candidate_timeouts": 0,
+  "plausible@1": 16.67,
+  "plausible@k": 16.67,
+  "not_discriminating": 13,
+  "span_unparseable": 13,
+  "plausible@1_checked": 16.67,
+  "plausible@k_checked": 16.67,
+  "checked_cases": 36,
+  "plausible@1_discriminating": 40.0,
+  "plausible@k_discriminating": 40.0,
+  "discriminating_cases": 10
+ }
+}

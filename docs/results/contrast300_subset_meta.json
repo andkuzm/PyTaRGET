@@ -1,0 +1,2310 @@
+{
+ "population": {
+  "solved": 438,
+  "unsolved": 537
+ },
+ "evaluated_for_all_models": 975,
+ "seed": 7,
+ "per_repo": 4,
+ "cases": {
+  "0": {
+   "matched_id": 1,
+   "group": "solved",
+   "repo": "docopt/docopt",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "1": {
+   "matched_id": 6,
+   "group": "solved",
+   "repo": "simpx/simpy",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "2": {
+   "matched_id": 7,
+   "group": "solved",
+   "repo": "simpx/simpy",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "3": {
+   "matched_id": 13,
+   "group": "solved",
+   "repo": "simpx/simpy",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "4": {
+   "matched_id": 14,
+   "group": "unsolved",
+   "repo": "jminardi/mecode",
+   "solved_by": []
+  },
+  "5": {
+   "matched_id": 16,
+   "group": "solved",
+   "repo": "fluentpython/example-code",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen"
+   ]
+  },
+  "6": {
+   "matched_id": 17,
+   "group": "solved",
+   "repo": "dylanaraps/pywal",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "7": {
+   "matched_id": 19,
+   "group": "solved",
+   "repo": "dylanaraps/pywal",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "8": {
+   "matched_id": 22,
+   "group": "solved",
+   "repo": "msiemens/tinydb",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder"
+   ]
+  },
+  "9": {
+   "matched_id": 25,
+   "group": "solved",
+   "repo": "msiemens/tinydb",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "10": {
+   "matched_id": 27,
+   "group": "unsolved",
+   "repo": "seequent/properties",
+   "solved_by": []
+  },
+  "11": {
+   "matched_id": 29,
+   "group": "solved",
+   "repo": "pre-commit/pre-commit-hooks",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "12": {
+   "matched_id": 30,
+   "group": "solved",
+   "repo": "pre-commit/pre-commit-hooks",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "13": {
+   "matched_id": 42,
+   "group": "solved",
+   "repo": "microsoft/infinibatch",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "14": {
+   "matched_id": 51,
+   "group": "unsolved",
+   "repo": "MahjongRepository/mahjong",
+   "solved_by": []
+  },
+  "15": {
+   "matched_id": 57,
+   "group": "unsolved",
+   "repo": "brokensandals/notesdir",
+   "solved_by": []
+  },
+  "16": {
+   "matched_id": 58,
+   "group": "solved",
+   "repo": "brokensandals/notesdir",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "17": {
+   "matched_id": 69,
+   "group": "unsolved",
+   "repo": "brokensandals/notesdir",
+   "solved_by": []
+  },
+  "18": {
+   "matched_id": 75,
+   "group": "solved",
+   "repo": "brokensandals/notesdir",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "19": {
+   "matched_id": 81,
+   "group": "solved",
+   "repo": "MahjongRepository/mahjong",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "20": {
+   "matched_id": 87,
+   "group": "unsolved",
+   "repo": "brokensandals/notesdir",
+   "solved_by": []
+  },
+  "21": {
+   "matched_id": 100,
+   "group": "solved",
+   "repo": "pre-commit/pre-commit-hooks",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "22": {
+   "matched_id": 116,
+   "group": "solved",
+   "repo": "hyroai/gamla",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "23": {
+   "matched_id": 117,
+   "group": "unsolved",
+   "repo": "hyroai/gamla",
+   "solved_by": []
+  },
+  "24": {
+   "matched_id": 120,
+   "group": "unsolved",
+   "repo": "hyroai/gamla",
+   "solved_by": []
+  },
+  "25": {
+   "matched_id": 125,
+   "group": "unsolved",
+   "repo": "eggplants/zutool",
+   "solved_by": []
+  },
+  "26": {
+   "matched_id": 129,
+   "group": "unsolved",
+   "repo": "Delgan/loguru",
+   "solved_by": []
+  },
+  "27": {
+   "matched_id": 130,
+   "group": "unsolved",
+   "repo": "Delgan/loguru",
+   "solved_by": []
+  },
+  "28": {
+   "matched_id": 134,
+   "group": "solved",
+   "repo": "mitmproxy/mitmproxy",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "29": {
+   "matched_id": 135,
+   "group": "unsolved",
+   "repo": "Textualize/textual",
+   "solved_by": []
+  },
+  "30": {
+   "matched_id": 138,
+   "group": "unsolved",
+   "repo": "jtesta/ssh-audit",
+   "solved_by": []
+  },
+  "31": {
+   "matched_id": 139,
+   "group": "unsolved",
+   "repo": "ludeeus/awesomeversion",
+   "solved_by": []
+  },
+  "32": {
+   "matched_id": 142,
+   "group": "unsolved",
+   "repo": "desgeeko/pdfsyntax",
+   "solved_by": []
+  },
+  "33": {
+   "matched_id": 151,
+   "group": "solved",
+   "repo": "anguswg-ucsb/ingredient-slicer",
+   "solved_by": [
+    "plbart",
+    "gptoss20b"
+   ]
+  },
+  "34": {
+   "matched_id": 154,
+   "group": "solved",
+   "repo": "anguswg-ucsb/ingredient-slicer",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "35": {
+   "matched_id": 159,
+   "group": "solved",
+   "repo": "anguswg-ucsb/ingredient-slicer",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "36": {
+   "matched_id": 162,
+   "group": "solved",
+   "repo": "anguswg-ucsb/ingredient-slicer",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "37": {
+   "matched_id": 167,
+   "group": "solved",
+   "repo": "Textualize/textual",
+   "solved_by": [
+    "codegen"
+   ]
+  },
+  "38": {
+   "matched_id": 171,
+   "group": "unsolved",
+   "repo": "jtesta/ssh-audit",
+   "solved_by": []
+  },
+  "39": {
+   "matched_id": 176,
+   "group": "solved",
+   "repo": "alstr/todo-to-issue-action",
+   "solved_by": [
+    "plbart"
+   ]
+  },
+  "40": {
+   "matched_id": 180,
+   "group": "unsolved",
+   "repo": "jtesta/ssh-audit",
+   "solved_by": []
+  },
+  "41": {
+   "matched_id": 181,
+   "group": "solved",
+   "repo": "The-Pocket/PocketFlow",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "42": {
+   "matched_id": 187,
+   "group": "solved",
+   "repo": "eidorb/ubank",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder"
+   ]
+  },
+  "43": {
+   "matched_id": 188,
+   "group": "solved",
+   "repo": "jdepoix/youtube-transcript-api",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "44": {
+   "matched_id": 201,
+   "group": "solved",
+   "repo": "VeNoMouS/cloudscraper",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "45": {
+   "matched_id": 202,
+   "group": "solved",
+   "repo": "VeNoMouS/cloudscraper",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "46": {
+   "matched_id": 205,
+   "group": "solved",
+   "repo": "bayesian-optimization/BayesianOptimization",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "47": {
+   "matched_id": 206,
+   "group": "solved",
+   "repo": "bayesian-optimization/BayesianOptimization",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder"
+   ]
+  },
+  "48": {
+   "matched_id": 207,
+   "group": "solved",
+   "repo": "bayesian-optimization/BayesianOptimization",
+   "solved_by": [
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "49": {
+   "matched_id": 208,
+   "group": "solved",
+   "repo": "bayesian-optimization/BayesianOptimization",
+   "solved_by": [
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "50": {
+   "matched_id": 209,
+   "group": "unsolved",
+   "repo": "harrymander/dataclasses-struct",
+   "solved_by": []
+  },
+  "51": {
+   "matched_id": 212,
+   "group": "unsolved",
+   "repo": "harrymander/dataclasses-struct",
+   "solved_by": []
+  },
+  "52": {
+   "matched_id": 217,
+   "group": "solved",
+   "repo": "Zulko/moviepy",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "53": {
+   "matched_id": 218,
+   "group": "solved",
+   "repo": "Zulko/moviepy",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "54": {
+   "matched_id": 221,
+   "group": "solved",
+   "repo": "Delgan/loguru",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen"
+   ]
+  },
+  "55": {
+   "matched_id": 222,
+   "group": "solved",
+   "repo": "coderamp-labs/gitingest",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "56": {
+   "matched_id": 224,
+   "group": "solved",
+   "repo": "python-attrs/attrs",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "57": {
+   "matched_id": 226,
+   "group": "unsolved",
+   "repo": "python-attrs/attrs",
+   "solved_by": []
+  },
+  "58": {
+   "matched_id": 228,
+   "group": "unsolved",
+   "repo": "coderamp-labs/gitingest",
+   "solved_by": []
+  },
+  "59": {
+   "matched_id": 230,
+   "group": "unsolved",
+   "repo": "coderamp-labs/gitingest",
+   "solved_by": []
+  },
+  "60": {
+   "matched_id": 231,
+   "group": "unsolved",
+   "repo": "coderamp-labs/gitingest",
+   "solved_by": []
+  },
+  "61": {
+   "matched_id": 233,
+   "group": "solved",
+   "repo": "more-itertools/more-itertools",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "62": {
+   "matched_id": 237,
+   "group": "solved",
+   "repo": "SWE-agent/SWE-agent",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "63": {
+   "matched_id": 238,
+   "group": "solved",
+   "repo": "LlmKira/fast-langdetect",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder"
+   ]
+  },
+  "64": {
+   "matched_id": 239,
+   "group": "solved",
+   "repo": "martinblech/xmltodict",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "65": {
+   "matched_id": 249,
+   "group": "unsolved",
+   "repo": "NewFuture/DDNS",
+   "solved_by": []
+  },
+  "66": {
+   "matched_id": 260,
+   "group": "unsolved",
+   "repo": "tobymao/sqlglot",
+   "solved_by": []
+  },
+  "67": {
+   "matched_id": 264,
+   "group": "solved",
+   "repo": "NewFuture/DDNS",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "68": {
+   "matched_id": 270,
+   "group": "unsolved",
+   "repo": "jatkinson1000/archeryutils",
+   "solved_by": []
+  },
+  "69": {
+   "matched_id": 273,
+   "group": "solved",
+   "repo": "Nova-Hunting/nova-tracer",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "70": {
+   "matched_id": 274,
+   "group": "solved",
+   "repo": "Nova-Hunting/nova-tracer",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "71": {
+   "matched_id": 275,
+   "group": "solved",
+   "repo": "Nova-Hunting/nova-tracer",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "72": {
+   "matched_id": 277,
+   "group": "solved",
+   "repo": "TechDufus/oh-my-claude",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "73": {
+   "matched_id": 286,
+   "group": "unsolved",
+   "repo": "calibrain/shelfmark",
+   "solved_by": []
+  },
+  "74": {
+   "matched_id": 288,
+   "group": "unsolved",
+   "repo": "calibrain/shelfmark",
+   "solved_by": []
+  },
+  "75": {
+   "matched_id": 290,
+   "group": "unsolved",
+   "repo": "calibrain/shelfmark",
+   "solved_by": []
+  },
+  "76": {
+   "matched_id": 296,
+   "group": "solved",
+   "repo": "Usagi-org/ai-goofish-monitor",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "77": {
+   "matched_id": 297,
+   "group": "solved",
+   "repo": "cloudQuant/pymt5",
+   "solved_by": [
+    "qwen3coder"
+   ]
+  },
+  "78": {
+   "matched_id": 299,
+   "group": "unsolved",
+   "repo": "anthropics/claude-agent-sdk-python",
+   "solved_by": []
+  },
+  "79": {
+   "matched_id": 300,
+   "group": "solved",
+   "repo": "Delgan/loguru",
+   "solved_by": [
+    "plbart",
+    "codegen"
+   ]
+  },
+  "80": {
+   "matched_id": 303,
+   "group": "unsolved",
+   "repo": "iuyup/AgentFlow",
+   "solved_by": []
+  },
+  "81": {
+   "matched_id": 310,
+   "group": "unsolved",
+   "repo": "timlnx/bitmath",
+   "solved_by": []
+  },
+  "82": {
+   "matched_id": 312,
+   "group": "solved",
+   "repo": "devdotbo/perplexity-web-mcp",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "83": {
+   "matched_id": 317,
+   "group": "unsolved",
+   "repo": "Upsonic/Upsonic",
+   "solved_by": []
+  },
+  "84": {
+   "matched_id": 321,
+   "group": "solved",
+   "repo": "Upsonic/Upsonic",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "85": {
+   "matched_id": 322,
+   "group": "solved",
+   "repo": "Upsonic/Upsonic",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "86": {
+   "matched_id": 324,
+   "group": "solved",
+   "repo": "Upsonic/Upsonic",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "87": {
+   "matched_id": 325,
+   "group": "solved",
+   "repo": "Upsonic/Upsonic",
+   "solved_by": [
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "88": {
+   "matched_id": 329,
+   "group": "unsolved",
+   "repo": "NewFuture/DDNS",
+   "solved_by": []
+  },
+  "89": {
+   "matched_id": 332,
+   "group": "unsolved",
+   "repo": "mangiucugna/json_repair",
+   "solved_by": []
+  },
+  "90": {
+   "matched_id": 334,
+   "group": "unsolved",
+   "repo": "alexzhang13/rlm",
+   "solved_by": []
+  },
+  "91": {
+   "matched_id": 335,
+   "group": "solved",
+   "repo": "microsoft/data-formulator",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "92": {
+   "matched_id": 337,
+   "group": "unsolved",
+   "repo": "microsoft/data-formulator",
+   "solved_by": []
+  },
+  "93": {
+   "matched_id": 346,
+   "group": "unsolved",
+   "repo": "Upsonic/Upsonic",
+   "solved_by": []
+  },
+  "94": {
+   "matched_id": 348,
+   "group": "solved",
+   "repo": "MemPalace/mempalace",
+   "solved_by": [
+    "codet5p",
+    "plbart"
+   ]
+  },
+  "95": {
+   "matched_id": 351,
+   "group": "unsolved",
+   "repo": "MemPalace/mempalace",
+   "solved_by": []
+  },
+  "96": {
+   "matched_id": 352,
+   "group": "unsolved",
+   "repo": "MemPalace/mempalace",
+   "solved_by": []
+  },
+  "97": {
+   "matched_id": 353,
+   "group": "solved",
+   "repo": "MemPalace/mempalace",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "98": {
+   "matched_id": 364,
+   "group": "solved",
+   "repo": "microsoft/agent-lightning",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "99": {
+   "matched_id": 366,
+   "group": "solved",
+   "repo": "Maxteabag/sqlit",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "100": {
+   "matched_id": 367,
+   "group": "unsolved",
+   "repo": "Maxteabag/sqlit",
+   "solved_by": []
+  },
+  "101": {
+   "matched_id": 371,
+   "group": "unsolved",
+   "repo": "aiming-lab/AutoResearchClaw",
+   "solved_by": []
+  },
+  "102": {
+   "matched_id": 372,
+   "group": "unsolved",
+   "repo": "aiming-lab/AutoResearchClaw",
+   "solved_by": []
+  },
+  "103": {
+   "matched_id": 379,
+   "group": "solved",
+   "repo": "microsoft/data-formulator",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "104": {
+   "matched_id": 380,
+   "group": "unsolved",
+   "repo": "microsoft/data-formulator",
+   "solved_by": []
+  },
+  "105": {
+   "matched_id": 383,
+   "group": "unsolved",
+   "repo": "microsoft/data-formulator",
+   "solved_by": []
+  },
+  "106": {
+   "matched_id": 384,
+   "group": "solved",
+   "repo": "microsoft/data-formulator",
+   "solved_by": [
+    "plbart"
+   ]
+  },
+  "107": {
+   "matched_id": 388,
+   "group": "unsolved",
+   "repo": "LinkupPlatform/linkup-python-sdk",
+   "solved_by": []
+  },
+  "108": {
+   "matched_id": 394,
+   "group": "solved",
+   "repo": "smixs/agent-second-brain",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "109": {
+   "matched_id": 400,
+   "group": "unsolved",
+   "repo": "OtterlySpaceLabs/speekify",
+   "solved_by": []
+  },
+  "110": {
+   "matched_id": 402,
+   "group": "unsolved",
+   "repo": "OtterlySpaceLabs/speekify",
+   "solved_by": []
+  },
+  "111": {
+   "matched_id": 417,
+   "group": "unsolved",
+   "repo": "Farama-Foundation/Gymnasium",
+   "solved_by": []
+  },
+  "112": {
+   "matched_id": 420,
+   "group": "unsolved",
+   "repo": "AbhiRawat4841/mathematica-mcp",
+   "solved_by": []
+  },
+  "113": {
+   "matched_id": 423,
+   "group": "solved",
+   "repo": "TomBadash/Mouser",
+   "solved_by": [
+    "codegen"
+   ]
+  },
+  "114": {
+   "matched_id": 425,
+   "group": "solved",
+   "repo": "TomBadash/Mouser",
+   "solved_by": [
+    "codegen"
+   ]
+  },
+  "115": {
+   "matched_id": 429,
+   "group": "unsolved",
+   "repo": "tobymao/sqlglot",
+   "solved_by": []
+  },
+  "116": {
+   "matched_id": 433,
+   "group": "solved",
+   "repo": "optuna/optuna",
+   "solved_by": [
+    "qwen3coder"
+   ]
+  },
+  "117": {
+   "matched_id": 438,
+   "group": "solved",
+   "repo": "denizsafak/abogen",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "118": {
+   "matched_id": 444,
+   "group": "unsolved",
+   "repo": "denizsafak/abogen",
+   "solved_by": []
+  },
+  "119": {
+   "matched_id": 445,
+   "group": "solved",
+   "repo": "denizsafak/abogen",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "120": {
+   "matched_id": 450,
+   "group": "unsolved",
+   "repo": "denizsafak/abogen",
+   "solved_by": []
+  },
+  "121": {
+   "matched_id": 458,
+   "group": "unsolved",
+   "repo": "denizsafak/abogen",
+   "solved_by": []
+  },
+  "122": {
+   "matched_id": 459,
+   "group": "solved",
+   "repo": "denizsafak/abogen",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "123": {
+   "matched_id": 460,
+   "group": "solved",
+   "repo": "denizsafak/abogen",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "124": {
+   "matched_id": 463,
+   "group": "unsolved",
+   "repo": "denizsafak/abogen",
+   "solved_by": []
+  },
+  "125": {
+   "matched_id": 468,
+   "group": "unsolved",
+   "repo": "keon/algorithms",
+   "solved_by": []
+  },
+  "126": {
+   "matched_id": 470,
+   "group": "unsolved",
+   "repo": "tw93/Waza",
+   "solved_by": []
+  },
+  "127": {
+   "matched_id": 471,
+   "group": "unsolved",
+   "repo": "tw93/Waza",
+   "solved_by": []
+  },
+  "128": {
+   "matched_id": 472,
+   "group": "unsolved",
+   "repo": "kaifcodec/user-scanner",
+   "solved_by": []
+  },
+  "129": {
+   "matched_id": 474,
+   "group": "unsolved",
+   "repo": "HKUDS/LightRAG",
+   "solved_by": []
+  },
+  "130": {
+   "matched_id": 488,
+   "group": "unsolved",
+   "repo": "microsoft/data-formulator",
+   "solved_by": []
+  },
+  "131": {
+   "matched_id": 490,
+   "group": "solved",
+   "repo": "kaifcodec/user-scanner",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "132": {
+   "matched_id": 492,
+   "group": "solved",
+   "repo": "microsoft/data-formulator",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder"
+   ]
+  },
+  "133": {
+   "matched_id": 496,
+   "group": "solved",
+   "repo": "browser-use/browser-harness",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "134": {
+   "matched_id": 499,
+   "group": "solved",
+   "repo": "amitray007/etsy-python-sdk",
+   "solved_by": [
+    "codet5p",
+    "plbart"
+   ]
+  },
+  "135": {
+   "matched_id": 504,
+   "group": "unsolved",
+   "repo": "gptme/gptme",
+   "solved_by": []
+  },
+  "136": {
+   "matched_id": 505,
+   "group": "unsolved",
+   "repo": "NickZaitsev/ru-normalizr",
+   "solved_by": []
+  },
+  "137": {
+   "matched_id": 506,
+   "group": "unsolved",
+   "repo": "NickZaitsev/ru-normalizr",
+   "solved_by": []
+  },
+  "138": {
+   "matched_id": 507,
+   "group": "unsolved",
+   "repo": "NickZaitsev/ru-normalizr",
+   "solved_by": []
+  },
+  "139": {
+   "matched_id": 508,
+   "group": "unsolved",
+   "repo": "NickZaitsev/ru-normalizr",
+   "solved_by": []
+  },
+  "140": {
+   "matched_id": 512,
+   "group": "solved",
+   "repo": "OpheliaMiralles/pykelihood",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "141": {
+   "matched_id": 525,
+   "group": "solved",
+   "repo": "CloakHQ/CloakBrowser",
+   "solved_by": [
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "142": {
+   "matched_id": 530,
+   "group": "solved",
+   "repo": "CloakHQ/CloakBrowser",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "143": {
+   "matched_id": 532,
+   "group": "solved",
+   "repo": "CloakHQ/CloakBrowser",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "144": {
+   "matched_id": 533,
+   "group": "unsolved",
+   "repo": "Maxteabag/sqlit",
+   "solved_by": []
+  },
+  "145": {
+   "matched_id": 540,
+   "group": "solved",
+   "repo": "Stupidoodle/swissdevjobs-cli",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "146": {
+   "matched_id": 541,
+   "group": "solved",
+   "repo": "Stupidoodle/swissdevjobs-cli",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "147": {
+   "matched_id": 543,
+   "group": "unsolved",
+   "repo": "Stupidoodle/swissdevjobs-cli",
+   "solved_by": []
+  },
+  "148": {
+   "matched_id": 545,
+   "group": "unsolved",
+   "repo": "Stupidoodle/swissdevjobs-cli",
+   "solved_by": []
+  },
+  "149": {
+   "matched_id": 548,
+   "group": "unsolved",
+   "repo": "NewFuture/DDNS",
+   "solved_by": []
+  },
+  "150": {
+   "matched_id": 564,
+   "group": "solved",
+   "repo": "evansvl/telegram-stars-bot",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "151": {
+   "matched_id": 569,
+   "group": "solved",
+   "repo": "lna-lab/distill-kura",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder"
+   ]
+  },
+  "152": {
+   "matched_id": 571,
+   "group": "solved",
+   "repo": "lna-lab/distill-kura",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "153": {
+   "matched_id": 573,
+   "group": "solved",
+   "repo": "lna-lab/distill-kura",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "154": {
+   "matched_id": 575,
+   "group": "solved",
+   "repo": "NickZaitsev/ru-normalizr",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "155": {
+   "matched_id": 578,
+   "group": "unsolved",
+   "repo": "browser-use/browser-harness",
+   "solved_by": []
+  },
+  "156": {
+   "matched_id": 586,
+   "group": "unsolved",
+   "repo": "Maxteabag/sqlit",
+   "solved_by": []
+  },
+  "157": {
+   "matched_id": 587,
+   "group": "unsolved",
+   "repo": "Emily2040/seedance-2.0",
+   "solved_by": []
+  },
+  "158": {
+   "matched_id": 591,
+   "group": "solved",
+   "repo": "microsoft/SkillOpt",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder"
+   ]
+  },
+  "159": {
+   "matched_id": 607,
+   "group": "unsolved",
+   "repo": "serpapi/serpapi-mcp",
+   "solved_by": []
+  },
+  "160": {
+   "matched_id": 608,
+   "group": "solved",
+   "repo": "serpapi/serpapi-mcp",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "161": {
+   "matched_id": 615,
+   "group": "unsolved",
+   "repo": "serpapi/serpapi-mcp",
+   "solved_by": []
+  },
+  "162": {
+   "matched_id": 619,
+   "group": "solved",
+   "repo": "guillaumemeyer/watermarks-remover",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder"
+   ]
+  },
+  "163": {
+   "matched_id": 625,
+   "group": "unsolved",
+   "repo": "serpapi/serpapi-mcp",
+   "solved_by": []
+  },
+  "164": {
+   "matched_id": 626,
+   "group": "solved",
+   "repo": "soxoj/maigret",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "165": {
+   "matched_id": 629,
+   "group": "unsolved",
+   "repo": "tirth8205/code-review-graph",
+   "solved_by": []
+  },
+  "166": {
+   "matched_id": 633,
+   "group": "solved",
+   "repo": "tirth8205/code-review-graph",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "167": {
+   "matched_id": 635,
+   "group": "unsolved",
+   "repo": "tirth8205/code-review-graph",
+   "solved_by": []
+  },
+  "168": {
+   "matched_id": 637,
+   "group": "solved",
+   "repo": "tirth8205/code-review-graph",
+   "solved_by": [
+    "codegen"
+   ]
+  },
+  "169": {
+   "matched_id": 638,
+   "group": "unsolved",
+   "repo": "tirth8205/code-review-graph",
+   "solved_by": []
+  },
+  "170": {
+   "matched_id": 640,
+   "group": "solved",
+   "repo": "tirth8205/code-review-graph",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "171": {
+   "matched_id": 646,
+   "group": "solved",
+   "repo": "rairulyle/meralco-ph",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "172": {
+   "matched_id": 648,
+   "group": "solved",
+   "repo": "gptme/gptme",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "173": {
+   "matched_id": 650,
+   "group": "solved",
+   "repo": "gptme/gptme",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "174": {
+   "matched_id": 655,
+   "group": "unsolved",
+   "repo": "Emily2040/seedance-2.0",
+   "solved_by": []
+  },
+  "175": {
+   "matched_id": 659,
+   "group": "solved",
+   "repo": "yunzeforbetter/CastFlow",
+   "solved_by": [
+    "codegen"
+   ]
+  },
+  "176": {
+   "matched_id": 661,
+   "group": "solved",
+   "repo": "gptme/gptme",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen"
+   ]
+  },
+  "177": {
+   "matched_id": 662,
+   "group": "unsolved",
+   "repo": "gptme/gptme",
+   "solved_by": []
+  },
+  "178": {
+   "matched_id": 664,
+   "group": "unsolved",
+   "repo": "MarcusJellinghaus/mcp-tools-py",
+   "solved_by": []
+  },
+  "179": {
+   "matched_id": 669,
+   "group": "unsolved",
+   "repo": "MarcusJellinghaus/mcp-tools-py",
+   "solved_by": []
+  },
+  "180": {
+   "matched_id": 670,
+   "group": "unsolved",
+   "repo": "MarcusJellinghaus/mcp-tools-py",
+   "solved_by": []
+  },
+  "181": {
+   "matched_id": 672,
+   "group": "unsolved",
+   "repo": "MarcusJellinghaus/mcp-tools-py",
+   "solved_by": []
+  },
+  "182": {
+   "matched_id": 675,
+   "group": "solved",
+   "repo": "jacob-bd/gemini-notebook-mcp-cli",
+   "solved_by": [
+    "codet5p",
+    "gptoss20b"
+   ]
+  },
+  "183": {
+   "matched_id": 683,
+   "group": "unsolved",
+   "repo": "semantica-agi/semantica",
+   "solved_by": []
+  },
+  "184": {
+   "matched_id": 686,
+   "group": "solved",
+   "repo": "MDX-Tom/gpt-instruct",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "185": {
+   "matched_id": 700,
+   "group": "solved",
+   "repo": "droidrun/mobilerun",
+   "solved_by": [
+    "codet5p",
+    "gptoss20b"
+   ]
+  },
+  "186": {
+   "matched_id": 721,
+   "group": "unsolved",
+   "repo": "0x0funky/agent-sprite-forge",
+   "solved_by": []
+  },
+  "187": {
+   "matched_id": 724,
+   "group": "solved",
+   "repo": "0x0funky/agent-sprite-forge",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "188": {
+   "matched_id": 725,
+   "group": "unsolved",
+   "repo": "0x0funky/agent-sprite-forge",
+   "solved_by": []
+  },
+  "189": {
+   "matched_id": 726,
+   "group": "solved",
+   "repo": "0x0funky/agent-sprite-forge",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder"
+   ]
+  },
+  "190": {
+   "matched_id": 730,
+   "group": "unsolved",
+   "repo": "docling-project/docling",
+   "solved_by": []
+  },
+  "191": {
+   "matched_id": 733,
+   "group": "solved",
+   "repo": "54yyyu/zotero-mcp",
+   "solved_by": [
+    "qwen3coder"
+   ]
+  },
+  "192": {
+   "matched_id": 743,
+   "group": "unsolved",
+   "repo": "AgriciDaniel/claude-ads",
+   "solved_by": []
+  },
+  "193": {
+   "matched_id": 747,
+   "group": "solved",
+   "repo": "54yyyu/zotero-mcp",
+   "solved_by": [
+    "qwen3coder"
+   ]
+  },
+  "194": {
+   "matched_id": 748,
+   "group": "unsolved",
+   "repo": "mvanhorn/last30days-skill",
+   "solved_by": []
+  },
+  "195": {
+   "matched_id": 758,
+   "group": "unsolved",
+   "repo": "haris-musa/excel-mcp-server",
+   "solved_by": []
+  },
+  "196": {
+   "matched_id": 763,
+   "group": "unsolved",
+   "repo": "haris-musa/excel-mcp-server",
+   "solved_by": []
+  },
+  "197": {
+   "matched_id": 765,
+   "group": "unsolved",
+   "repo": "haris-musa/excel-mcp-server",
+   "solved_by": []
+  },
+  "198": {
+   "matched_id": 767,
+   "group": "unsolved",
+   "repo": "haris-musa/excel-mcp-server",
+   "solved_by": []
+  },
+  "199": {
+   "matched_id": 778,
+   "group": "unsolved",
+   "repo": "CodeGraphContext/CodeGraphContext",
+   "solved_by": []
+  },
+  "200": {
+   "matched_id": 780,
+   "group": "unsolved",
+   "repo": "zhongerxin/iPhone-use",
+   "solved_by": []
+  },
+  "201": {
+   "matched_id": 782,
+   "group": "unsolved",
+   "repo": "rohitg00/ai-engineering-from-scratch",
+   "solved_by": []
+  },
+  "202": {
+   "matched_id": 783,
+   "group": "solved",
+   "repo": "rohitg00/ai-engineering-from-scratch",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "203": {
+   "matched_id": 786,
+   "group": "solved",
+   "repo": "Jezza34000/py-petkit-api",
+   "solved_by": [
+    "codet5p",
+    "plbart"
+   ]
+  },
+  "204": {
+   "matched_id": 789,
+   "group": "solved",
+   "repo": "haris-musa/excel-mcp-server",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "205": {
+   "matched_id": 804,
+   "group": "unsolved",
+   "repo": "titanwings/distilly",
+   "solved_by": []
+  },
+  "206": {
+   "matched_id": 806,
+   "group": "unsolved",
+   "repo": "HKUDS/Vibe-Trading",
+   "solved_by": []
+  },
+  "207": {
+   "matched_id": 807,
+   "group": "solved",
+   "repo": "VectifyAI/PageIndex",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "208": {
+   "matched_id": 812,
+   "group": "solved",
+   "repo": "HKUDS/Vibe-Trading",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "209": {
+   "matched_id": 813,
+   "group": "solved",
+   "repo": "zhayujie/CowAgent",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "210": {
+   "matched_id": 815,
+   "group": "unsolved",
+   "repo": "zhayujie/CowAgent",
+   "solved_by": []
+  },
+  "211": {
+   "matched_id": 819,
+   "group": "unsolved",
+   "repo": "zhayujie/CowAgent",
+   "solved_by": []
+  },
+  "212": {
+   "matched_id": 822,
+   "group": "unsolved",
+   "repo": "zhayujie/CowAgent",
+   "solved_by": []
+  },
+  "213": {
+   "matched_id": 823,
+   "group": "solved",
+   "repo": "zhayujie/CowAgent",
+   "solved_by": [
+    "plbart"
+   ]
+  },
+  "214": {
+   "matched_id": 829,
+   "group": "unsolved",
+   "repo": "HKUDS/Vibe-Trading",
+   "solved_by": []
+  },
+  "215": {
+   "matched_id": 836,
+   "group": "solved",
+   "repo": "zhayujie/CowAgent",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "216": {
+   "matched_id": 837,
+   "group": "solved",
+   "repo": "HKUDS/DeepCode",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "217": {
+   "matched_id": 838,
+   "group": "unsolved",
+   "repo": "HKUDS/DeepCode",
+   "solved_by": []
+  },
+  "218": {
+   "matched_id": 839,
+   "group": "unsolved",
+   "repo": "HKUDS/DeepCode",
+   "solved_by": []
+  },
+  "219": {
+   "matched_id": 840,
+   "group": "unsolved",
+   "repo": "HKUDS/DeepCode",
+   "solved_by": []
+  },
+  "220": {
+   "matched_id": 847,
+   "group": "unsolved",
+   "repo": "zhouxiaoka/autoclip",
+   "solved_by": []
+  },
+  "221": {
+   "matched_id": 851,
+   "group": "solved",
+   "repo": "zhouxiaoka/autoclip",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "222": {
+   "matched_id": 852,
+   "group": "unsolved",
+   "repo": "tigerless-labs/autoharness",
+   "solved_by": []
+  },
+  "223": {
+   "matched_id": 861,
+   "group": "solved",
+   "repo": "zhongerxin/iPhone-use",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "224": {
+   "matched_id": 867,
+   "group": "solved",
+   "repo": "HKUDS/Vibe-Trading",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen"
+   ]
+  },
+  "225": {
+   "matched_id": 874,
+   "group": "solved",
+   "repo": "haris-musa/excel-mcp-server",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "226": {
+   "matched_id": 887,
+   "group": "unsolved",
+   "repo": "virattt/ai-hedge-fund",
+   "solved_by": []
+  },
+  "227": {
+   "matched_id": 892,
+   "group": "solved",
+   "repo": "haris-musa/excel-mcp-server",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "228": {
+   "matched_id": 898,
+   "group": "solved",
+   "repo": "haris-musa/excel-mcp-server",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "229": {
+   "matched_id": 900,
+   "group": "unsolved",
+   "repo": "VectifyAI/PageIndex",
+   "solved_by": []
+  },
+  "230": {
+   "matched_id": 917,
+   "group": "solved",
+   "repo": "earthtojake/text-to-cad",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "231": {
+   "matched_id": 938,
+   "group": "unsolved",
+   "repo": "earthtojake/text-to-cad",
+   "solved_by": []
+  },
+  "232": {
+   "matched_id": 939,
+   "group": "unsolved",
+   "repo": "earthtojake/text-to-cad",
+   "solved_by": []
+  },
+  "233": {
+   "matched_id": 941,
+   "group": "unsolved",
+   "repo": "Thysrael/Horizon",
+   "solved_by": []
+  },
+  "234": {
+   "matched_id": 942,
+   "group": "unsolved",
+   "repo": "NewFuture/DDNS",
+   "solved_by": []
+  },
+  "235": {
+   "matched_id": 948,
+   "group": "solved",
+   "repo": "HKUDS/nanobot",
+   "solved_by": [
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "236": {
+   "matched_id": 952,
+   "group": "unsolved",
+   "repo": "HKUDS/nanobot",
+   "solved_by": []
+  },
+  "237": {
+   "matched_id": 953,
+   "group": "solved",
+   "repo": "HKUDS/nanobot",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "238": {
+   "matched_id": 955,
+   "group": "unsolved",
+   "repo": "HKUDS/nanobot",
+   "solved_by": []
+  },
+  "239": {
+   "matched_id": 956,
+   "group": "solved",
+   "repo": "HKUDS/nanobot",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder"
+   ]
+  },
+  "240": {
+   "matched_id": 957,
+   "group": "solved",
+   "repo": "Thysrael/Horizon",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "241": {
+   "matched_id": 963,
+   "group": "unsolved",
+   "repo": "AgriciDaniel/claude-obsidian",
+   "solved_by": []
+  },
+  "242": {
+   "matched_id": 964,
+   "group": "unsolved",
+   "repo": "AgriciDaniel/claude-obsidian",
+   "solved_by": []
+  },
+  "243": {
+   "matched_id": 969,
+   "group": "solved",
+   "repo": "oomol-lab/pdf-craft",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "244": {
+   "matched_id": 970,
+   "group": "unsolved",
+   "repo": "oomol-lab/pdf-craft",
+   "solved_by": []
+  },
+  "245": {
+   "matched_id": 972,
+   "group": "unsolved",
+   "repo": "oomol-lab/pdf-craft",
+   "solved_by": []
+  },
+  "246": {
+   "matched_id": 976,
+   "group": "solved",
+   "repo": "oomol-lab/pdf-craft",
+   "solved_by": [
+    "codet5p",
+    "gptoss20b"
+   ]
+  },
+  "247": {
+   "matched_id": 982,
+   "group": "unsolved",
+   "repo": "Panniantong/Agent-Reach",
+   "solved_by": []
+  },
+  "248": {
+   "matched_id": 985,
+   "group": "solved",
+   "repo": "wanshuiyin/Auto-claude-code-research-in-sleep",
+   "solved_by": [
+    "codet5p",
+    "gptoss20b"
+   ]
+  },
+  "249": {
+   "matched_id": 990,
+   "group": "solved",
+   "repo": "AgriciDaniel/claude-seo",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "250": {
+   "matched_id": 991,
+   "group": "solved",
+   "repo": "AgriciDaniel/claude-seo",
+   "solved_by": [
+    "codet5p",
+    "gptoss20b"
+   ]
+  },
+  "251": {
+   "matched_id": 993,
+   "group": "solved",
+   "repo": "AgriciDaniel/claude-seo",
+   "solved_by": [
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "252": {
+   "matched_id": 995,
+   "group": "unsolved",
+   "repo": "mvanhorn/last30days-skill",
+   "solved_by": []
+  },
+  "253": {
+   "matched_id": 996,
+   "group": "unsolved",
+   "repo": "mvanhorn/last30days-skill",
+   "solved_by": []
+  },
+  "254": {
+   "matched_id": 997,
+   "group": "unsolved",
+   "repo": "mvanhorn/last30days-skill",
+   "solved_by": []
+  },
+  "255": {
+   "matched_id": 999,
+   "group": "solved",
+   "repo": "mvanhorn/last30days-skill",
+   "solved_by": [
+    "codet5p"
+   ]
+  },
+  "256": {
+   "matched_id": 1023,
+   "group": "solved",
+   "repo": "HKUDS/Vibe-Trading",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "257": {
+   "matched_id": 1030,
+   "group": "solved",
+   "repo": "wwiens/trakt_mcpserver",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "258": {
+   "matched_id": 1032,
+   "group": "unsolved",
+   "repo": "wwiens/trakt_mcpserver",
+   "solved_by": []
+  },
+  "259": {
+   "matched_id": 1035,
+   "group": "unsolved",
+   "repo": "wwiens/trakt_mcpserver",
+   "solved_by": []
+  },
+  "260": {
+   "matched_id": 1036,
+   "group": "solved",
+   "repo": "wwiens/trakt_mcpserver",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen"
+   ]
+  },
+  "261": {
+   "matched_id": 1037,
+   "group": "solved",
+   "repo": "wwiens/trakt_mcpserver",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "262": {
+   "matched_id": 1040,
+   "group": "unsolved",
+   "repo": "andrewyng/openworker",
+   "solved_by": []
+  },
+  "263": {
+   "matched_id": 1041,
+   "group": "unsolved",
+   "repo": "andrewyng/openworker",
+   "solved_by": []
+  },
+  "264": {
+   "matched_id": 1043,
+   "group": "solved",
+   "repo": "oomol-lab/pdf-craft",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "265": {
+   "matched_id": 1045,
+   "group": "unsolved",
+   "repo": "HKUDS/Vibe-Trading",
+   "solved_by": []
+  },
+  "266": {
+   "matched_id": 1055,
+   "group": "unsolved",
+   "repo": "SkyportalAi/skyportalai",
+   "solved_by": []
+  },
+  "267": {
+   "matched_id": 1057,
+   "group": "unsolved",
+   "repo": "SkyportalAi/skyportalai",
+   "solved_by": []
+  },
+  "268": {
+   "matched_id": 1059,
+   "group": "unsolved",
+   "repo": "max-sixty/jean-claude",
+   "solved_by": []
+  },
+  "269": {
+   "matched_id": 1061,
+   "group": "unsolved",
+   "repo": "Comui520/second-eye",
+   "solved_by": []
+  },
+  "270": {
+   "matched_id": 1063,
+   "group": "unsolved",
+   "repo": "Comui520/second-eye",
+   "solved_by": []
+  },
+  "271": {
+   "matched_id": 1065,
+   "group": "unsolved",
+   "repo": "shareAI-lab/learn-claude-code",
+   "solved_by": []
+  },
+  "272": {
+   "matched_id": 1068,
+   "group": "solved",
+   "repo": "LuigiElleBalotta/tapo-uploader",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "273": {
+   "matched_id": 1070,
+   "group": "solved",
+   "repo": "serpapi/serpapi-mcp",
+   "solved_by": [
+    "codet5p",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "274": {
+   "matched_id": 1071,
+   "group": "unsolved",
+   "repo": "zhayujie/CowAgent",
+   "solved_by": []
+  },
+  "275": {
+   "matched_id": 1073,
+   "group": "unsolved",
+   "repo": "droidrun/mobilerun",
+   "solved_by": []
+  },
+  "276": {
+   "matched_id": 1078,
+   "group": "unsolved",
+   "repo": "oomol-lab/pdf-craft",
+   "solved_by": []
+  },
+  "277": {
+   "matched_id": 1079,
+   "group": "solved",
+   "repo": "oomol-lab/pdf-craft",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "278": {
+   "matched_id": 1082,
+   "group": "unsolved",
+   "repo": "eugeniughelbur/obsidian-second-brain",
+   "solved_by": []
+  },
+  "279": {
+   "matched_id": 1085,
+   "group": "unsolved",
+   "repo": "HKUDS/Vibe-Trading",
+   "solved_by": []
+  },
+  "280": {
+   "matched_id": 1091,
+   "group": "unsolved",
+   "repo": "Andyyyy64/whichllm",
+   "solved_by": []
+  },
+  "281": {
+   "matched_id": 1092,
+   "group": "solved",
+   "repo": "Andyyyy64/whichllm",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "282": {
+   "matched_id": 1101,
+   "group": "unsolved",
+   "repo": "SkyportalAi/skyportalai",
+   "solved_by": []
+  },
+  "283": {
+   "matched_id": 1104,
+   "group": "solved",
+   "repo": "eugeniughelbur/obsidian-second-brain",
+   "solved_by": [
+    "codet5p",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "284": {
+   "matched_id": 1105,
+   "group": "solved",
+   "repo": "wkentaro/gdown",
+   "solved_by": [
+    "gptoss20b"
+   ]
+  },
+  "285": {
+   "matched_id": 1106,
+   "group": "solved",
+   "repo": "wkentaro/gdown",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "gptoss20b"
+   ]
+  },
+  "286": {
+   "matched_id": 1107,
+   "group": "solved",
+   "repo": "hugohe3/ppt-master",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "287": {
+   "matched_id": 1117,
+   "group": "solved",
+   "repo": "KevinMusgrave/pytorch-metric-learning",
+   "solved_by": [
+    "codet5p",
+    "codegen"
+   ]
+  },
+  "288": {
+   "matched_id": 1118,
+   "group": "solved",
+   "repo": "KevinMusgrave/pytorch-metric-learning",
+   "solved_by": [
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  },
+  "289": {
+   "matched_id": 1119,
+   "group": "solved",
+   "repo": "KevinMusgrave/pytorch-metric-learning",
+   "solved_by": [
+    "codet5p",
+    "gptoss20b"
+   ]
+  },
+  "290": {
+   "matched_id": 1120,
+   "group": "unsolved",
+   "repo": "KevinMusgrave/pytorch-metric-learning",
+   "solved_by": []
+  },
+  "291": {
+   "matched_id": 1124,
+   "group": "unsolved",
+   "repo": "Lethe044/hermes-life-os",
+   "solved_by": []
+  },
+  "292": {
+   "matched_id": 1127,
+   "group": "unsolved",
+   "repo": "tigusigalpa/ai-kit",
+   "solved_by": []
+  },
+  "293": {
+   "matched_id": 1131,
+   "group": "unsolved",
+   "repo": "KevinMusgrave/pytorch-metric-learning",
+   "solved_by": []
+  },
+  "294": {
+   "matched_id": 1132,
+   "group": "unsolved",
+   "repo": "KevinMusgrave/pytorch-metric-learning",
+   "solved_by": []
+  },
+  "295": {
+   "matched_id": 1134,
+   "group": "unsolved",
+   "repo": "tigusigalpa/ai-kit",
+   "solved_by": []
+  },
+  "296": {
+   "matched_id": 1135,
+   "group": "solved",
+   "repo": "tigusigalpa/ai-kit",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen"
+   ]
+  },
+  "297": {
+   "matched_id": 1142,
+   "group": "solved",
+   "repo": "rddmwmddr/android-ad-cleaner",
+   "solved_by": [
+    "codegen"
+   ]
+  },
+  "298": {
+   "matched_id": 1153,
+   "group": "unsolved",
+   "repo": "agentchatme/agentchat-hermes",
+   "solved_by": []
+  },
+  "299": {
+   "matched_id": 1154,
+   "group": "solved",
+   "repo": "agentchatme/agentchat-hermes",
+   "solved_by": [
+    "codet5p",
+    "plbart",
+    "codegen",
+    "qwen3coder",
+    "gptoss20b"
+   ]
+  }
+ }
+}

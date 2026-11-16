@@ -86,3 +86,58 @@ Yes, at the end of the beam. Passing candidates per rank are flat at about 600-8
 
 ### Idea (user, 2026-11-09, not started): CodeT5+ on THEIR data (TaRBench) cut down and split like ours
 Goal: separate the effect of the data/split from language and model. Needs the TaRGet-repo setup (Python 3.8 venv, torch 1.12.1 -> A100 only, batch 8 / input 1024 as agreed; PR additionally JDK 8/11/17 + Maven 3.6.3 in user space and clones of the Java projects). Open decisions: (1) how to cut TaRBench to our size (14,090 cases): random sample of cases, whole projects, or the newest commits; (2) our global chronological split by commit (train oldest 80%, validation oldest 25% of the rest) applied to that subset, optionally next to their per-project split; (3) which metrics: EM / BLEU / CodeBLEU of their `eval.py` (cheap) first, PR on a fixed random sample of the test cases afterwards (Maven runs are slow). TaRBench and their published predictions/verdicts are in `~/references/`.
+
+
+## Corrected plausibility, modern models and the contrast subset (2026-11-10 .. 2026-11-16; code commit dff6219 and later)
+Docs and data for this section: `docs/thesis_references.md` (paper comparison and the related-work research of 2026-11-16),
+`docs/openrouter_free_models_contrast_eval.md`, `docs/results/` (summaries of every `plausibility_v3.json`, the contrast-subset metadata and
+results), `docs/dataset_filter_reports/`, scripts in `scripts/thesis_analysis/`.
+
+### What changed in the scoring (`data_processing/plausibility_test.py`)
+- `patch_source`: a whole-method repair whose first line is stripped of its indentation (dataset format) no longer gets its body indented one level too
+  deep (collection error for every class method). Margin on all lines first; only when the result is not valid Python, on the first line alone.
+  Reference-as-prediction check (before the fix, 1058 cases from 243 repositories): 915 of 918 evaluated cases pass; the 3 errors were this bug.
+- `--span-control`: every case is also run with the repaired span replaced by `pass`. "pass" = the test does not need the span (not discriminating, about
+  35-40% of evaluated cases); a span inside a statement cannot be removed on its own and is recorded as `unparseable` (unknown).
+- Checked score (`plausible@1_checked`, `plausible@k_checked`): a pass counts when the test needs the span, or the candidate still contains an
+  assertion whenever the reference does. It does not detect a weakened assertion (`assert parsed` for a specific equality).
+- `--run-reference` (audit option), verdict stability v2 vs v3 of the LLM runs: 3 distinct flaky tests (ppt-master rate-limit backoff, a round-robin
+  task assignment test), about 0.1% of verdicts. Blind audits (6 sampled cases per hour, own expectation first): all sampled verdicts reproduced.
+
+### Fine-tuned models, per-project split, corrected scoring (top 5 of 20 beams; `~/eval_results_perproject/<model>/0.8/plausibility_v3.json`)
+| model | cases | evaluated | plain @1 / @5 | checked @1 / @5 |
+|---|---|---|---|---|
+| CodeT5+ | 1293 | 1100 | 15.45 / 26.55 | 15.36 / 26.36 |
+| PLBART | 1342 | 1145 | 3.06 / 7.60 | 3.06 / 7.42 |
+| CodeGen | 1585 | 1324 | 7.85 / 17.52 | 7.70 / 16.99 |
+
+### Zero-shot LLMs (vLLM, prompt v1, 5 samples at temperature 0.7; Qwen3-Coder-30B-A3B-Instruct, gpt-oss-20b with low reasoning effort)
+Matched set (1155 cases that all three fine-tuned models encode, 1024-token CodeT5+ context) and full per-project test set (1768 cases, up to 24k-token prompts):
+| set | model | evaluated | plain @1 / @5 | checked @1 / @5 |
+|---|---|---|---|---|
+| matched | Qwen3-Coder | 981 | 17.02 / 19.27 | 16.62 / 18.86 |
+| matched | gpt-oss-20b | 981 | 17.43 / 29.87 | 15.70 / 27.12 |
+| full | Qwen3-Coder | 1464 | 20.01 / 22.95 | 18.37 / 20.90 |
+| full | gpt-oss-20b | 1464 | 18.72 / 32.38 | 16.60 / 28.35 |
+Five models on the 975 matched cases evaluated for all (plain @1 / @5 | checked @1 / @5): CodeT5+ 16.41 / 28.00 | 16.31 / 27.79; PLBART 3.18 / 7.90 | 3.18 / 7.79;
+CodeGen 8.31 / 17.85 | 8.10 / 17.44; Qwen3-Coder 17.13 / 19.38 | 16.72 / 18.97; gpt-oss-20b 17.54 / 30.05 | 15.79 / 27.28.
+Qwen's five samples are nearly identical (rank 5 barely above rank 1). gpt-oss needs `--reasoning-effort low` and answer parsing after `assistantfinal`.
+
+### Contrast subset (300 cases: 150 solved by at least one of the five models above in its top 5 by the checked rule, 150 solved by none)
+Weighted overall estimate = (438 x solved-group rate + 537 x unsolved-group rate) / 975 (population sizes of the 975 cases scored for all five). Rank 1, one candidate:
+| model | solved group | unsolved group | weighted | empty answers left |
+|---|---|---|---|---|
+| nemotron-3-ultra (free) | 95/150 | 13/150 | 33.2% | 3 |
+| particle-1 (free) | 91/150 | 15/150 | 32.8% | 2 |
+| ernie-5.5-flash (free) | 77/150 | 11/150 | 27.1% | 45 |
+| Qwen3-Coder | 59/150 | 0 | 17.7% | |
+| gpt-oss-20b | 58/150 | 0 | 17.4% | |
+| CodeT5+ | 57/150 | 0 | 17.1% | |
+| CodeGen | 31/150 | 0 | 9.3% | |
+| PLBART | 15/150 | 0 | 4.5% | |
+Error of the weighted estimate about +-2 points. No credit was used (only `:free` models; the runner refuses other slugs). Contamination of recent models is possible.
+First-pass numbers before the empty-answer retry (16384 tokens): ernie 24.7%, particle-1 32.5%, nemotron 31.3%.
+
+### Open items
+OpenRouter models with 5 candidates (rank-5 comparison) and a paid model (credit and approval first); fine-tuned models were not re-scored on the contrast subset
+(they define the groups); results of the old global split in `~/eval_results` were not re-scored; read the originals of the related-work papers (see docs/thesis_references.md).
