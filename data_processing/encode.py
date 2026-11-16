@@ -5,15 +5,19 @@ import sys
 import pandas as pd
 
 from data_processing.prioritizer import HunkPrioritizer
+from data_processing.train_fraction import select_recent_per_project
 
 
 class Encoder:
     split_mode = "global"        # class defaults, so an Encoder built without __init__ (tests) splits as before
     valid_share = 0.05
+    train_fraction = 1.0
 
     def __init__(self, annotated_cases_path, out_path, train_size, tokenizer, dataset_class, model, is_llm, Tokens,
-                 split_mode="global", valid_share=0.05):
+                 split_mode="global", valid_share=0.05, train_fraction=1.0):
         self.split_mode = split_mode        # "global" (default) or "per_project" (the TaRGet paper's split)
+        self.train_fraction = train_fraction  # per_project only: keep this share of the TRAINING set (newest commits of every
+                                              # project, see train_fraction.py); validation and test stay exactly the same
         self.valid_share = valid_share      # per_project only: share of every project's cases that validates
         self.annotated_cases_path = annotated_cases_path
         self.out_path = out_path
@@ -90,11 +94,16 @@ class Encoder:
                 else:
                     label = "test"
                 part[group.index[group["broken_hash"] == commit]] = label
-        return tuple(ds[part == label].reset_index(drop=True) for label in ("train", "valid", "test"))
+        train, valid, test = (ds[part == label].reset_index(drop=True) for label in ("train", "valid", "test"))
+        if self.train_fraction != 1.0:       # RQ3.1 of the paper: fewer training cases, the same validation and test sets
+            train = train.iloc[select_recent_per_project(train, self.train_fraction)].reset_index(drop=True)
+        return train, valid, test
 
     def split(self, ds):
         if self.split_mode == "per_project":
             return self.split_per_project(ds)
+        if self.train_fraction != 1.0:
+            raise ValueError("train_fraction is defined for the per_project split only (the paper cuts every project in time)")
         ds = self.order_by_commit_time(ds)
 
         # Compute absolute number of training samples based on fraction

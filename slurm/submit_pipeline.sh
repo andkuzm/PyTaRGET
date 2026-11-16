@@ -32,15 +32,15 @@ submit() {   # submit <dependency job id or ""> <sbatch args...>; prints the job
 for model in "${MODELS[@]}"; do
     previous=""
     if [ "$FROM" = encode ]; then
-        previous=$(submit "" -J "encode-$model" --export=ALL,MODEL="$model" slurm/encode.sbatch)
+        previous=$(submit "" -J "encode-$model${JOB_SUFFIX:-}" --export=ALL,MODEL="$model" slurm/encode.sbatch)
         echo "$model: encode job $previous"
     fi
     if [ "$FROM" = encode ] || [ "$FROM" = train ]; then
         dep="$previous"; [ "$previous" = DRY ] && dep=""
-        previous=$(submit "$dep" -J "train-$model" --gres="gpu:$GPU:1" --export=ALL,MODEL="$model" slurm/train.sbatch)
+        previous=$(submit "$dep" -J "train-$model${JOB_SUFFIX:-}" --gres="gpu:$GPU:1" --export=ALL,MODEL="$model" slurm/train.sbatch)
         echo "$model: train job $previous"
     fi
     dep="$previous"; [ "$previous" = DRY ] && dep=""
-    previous=$(submit "$dep" -J "test-$model" --gres="gpu:$GPU:1" --export=ALL,MODEL="$model" slurm/test.sbatch)
+    previous=$(submit "$dep" -J "test-$model${JOB_SUFFIX:-}" --gres="gpu:$GPU:1" --export=ALL,MODEL="$model" slurm/test.sbatch)
     echo "$model: test job $previous"
 done
