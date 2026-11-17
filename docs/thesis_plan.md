@@ -28,7 +28,7 @@ institute's guidelines); the guidelines PDF could not be fetched automatically -
 ## 3. Work packages and order
 Gate after WP1+WP2: "unless something changes drastically" continue to WP3-WP5; if the free/local models fall far behind on Java, revisit the claim before building tools.
 
-### WP1 Fine-tuning data size on Python (the paper's RQ3.1, section 4.7) [~] (trainings + tests DONE; CodeT5+ plausibility DONE; CodeGen 72% scored, PLBART not scored; see the status section at the end)
+### WP1 Fine-tuning data size on Python (the paper's RQ3.1, section 4.7) [x] DONE 2026-11-17 (all trainings, tests and plausibility; see the final status at the end)
 - Paper: subsets of 20%, 40%, 60%, 80% of the TRAINING set, made by excluding the OLDEST data per project by commit date; same test set. 100% = the full training set. Our existing per-project models ARE the 100% point (not "80"), so 4 new points per model. Paper finding to compare with: EM +7.4 pp and PR +2.7 pp from 20% to 100%.
 - Needed code: an Encoder option (e.g. `train_fraction`) that keeps the validation and test sets of the 0.8 per-project split FIXED and drops the oldest training commits per project until about the fraction of that project's training cases remains (cut at commit boundaries; log the real shares). NOT `train_size` (it would move the test boundary). Prefer deriving the subsets from the already encoded 100% train set (no re-tokenisation); out dirs like ~/eval_results_perproject_trainfrac/<fraction>/<model>/.
 - Runs: 3 models x 4 fractions: train (earlier full runs took 1.2 h CodeT5+, 0.2 h PLBART, 1.3 h CodeGen on an H200; smaller subsets are faster) and test (20 min to 1 h). Submit via slurm/submit_pipeline.sh adapted (ask the user first).
@@ -83,3 +83,11 @@ Gate after WP1+WP2: "unless something changes drastically" continue to WP3-WP5; 
   * PLBART pass (about 80 of 1342 cases per set done): same command with --models plbart_f20 plbart_f40 plbart_f60 plbart_f80.
   * `python -I scripts/thesis_analysis/trainfrac_status.py --link` shows the state and builds the layout ~/eval_trainfrac_plaus; then rerun scripts/thesis_analysis/build_trainfrac_curve.py.
 - Other open items: the code of WP1 and the scripts are committed locally only (not pushed); the free OpenRouter results are in docs/ already (pushed). Next work packages: WP2 (Java contrast subset), see above.
+
+## WP1 FINAL status (2026-11-17 22:30): everything scored
+Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test cases; full table with BLEU, CodeBLEU and checked scores: docs/results/trainfrac_curve.json):
+- CodeT5+ 28% / 40% / 60% / 80% / 100%: EM 9.67 / 15.24 / 14.46 / 18.02 / 18.87; plausible @1 6.88 / 12.59 / 13.68 / 16.12 / 15.45; @5 11.23 / 18.57 / 20.74 / 26.27 / 26.55.
+- PLBART: EM 5.07 / 6.71 / 8.72 / 7.75 / 7.82; plausible @1 1.48 / 2.96 / 3.13 / 1.65 / 3.06; @5 7.22 / 7.22 / 8.36 / 8.01 / 7.60 (flat from the smallest size on).
+- CodeGen: EM 8.77 / 11.29 / 11.17 / 11.80 / 12.81; plausible @1 2.26 / 5.74 / 7.92 / 7.40 / 7.85; @5 15.62 / 15.77 / 16.75 / 16.68 / 17.52 (only the ranking improves).
+- Reading: more data helps CodeT5+ clearly up to about 80% of our training set, then flat; CodeGen mostly gets better candidate ORDER; PLBART gains nothing. Single runs, noise about +-1 point. The paper found PR hardly depended on data size (+2.7 pp) while ours grows for CodeT5+ (+15 pp @5): we start from a much smaller training set.
+- Nothing is left in WP1 except pushing the code and docs (committed locally only). Next: WP2 (Java contrast subset), after the two decisions listed in section 4.

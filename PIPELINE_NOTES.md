@@ -149,6 +149,6 @@ Subsets keep the newest commits of every project; total shares 27-28% (floor, ev
 | model | 28% | 40% | 60% | 80% | 100% | (exact match; test cases 1293 / 1342 / 1585) |
 |---|---|---|---|---|---|---|
 | CodeT5+ | 9.67 | 15.24 | 14.46 | 18.02 | 18.87 | plausible @1/@5 plain: 6.88/11.23, 12.59/18.57, 13.68/20.74, 16.12/26.27, 15.45/26.55 |
-| PLBART | 5.07 | 6.71 | 8.72 | 7.75 | 7.82 | plausibility not scored yet (only the 100% point) |
-| CodeGen | 8.77 | 11.29 | 11.17 | 11.80 | 12.81 | plausibility 72% scored |
+| PLBART | 5.07 | 6.71 | 8.72 | 7.75 | 7.82 | plausible @1/@5 plain: 1.48/7.22, 2.96/7.22, 3.13/8.36, 1.65/8.01, 3.06/7.60 |
+| CodeGen | 8.77 | 11.29 | 11.17 | 11.80 | 12.81 | plausible @1/@5 plain: 2.26/15.62, 5.74/15.77, 7.92/16.75, 7.40/16.68, 7.85/17.52 |
 Hyper-parameters (CodeT5+, full set): the paper's lr 1e-5 / 4 epochs / early stop 1 with batch 1 gives EM 17.79 (baseline 18.87), with batch 8 it collapses (EM 4.33); the epoch-5 checkpoint equals the epoch-2 one (EM 18.95). The baseline (lr 5e-5, batch 8, early stop 3) is kept.
