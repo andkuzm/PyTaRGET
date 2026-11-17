@@ -141,3 +141,14 @@ First-pass numbers before the empty-answer retry (16384 tokens): ernie 24.7%, pa
 ### Open items
 OpenRouter models with 5 candidates (rank-5 comparison) and a paid model (credit and approval first); fine-tuned models were not re-scored on the contrast subset
 (they define the groups); results of the old global split in `~/eval_results` were not re-scored; read the originals of the related-work papers (see docs/thesis_references.md).
+
+
+## Training-size experiment (paper RQ3.1) and hyper-parameter check (2026-11-16/17)
+Details, decisions and the commands to finish the scoring: docs/thesis_plan.md ("Status update 2026-11-17"), curve data: docs/results/trainfrac_curve.json.
+Subsets keep the newest commits of every project; total shares 27-28% (floor, every project keeps one commit), 40%, 60%, 80% of the training set; validation and test identical to the full per-project run.
+| model | 28% | 40% | 60% | 80% | 100% | (exact match; test cases 1293 / 1342 / 1585) |
+|---|---|---|---|---|---|---|
+| CodeT5+ | 9.67 | 15.24 | 14.46 | 18.02 | 18.87 | plausible @1/@5 plain: 6.88/11.23, 12.59/18.57, 13.68/20.74, 16.12/26.27, 15.45/26.55 |
+| PLBART | 5.07 | 6.71 | 8.72 | 7.75 | 7.82 | plausibility not scored yet (only the 100% point) |
+| CodeGen | 8.77 | 11.29 | 11.17 | 11.80 | 12.81 | plausibility 72% scored |
+Hyper-parameters (CodeT5+, full set): the paper's lr 1e-5 / 4 epochs / early stop 1 with batch 1 gives EM 17.79 (baseline 18.87), with batch 8 it collapses (EM 4.33); the epoch-5 checkpoint equals the epoch-2 one (EM 18.95). The baseline (lr 5e-5, batch 8, early stop 3) is kept.
