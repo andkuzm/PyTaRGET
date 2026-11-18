@@ -89,13 +89,21 @@ def main():
     ap.add_argument("--prompt-version", type=int, choices=[1, 2], default=1,
                     help="1 = the instruction of llm_test.py, 2 = full broken part, any number of lines")
     ap.add_argument("--reindent", action="store_true", help="restore the indentation of the first broken line")
+    ap.add_argument("--context-variant", choices=["B", "C", "BC"], default=None,
+                    help="context ablation (context_ablation.py): B = failure output, C = definitions of the changed symbols, BC = both")
+    ap.add_argument("--context-file", default=None, help="context.json built by `context_ablation build` (required with --context-variant)")
     args = ap.parse_args()
+    if bool(args.context_variant) != bool(args.context_file):
+        raise SystemExit("--context-variant and --context-file go together")
 
     from vllm import LLM, SamplingParams
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
     tester = (TesterV2 if args.prompt_version == 2 else Tester_llm)("vllm", args.model, args.split_dir, None, tokenizer, ("ref" if args.java else 0.8), is_java=False)
     tester.max_prompt_tokens = args.max_prompt_tokens
+    if args.context_variant:
+        from data_processing import context_ablation
+        context_ablation.attach(tester, args.context_variant, json.load(open(args.context_file)))
 
     out_file = Path(args.out_dir) / "test_predictions.json"
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -133,7 +141,8 @@ def main():
 
     json.dump({"model": args.model, "n": args.n, "temperature": args.temperature,
                "max_prompt_tokens": args.max_prompt_tokens, "reasoning_effort": args.reasoning_effort,
-               "reindent": args.reindent, "prompt_version": args.prompt_version}, open(Path(args.out_dir) / "run_settings.json", "w"))
+               "reindent": args.reindent, "prompt_version": args.prompt_version,
+               "context_variant": args.context_variant}, open(Path(args.out_dir) / "run_settings.json", "w"))
     if args.java:
         print(f"{len(predictions)} cases saved; scoring of Java predictions is done separately (Java toolchain / jCodeBLEU)")
         return

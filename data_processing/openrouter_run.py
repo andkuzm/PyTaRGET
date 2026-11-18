@@ -92,7 +92,12 @@ def main():
     ap.add_argument("--allow-paid", action="store_true",
                     help="allow a model whose slug does not end in ':free' (it spends credit); refused by default")
     ap.add_argument("--tokenizer", default="Qwen/Qwen3-8B", help="only to size the prompt (hunks are dropped to fit)")
+    ap.add_argument("--context-variant", choices=["B", "C", "BC"], default=None,
+                    help="context ablation (context_ablation.py): B = failure output, C = definitions of the changed symbols, BC = both")
+    ap.add_argument("--context-file", default=None, help="context.json built by `context_ablation build` (required with --context-variant)")
     args = ap.parse_args()
+    if bool(args.context_variant) != bool(args.context_file):
+        raise SystemExit("--context-variant and --context-file go together")
     if not args.model.endswith(":free") and not args.allow_paid:
         raise SystemExit(f"{args.model} is not a ':free' model and would spend credit; pass --allow-paid to allow it")
 
@@ -101,6 +106,9 @@ def main():
     tester = Tester_llm.__new__(Tester_llm)           # prompt building only; no model, no 1.4 GB json in memory
     tester.model_name, tester.tokenizer, tester.train_fraction = "openrouter", tokenizer, ("ref" if args.java else 0.8)
     tester.max_prompt_tokens, tester.is_java = args.max_prompt_tokens, False
+    if args.context_variant:
+        from data_processing import context_ablation
+        context_ablation.attach(tester, args.context_variant, json.load(open(args.context_file)))
 
     out_dir = Path(args.out_dir)
     out_file = out_dir / "test_predictions.json"
@@ -206,7 +214,8 @@ def main():
     json.dump({"model": args.model, "n": args.n, "temperature": args.temperature, "prompt_version": 1,
                "retry_empty": args.retry_empty,
                "max_prompt_tokens": args.max_prompt_tokens, "reasoning_effort": args.reasoning_effort,
-               "max_new_tokens": args.max_new_tokens, "sample": args.sample, "seed": args.seed},
+               "max_new_tokens": args.max_new_tokens, "sample": args.sample, "seed": args.seed,
+               "context_variant": args.context_variant},
               open(out_dir / ("retry_settings.json" if args.retry_empty else "run_settings.json"), "w"))
 
 

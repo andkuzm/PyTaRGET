@@ -51,7 +51,7 @@ Gate after WP1+WP2: "unless something changes drastically" continue to WP3-WP5; 
 - Design questions: how Claude Code is told to use it (CLAUDE.md instruction, a skill, a subagent), cost logging per call, where the model runs (the HPC cluster is not reachable from a laptop session; the free API route is), safety (never run untrusted repository code outside a sandbox), failure handling.
 - Evaluation: (a) offline cascade simulation on our datasets (cheap model first, escalate on failure: quality and cost against a single strong model); (b) a small live study with real Claude Code sessions if feasible (tokens/dollars of the main model with and without delegation). Cascade theory: the quality estimator is the hard part; here execution provides it.
 
-### WP5 Better context for the lesser model (RAG / auxiliary systems) [ ]
+### WP5 Better context for the lesser model (RAG / auxiliary systems) [~] first ablation (B failure output, C symbol definitions, BC) implemented 2026-11-18, not yet run: see docs/ablation_plan.md
 - Current prompt: broken test, broken lines, up to 4 hunks (1024-token window for the fine-tuned models, up to 24k for LLMs). Candidates: retrieval of similar tests and of the definitions of changed symbols (tree-sitter, code search), repository documentation, recent history of the test file, execution feedback (the failing output) in a second attempt.
 - Evaluate by ablation on the Python contrast subset: each source of context alone and combined, with the cost of the extra tokens; measure the gain per extra token.
 
@@ -91,3 +91,8 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 - CodeGen: EM 8.77 / 11.29 / 11.17 / 11.80 / 12.81; plausible @1 2.26 / 5.74 / 7.92 / 7.40 / 7.85; @5 15.62 / 15.77 / 16.75 / 16.68 / 17.52 (only the ranking improves).
 - Reading: more data helps CodeT5+ clearly up to about 80% of our training set, then flat; CodeGen mostly gets better candidate ORDER; PLBART gains nothing. Single runs, noise about +-1 point. The paper found PR hardly depended on data size (+2.7 pp) while ours grows for CodeT5+ (+15 pp @5): we start from a much smaller training set.
 - Nothing is left in WP1 except pushing the code and docs (committed locally only). Next: WP2 (Java contrast subset), after the two decisions listed in section 4.
+
+
+## Status update 2026-11-18: WP2 done, WP5 started
+- WP2 (Java contrast subset, 273 cases without LGPL; 257 with a passing reference): own Java plausibility runner (`data_processing/java_plausibility.py`, validated 66/66 against the authors' published verdicts), results in docs/results/java_contrast273_results.txt and java_contrast273_bleu_codebleu.txt (EM, BLEU, CodeBLEU, plausible@1 per group, weighted). Free models (particle-1 65%, nemotron 62%, ernie 57% weighted plausible@1) beat CodeT5+ published 50.3%; local Qwen3-Coder 40%, gpt-oss-20b 38%. About 75-80% of successes equal the reference (contamination/easy). Caveats in the result files.
+- WP3 and WP4 are on hold (user decision 2026-11-18); WP5 first step = docs/ablation_plan.md.
