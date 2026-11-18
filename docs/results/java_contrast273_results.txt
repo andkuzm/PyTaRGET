@@ -22,4 +22,4 @@ nemotron-3-ultra   solved 108/128  84.4%  unsolved 44/129  34.1%  weighted  59.5
 CodeT5+ published @1 over TaRBench: 50.29% (solved group 100% / unsolved 0% by construction)
 
 Successes identical to the reference apart from whitespace (of all successes): qwen3coder 80/103, gpt-oss 76/97, ernie 117/144, particle 126/167, nemotron 128/158.
-Caveats: contamination (public repos, recent models), groups are defined by CodeT5+ so rates are not representative without weighting, empty answers count as failures (ernie 15, particle 2, nemotron 4), 24 of 281 cases... environment: 19/300 reference_fails excluded (old dependencies).
+Caveats: contamination (public repos, recent models), groups are defined by CodeT5+ so rates are not representative without weighting, empty answers count as failures (ernie 15, particle 2, nemotron 4). Environment: 19/300 reference_fails excluded (old dependencies).

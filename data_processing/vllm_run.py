@@ -79,6 +79,8 @@ def main():
     ap.add_argument("--max-prompt-tokens", type=int, default=4096)
     ap.add_argument("--max-new-tokens", type=int, default=512)
     ap.add_argument("--limit", type=int, default=None, help="only the first N cases (smoke test)")
+    ap.add_argument("--java", action="store_true",
+                    help="Java cases (TaRBench rows): the Java prompt of llm_test.py; the Python CodeBLEU is not computed at the end")
     ap.add_argument("--chunk", type=int, default=64, help="cases per saved chunk")
     ap.add_argument("--tp", type=int, default=1, help="tensor parallel size (GPUs)")
     ap.add_argument("--gpu-mem", type=float, default=0.90)
@@ -92,7 +94,7 @@ def main():
     from vllm import LLM, SamplingParams
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
-    tester = (TesterV2 if args.prompt_version == 2 else Tester_llm)("vllm", args.model, args.split_dir, None, tokenizer, 0.8, is_java=False)
+    tester = (TesterV2 if args.prompt_version == 2 else Tester_llm)("vllm", args.model, args.split_dir, None, tokenizer, ("ref" if args.java else 0.8), is_java=False)
     tester.max_prompt_tokens = args.max_prompt_tokens
 
     out_file = Path(args.out_dir) / "test_predictions.json"
@@ -123,7 +125,7 @@ def main():
         for (i, row), out in zip(chunk, outputs):
             # gpt-oss writes its reasoning first ('analysis...assistantfinal<answer>' once special tokens are stripped)
             preds = [tester.postprocess_prediction(final_answer(c.text)) for c in out.outputs]
-            if args.reindent:
+            if args.reindent and not args.java:
                 preds = [reindent(x, row["input"]) for x in preds]
             predictions.append({"ID": i, "target": row["output"], "preds": preds})
         prediction_files.save(predictions, out_file)
@@ -132,6 +134,9 @@ def main():
     json.dump({"model": args.model, "n": args.n, "temperature": args.temperature,
                "max_prompt_tokens": args.max_prompt_tokens, "reasoning_effort": args.reasoning_effort,
                "reindent": args.reindent, "prompt_version": args.prompt_version}, open(Path(args.out_dir) / "run_settings.json", "w"))
+    if args.java:
+        print(f"{len(predictions)} cases saved; scoring of Java predictions is done separately (Java toolchain / jCodeBLEU)")
+        return
     bleu, codebleu, em, norm_em = tester.compute_scores(predictions)
     print(f"BLEU={bleu} CodeBLEU={codebleu} EM={em} EM_norm={norm_em} over {len(predictions)}/{len(tester.dataset)}")
 

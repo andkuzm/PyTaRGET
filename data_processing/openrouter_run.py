@@ -76,6 +76,7 @@ def main():
     ap.add_argument("--n", type=int, default=1, help="candidates per case (one request each)")
     ap.add_argument("--temperature", type=float, default=0.7)
     ap.add_argument("--limit", type=int, default=None, help="only the first N cases")
+    ap.add_argument("--java", action="store_true", help="Java cases (TaRBench rows): the Java prompt of llm_test.py")
     ap.add_argument("--sample", type=int, default=None, help="a random sample of N cases (fixed by --seed)")
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--max-prompt-tokens", type=int, default=4096)
@@ -98,7 +99,7 @@ def main():
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     tester = Tester_llm.__new__(Tester_llm)           # prompt building only; no model, no 1.4 GB json in memory
-    tester.model_name, tester.tokenizer, tester.train_fraction = "openrouter", tokenizer, 0.8
+    tester.model_name, tester.tokenizer, tester.train_fraction = "openrouter", tokenizer, ("ref" if args.java else 0.8)
     tester.max_prompt_tokens, tester.is_java = args.max_prompt_tokens, False
 
     out_dir = Path(args.out_dir)
