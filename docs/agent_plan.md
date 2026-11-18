@@ -21,6 +21,7 @@ and pin the version in the environment.**
 - The vLLM + Slurm conventions of slurm/run_ablation_qwen.sbatch (one job: server and loop on the same node).
 
 ## Still to build (in this order, after the ablation runs finish)
+0. Prepare the workspaces and project environments in a step WITH internet (login or prep job), then run the agent job offline (see the risks section).
 1. Environment: a separate venv (`~/venv_agent`) with the pinned mini-swe-agent; no other packages needed on the compute node.
 2. vLLM server for Qwen3-Coder-30B-A3B in the job with the OpenAI-compatible API (tool-call parser flags only if the agent version uses function calling;
    the bash-only v1 agent parses a code block from the reply). Config of the agent: model name with the `hosted_vllm/` prefix, `api_base`
@@ -36,8 +37,12 @@ and pin the version in the environment.**
    trajectories flagged by the audit (flagged cases are excluded or reported separately).
 
 ## Risks and open points
-- Leakage through the network: compute nodes can reach github.com; the instruction forbids it and `audit_trajectory` flags it afterwards, but nothing blocks it.
-  A stricter option is a proxy variable pointing to a dead port or a network namespace if available (to test).
+- Leakage through the network: the agent job does not need the internet, so it runs OFFLINE. Tested on 2026-11-18 on a compute node (artemis18): inside
+  `unshare -rn` (unprivileged private network namespace; `user.max_user_namespaces` is large) github.com is unreachable and loopback works after
+  `ip link set lo up`. Plan: start BOTH the vLLM server and the agent inside one `unshare -rn bash -c '...'` in the Slurm job (model weights from the local cache with
+  HF_HUB_OFFLINE=1; workspaces and project environments prepared beforehand, which are the only steps that need the network). Then `git fetch`, `curl` and
+  `pip install` fail by themselves and `audit_trajectory` is only a check. To verify at the first run: vLLM starts inside the namespace (no NCCL/ZMQ
+  surprises for one GPU), the job's Slurm environment still works, and a probe command like `curl https://github.com` fails inside the agent's shell.
 - Third-party code runs in the sandbox: scratch space only, no secrets in the environment (no tokens in env vars), time limits, kill the process group.
 - A local 30B model in an agent loop may be weak at long tool use; a negative result is still a result (report steps, failure modes).
 - The environment problem of the Python projects (missing modules) limits the agent too: it cannot run tests that cannot run in the plausibility environment.
