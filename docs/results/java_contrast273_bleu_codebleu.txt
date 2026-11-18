@@ -1,0 +1,18 @@
+Java contrast273: BLEU / CodeBLEU (jCodeBLEU, tarVenv), rank 1, per group and population-weighted - 2026-11-18
+'as is' = whitespace tokens like the pipeline; 'retok' = both sides split into identifiers/symbols (spacing-independent). CodeT5+ = authors' published rank-1 predictions on the same cases.
+Script: scripts/thesis_analysis/java_codebleu.py (run: PYTHONPATH=. ~/tarVenv/bin/python scripts/thesis_analysis/java_codebleu.py from ~/PyTaRGET)
+
+qwen3coder             as is  BLEU solved  57.1 unsolved  56.3 weighted  56.7 | CodeBLEU solved  75.6 unsolved  61.9 weighted  68.8
+qwen3coder             retok  BLEU solved  75.5 unsolved  68.4 weighted  72.0 | CodeBLEU solved  85.7 unsolved  68.8 weighted  77.4
+gpt-oss-20b            as is  BLEU solved  23.9 unsolved  15.4 weighted  19.7 | CodeBLEU solved  56.1 unsolved  38.8 weighted  47.5
+gpt-oss-20b            retok  BLEU solved  65.1 unsolved  63.2 weighted  64.2 | CodeBLEU solved  80.3 unsolved  62.4 weighted  71.4
+ernie-5.5-flash        as is  BLEU solved  75.4 unsolved  51.5 weighted  63.6 | CodeBLEU solved  88.7 unsolved  56.4 weighted  72.7
+ernie-5.5-flash        retok  BLEU solved  77.2 unsolved  59.0 weighted  68.2 | CodeBLEU solved  89.9 unsolved  59.5 weighted  74.9
+particle-1             as is  BLEU solved  75.9 unsolved  61.2 weighted  68.7 | CodeBLEU solved  88.3 unsolved  69.6 weighted  79.1
+particle-1             retok  BLEU solved  82.3 unsolved  67.3 weighted  74.9 | CodeBLEU solved  91.6 unsolved  71.7 weighted  81.8
+nemotron-3-ultra       as is  BLEU solved  78.7 unsolved  56.4 weighted  67.7 | CodeBLEU solved  88.5 unsolved  64.9 weighted  76.9
+nemotron-3-ultra       retok  BLEU solved  79.6 unsolved  64.3 weighted  72.0 | CodeBLEU solved  90.2 unsolved  68.5 weighted  79.5
+CodeT5+ (published)    as is  BLEU solved  80.8 unsolved  59.5 weighted  70.3 | CodeBLEU solved  90.2 unsolved  59.7 weighted  75.2
+CodeT5+ (published)    retok  BLEU solved  84.1 unsolved  62.4 weighted  73.4 | CodeBLEU solved  91.6 unsolved  59.7 weighted  75.8
+
+Exact match: see scripts/thesis_analysis/java_em.py (python -I).
