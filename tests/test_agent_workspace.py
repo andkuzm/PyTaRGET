@@ -78,14 +78,20 @@ class TestResult:
         f.write_text(f.read_text().replace("calc.plus", "calc.add"))
         r = aw.collect_result(ROW, ws)
         assert r["function"] == "def test_add():\n    value = calc.add(1, 2)\n    assert value == 3"
-        assert r["touched_files"] == ["tests/test_calc.py"] and r["other_files_touched"] == [] and not r["test_file_changed_outside_function"]
+        assert r["touched_files"] == ["tests/test_calc.py"] and r["other_files_touched"] == [] and r["new_files"] == [] and not r["test_file_changed_outside_function"]
 
     def test_edits_outside_the_function_and_in_other_files_are_reported(self, ws):
         f = ws / "tests" / "test_calc.py"
         f.write_text("import os\n" + f.read_text().replace("calc.plus", "calc.add"))
-        (ws / "extra.py").write_text("x = 1\n")
+        (ws / "extra.py").write_text("x = 1\n")                               # a new file is scratch, not a change of the project
         r = aw.collect_result(ROW, ws)
-        assert r["test_file_changed_outside_function"] and r["other_files_touched"] == ["extra.py"]
+        assert r["test_file_changed_outside_function"] and r["new_files"] == ["extra.py"] and r["other_files_touched"] == []
+
+    def test_a_changed_tracked_file_other_than_the_test_is_reported(self, ws):
+        (ws / "tests" / "test_calc.py").write_text("def test_add():\n    assert True\n")
+        (ws / "tests" / "conftest.py").write_text("x = 1\n")
+        git(ws, "add", "-N", "tests/conftest.py")                              # known to git but not committed: shows as a modification
+        assert aw.collect_result(ROW, ws)["other_files_touched"] == ["tests/conftest.py"]
 
     def test_a_deleted_function_is_reported(self, ws):
         (ws / "tests" / "test_calc.py").write_text("import os\n")

@@ -124,18 +124,20 @@ def collect_result(row, dest, chain=None):
     """What the agent left: the final function text, the files that differ from the snapshot, and whether anything outside the test function changed."""
     dest = Path(dest)
     name = test_name_of(row)
-    names = _run(["git", "status", "--porcelain", "-uall"], cwd=dest).stdout.splitlines()
-    touched = sorted(l[3:] for l in names if not CACHE_PATH.search(l[3:]))
+    status = [l for l in _run(["git", "status", "--porcelain", "-uall"], cwd=dest).stdout.splitlines() if not CACHE_PATH.search(l[3:])]
+    new_files = sorted(l[3:] for l in status if l.startswith("??"))                  # created by the agent: scratch scripts, backups
+    modified = sorted(l[3:] for l in status if not l.startswith("??"))               # tracked files changed or deleted
+    touched = sorted(modified + new_files)
     final = function_source((dest / row["relative_path"]).read_text(encoding="utf-8"), name, chain)
     before = _run(["git", "show", f"HEAD:{row['relative_path']}"], cwd=dest).stdout
     old = function_source(before, name, chain)
-    outside = [t for t in touched if t != row["relative_path"]]
-    if final is not None and old is not None and row["relative_path"] in touched:
+    outside = [t for t in modified if t != row["relative_path"]]                      # a tracked file other than the test file was changed
+    if final is not None and old is not None and row["relative_path"] in modified:
         a, b = before.split("\n"), (dest / row["relative_path"]).read_text(encoding="utf-8").split("\n")
         outside_function_changed = a[:old[1]] != b[:final[1]] or a[old[1] + len(old[0].split("\n")):] != b[final[1] + len(final[0].split("\n")):]
     else:
         outside_function_changed = False
-    return {"function": final[0] if final else None, "touched_files": touched, "other_files_touched": outside,
+    return {"function": final[0] if final else None, "touched_files": touched, "other_files_touched": outside, "new_files": new_files,
             "test_file_changed_outside_function": outside_function_changed, "function_found": final is not None}
 
 

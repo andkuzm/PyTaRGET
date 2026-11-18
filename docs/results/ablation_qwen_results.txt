@@ -1,0 +1,13 @@
+WP5 context ablation, Qwen3-Coder-30B-A3B (local, vLLM), 300-case Python contrast subset, one candidate (temperature 0.7), prompt budget 6144 tokens in all runs - 2026-11-18/19
+A baseline; B + failure output of the broken test; C + definitions of the changed symbols; BC both. Plausibility (checked rule) with the corrected scorer; weighted with the population sizes of the subset (solved 438 / unsolved 537).
+'solved' / 'unsolved' = solved / not solved at top-5 by CodeT5+, PLBART, CodeGen, Qwen3-Coder, gpt-oss-20b in the EARLIER runs (without the failure output), so the unsolved group can only rise.
+
+== Qwen3-Coder-30B-A3B (local), one candidate (300 cases)
+run            extra tok empty | plain: solved unsolved weighted | CHECKED: solved unsolved weighted | gain vs A (checked, pts) | paired +/-
+qwen A                 0     0 |   40.0      0.0     18.0 |   39.3      0.0     17.7 |   +0.0 | +0 -0
+qwen B               400     0 |   65.3     18.8     39.7 |   63.3     16.8     37.7 |  +20.0 | +69 -9
+qwen C                47     0 |   36.7      2.7     17.9 |   36.0      2.7     17.6 |   -0.0 | +9 -10
+qwen BC              447     0 |   66.0     20.7     41.0 |   64.0     19.3     39.4 |  +21.7 | +75 -9
+
+
+Notes: extra tokens = mean tokens of the added sections per case (definitions exist for 163 of 300 cases and are short). Qwen B had 4 cases not judged (setup_failed), excluded from the pairs. One case (index 110) has its reference text verbatim in the failure output (old test shown in the traceback); not removed. A reproduces the earlier Qwen3-Coder rank-1 result on this subset (17.7% weighted).
