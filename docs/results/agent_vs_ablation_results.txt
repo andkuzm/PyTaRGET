@@ -1,0 +1,22 @@
+Agent (mini-SWE-agent v2.4.6 + Qwen3-Coder-30B-A3B, offline sandbox) vs the context-ablation runs, SAME cases (71 cases: the agent's 80 prepared cases of the nested 100 minus those not judged in every column) - 2026-11-19
+checked plausible@1, one candidate per case; weighted with the population sizes of the contrast subset. Agent failures by rule (missing test function / other tracked files changed) count as failures.
+Agent workspace = repaired commit with only the target test's span reverted to the broken lines (siblings fixed in the same commit stay repaired).
+IMPORTANT: see the sibling split at the end: the agent's advantage over the prompt-only runs is largest on cases that have other cases in the same commit and almost disappears on cases without siblings, so
+part of it can be copying already-repaired sibling tests (not possible for the prompt-only runs and not in a real workflow). A sibling-safe re-run (all tests changed by the repair reverted) is prepared (scripts/agent/prepare_cases.py --sibling-safe).
+
+agent cases 80; judged for the agent 79; common to ALL columns 71; agent failures by rule (no usable function etc.): 14
+column         solved   unsolved  weighted  total pass | vs qwen B (paired +/-)
+qwen A           48.8       0.0      21.9    20/71    | +4 -16
+qwen B           70.7      10.0      37.3    32/71    | +0 -0
+qwen C           43.9       3.3      21.6    19/71    | +2 -15
+qwen BC          70.7      16.7      41.0    34/71    | +3 -1
+particle A       63.4      10.0      34.0    29/71    | +8 -11
+particle B       90.2      30.0      57.1    46/71    | +15 -1
+particle BC      85.4      40.0      60.4    47/71    | +16 -1
+AGENT (qwen)     75.6      56.7      65.2    48/71    | +22 -6
+agent plain      78.0      60.0      68.1    50/71    | +24 -6
+groups in common: {'solved': 41, 'unsolved': 30}
+
+Split by siblings (other cases of the same repository and repaired commit in the 300-case subset; lower bound):
+  with siblings  n= 36 | AGENT (qwen) 29/36 | qwen B 15/36 | qwen BC 16/36 | particle BC 22/36
+  no sibling     n= 35 | AGENT (qwen) 19/35 | qwen B 17/35 | qwen BC 18/35 | particle BC 25/35

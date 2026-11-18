@@ -59,3 +59,10 @@ HF_HUB_OFFLINE=1 PYTHONPATH=. ~/venv_vllm/bin/python -m data_processing.openrout
 - Whether D (similar tests from the repository) and a second attempt with the failure output of the first candidate (execution feedback) follow after B/C.
 - CodeT5+: the same context would need retraining on the augmented input (1024-token window); see the discussion in the thesis plan.
 - Java: the same idea needs the Java failure output (not in TaRBench rows) and a Java definition lookup (tree-sitter); not planned yet.
+
+
+## Results (2026-11-18/19; tables in docs/results/ablation_qwen_results.txt and agent_vs_ablation_results.txt)
+- Qwen3-Coder (local), 300 cases, checked plausible@1 weighted: A 17.7%, B 37.7% (+20.0; paired +69/-9), C 17.6% (0.0; +9/-10), BC 39.4% (+21.7). Extra tokens per case: B ~400, C ~47, BC ~447.
+- particle-1 (free, remote), 100 cases (A = first pass of the earlier run): A 31.0%, B 57.9% (+26.8; +28/-1), C 33.8% (+2.8; +4/-2), BC 61.8% (+30.7; +28/-2; 14 of 100 cases not judged in the BC scoring pass because of environment/setup failures, pairs use the cases judged in both).
+- Reading: the failure output of the broken test is by far the most valuable context (about +20-27 points for ~400 tokens), the symbol definitions add nothing measurable, and combining them gives only a little over B alone.
+- Caveats: one case (index 110) has its reference text in the failure output (the old test shown in the traceback); the "unsolved" group is defined by models that never saw the log, so it can only rise; A/B/C/BC of the remote model use the 4096-token window of the earlier run, the local model 6144.

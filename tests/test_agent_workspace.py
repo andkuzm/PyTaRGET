@@ -123,3 +123,40 @@ def test_commands_from_a_trajectory():
     traj = {"messages": [{"role": "system"}, {"role": "assistant", "extra": {"actions": [{"command": "ls"}, {"command": "git log"}]}},
                          {"role": "assistant", "tool_calls": [{"function": {"arguments": '{"command": "pytest -x"}'}}]}]}
     assert aw.commands_from_trajectory(traj) == ["ls", "git log", "pytest -x"]
+
+
+class TestSiblingSafe:
+    """sibling_safe: every test file changed by the repair is back at its broken version, so other fixed tests cannot be copied."""
+
+    @pytest.fixture
+    def origin2(self, tmp_path):
+        src = tmp_path / "origin2"
+        (src / "tests").mkdir(parents=True)
+        git(src, "init", "-q")
+        (src / "tests" / "test_calc.py").write_text("def test_add():\n    value = calc.plus(1, 2)\n    assert value == 3\n\n\ndef test_sub():\n    assert calc.minus(3, 1) == 2\n")
+        (src / "calc.py").write_text("OLD = 1\n")
+        git(src, "add", "-A"); git(src, "commit", "-qm", "broken")
+        broken = git(src, "rev-parse", "HEAD").strip()
+        (src / "tests" / "test_calc.py").write_text("def test_add():\n    value = calc.add(1, 2)\n    assert value == 3\n\n\ndef test_sub():\n    assert calc.subtract(3, 1) == 2\n")
+        (src / "tests" / "test_new.py").write_text("def test_new():\n    pass\n")
+        (src / "calc.py").write_text("NEW = 2\n")
+        git(src, "add", "-A"); git(src, "commit", "-qm", "repaired")
+        return src, broken
+
+    def test_siblings_and_new_tests_are_reverted_source_stays_repaired(self, origin2, tmp_path):
+        src, broken = origin2
+        row = dict(ROW, broken_hash=broken)
+        dest = tmp_path / "ws"
+        aw.prepare_workspace(row, dest, clone=local_clone(src), sibling_safe=True)
+        text = (dest / "tests" / "test_calc.py").read_text()
+        assert "calc.plus" in text and "calc.minus" in text and "calc.add" not in text and "calc.subtract" not in text
+        assert not (dest / "tests" / "test_new.py").exists()
+        assert (dest / "calc.py").read_text() == "NEW = 2\n"                     # the (non-test) source keeps the repaired state
+        assert git(dest, "log", "--format=%s").strip() == "snapshot: failing test"
+
+    def test_a_case_whose_span_survives_the_revert_is_refused(self, origin2, tmp_path):
+        src, broken = origin2
+        row = dict(ROW, broken_hash=git(src, "rev-parse", "HEAD").strip())        # "broken" = the repaired commit: nothing is reverted
+        with pytest.raises(ValueError):
+            aw.prepare_workspace(row, tmp_path / "ws", clone=local_clone(src), sibling_safe=True)
+        assert not (tmp_path / "ws").exists()

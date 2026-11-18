@@ -96,3 +96,8 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 ## Status update 2026-11-18: WP2 done, WP5 started
 - WP2 (Java contrast subset, 273 cases without LGPL; 257 with a passing reference): own Java plausibility runner (`data_processing/java_plausibility.py`, validated 66/66 against the authors' published verdicts), results in docs/results/java_contrast273_results.txt and java_contrast273_bleu_codebleu.txt (EM, BLEU, CodeBLEU, plausible@1 per group, weighted). Free models (particle-1 65%, nemotron 62%, ernie 57% weighted plausible@1) beat CodeT5+ published 50.3%; local Qwen3-Coder 40%, gpt-oss-20b 38%. About 75-80% of successes equal the reference (contamination/easy). Caveats in the result files.
 - WP3 and WP4 are on hold (user decision 2026-11-18); WP5 first step = docs/ablation_plan.md.
+
+## Status update 2026-11-19: WP5 first results
+- Ablation (docs/ablation_plan.md, docs/results/ablation_qwen_results.txt): failure output of the broken test +20 points (Qwen3-Coder) / +27 (particle-1) at ~400 extra tokens; symbol definitions ~0; both together +22 / +31.
+- Agent (docs/agent_plan.md): mini-SWE-agent + Qwen3-Coder in an offline sandbox works (80 cases, 17 min on one GPU); raw result 65% vs 37-41% for prompt-only runs on the same 71 cases, BUT confounded by already-repaired sibling tests in the workspace; the sibling-safe control is prepared (agent_work2) and needs one more agent job (user approval for the Slurm submission).
+- Next: sibling-safe agent run and scoring; retry the empty remote answers; more cases for the ablation (nested sample 200) if quota allows; push when the user asks (many local commits).

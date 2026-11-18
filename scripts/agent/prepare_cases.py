@@ -21,8 +21,13 @@ def main():
     ap.add_argument("--root", required=True)
     ap.add_argument("--n", type=int, default=100)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--sibling-safe", action="store_true", help="revert ALL test files changed by the repair to their broken version (other fixed tests cannot be copied)")
+    ap.add_argument("--venvs-from", default=None, help="root of an earlier preparation whose virtualenvs are reused (linked)")
     args = ap.parse_args()
     root = Path(args.root)
+    if args.venvs_from and not (root / "venvs").exists():
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "venvs").symlink_to(Path(args.venvs_from) / "venvs")
     rows = json.load(open(Path(args.split_dir) / "splits" / "test.json"))
     chosen = sorted(sample_positions(len(rows), args.n, args.seed, nested=True))
     manifest_path = root / "manifest.json"
@@ -34,12 +39,12 @@ def main():
         row, ws = rows[i], root / "ws" / str(i)
         entry = {"repo": row["repository_name"], "test_file": row["relative_path"]}
         try:
-            info = aw.prepare_workspace(row, ws)
+            info = aw.prepare_workspace(row, ws, sibling_safe=args.sibling_safe)
             python = tester.python_for(row["repository_name"], ws)
-            nodeid = "::".join([row["relative_path"]] + info["site"].nodeid_parts)
+            nodeid = "::".join([row["relative_path"]] + info["nodeid_parts"])
             verdict = tester.run_test(python, ws, nodeid)
             entry.update({"status": "ok" if verdict == "fail" else f"not_prepared_{verdict}", "ws": str(ws), "python": python, "nodeid": nodeid,
-                          "broken_verdict": verdict, "test_name": info["test_name"]})
+                          "broken_verdict": verdict, "test_name": info["test_name"], "repaired_function": info["repaired_function"]})
         except Exception as error:
             entry.update({"status": "error", "detail": repr(error)[:300]})
         manifest[str(i)] = entry

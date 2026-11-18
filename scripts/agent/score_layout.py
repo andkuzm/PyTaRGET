@@ -16,13 +16,16 @@ for result_file in sorted(agent_out.glob("*/result.json"), key=lambda f: int(f.p
     if not result.get("function_found") or not result.get("function"):
         skipped[i] = "function missing"
         continue
+    if result.get("other_files_touched"):                                      # a tracked file other than the test was changed: not a test repair
+        skipped[i] = "changed other tracked files"
+        continue
     name = aw.test_name_of(row)
-    snapshot = subprocess.run(["git", "show", f"HEAD:{row['relative_path']}"], cwd=ws, capture_output=True, text=True).stdout
-    site = find_repair_site(snapshot, name, aw.broken_lines(row))
-    repaired = function_text = None
-    if site is not None:
-        repaired = patch_source(snapshot, site, row["output"])                 # snapshot with the reference repair put back
-        function_text = aw.function_source(repaired, name)
+    if manifest[i].get("repaired_function"):                                   # recorded at preparation from the repaired commit (exact text)
+        function_text = (manifest[i]["repaired_function"], 0)
+    else:                                                                      # older preparation: rebuild it from the snapshot with the reference put back
+        snapshot = subprocess.run(["git", "show", f"HEAD:{row['relative_path']}"], cwd=ws, capture_output=True, text=True).stdout
+        site = find_repair_site(snapshot, name, aw.broken_lines(row))
+        function_text = aw.function_source(patch_source(snapshot, site, row["output"]), name) if site is not None else None
     if function_text is None:
         skipped[i] = "repaired function not reconstructable"
         continue

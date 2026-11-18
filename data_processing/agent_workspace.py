@@ -23,7 +23,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from data_processing.plausibility_test import find_repair_site, find_test_name, patch_source
+from data_processing.plausibility_test import find_repair_site, find_test_name, iter_functions, patch_source
 
 NETWORK_PATTERNS = [r"\bgit\s+(clone|fetch|pull|remote|ls-remote|log|show|reflog|checkout\s+\S+|branch\s+-a|tag)\b", r"\bcurl\b", r"\bwget\b",
                     r"\bpip3?\s+(download|install)\b", r"\bgh\s+", r"https?://(github|raw\.githubusercontent|pypi)", r"\.git/"]
@@ -58,9 +58,38 @@ def test_name_of(row):
     return recorded.split(".")[-1] if isinstance(recorded, str) and recorded else find_test_name(row.get("annotated_code", ""))
 
 
-def prepare_workspace(row, dest, clone=None):
+def revert_tests(dest, broken_hash, repaired_hash=None):
+    """Put every TEST file that differs between the broken and the repaired commit back to its broken version (files the repair added are removed):
+    the state a developer is in after changing the source and before touching any test. Other tests fixed in the same commit are then still broken."""
+    names = _run(["git", "diff", "--name-status", broken_hash, "HEAD"], cwd=dest).stdout.splitlines()
+    reverted = []
+    for line in names:
+        parts = line.split("\t")
+        status, path = parts[0][0], parts[-1]
+        if not is_test_file(path):
+            continue
+        if status == "A":
+            _run(["git", "rm", "-q", "-f", path], cwd=dest)
+        else:
+            done = _run(["git", "checkout", broken_hash, "--", path], cwd=dest)
+            if done.returncode != 0:
+                raise RuntimeError(f"could not restore {path} from the broken commit: {done.stderr.strip()[-150:]}")
+        reverted.append(path)
+    return reverted
+
+
+def is_test_file(path):
+    """A path that belongs to the tests (test directories, test_*.py, *_test.py, conftest.py)."""
+    from data_processing.context_ablation import is_test_path
+    return is_test_path(path)
+
+
+def prepare_workspace(row, dest, clone=None, sibling_safe=False):
     """
-    Build the agent's directory `dest` for a case: repaired-commit source, test span reverted to the broken lines, history removed, one snapshot commit.
+    Build the agent's directory `dest` for a case: repaired-commit source, history removed, one snapshot commit.
+    Default: only the test's repaired span is put back to the broken lines (other tests of the commit stay REPAIRED and can be copied by the agent).
+    sibling_safe=True: ALL test files that the repair changed are reverted to their broken-commit version (needs row["broken_hash"]); the target test is then
+    the genuinely broken one, and its repaired span must be gone.
     `clone(repo, commit, dest)` fetches the project (default `clone_repository`). Returns {"test_file", "test_name", "site"} .
     """
     dest = Path(dest)
@@ -68,18 +97,34 @@ def prepare_workspace(row, dest, clone=None):
         raise FileExistsError(f"{dest} exists")
     (clone or clone_repository)(row["repository_name"], row["repaired_hash"], dest)
     test_file = dest / row["relative_path"]
-    source = test_file.read_text(encoding="utf-8")
     name = test_name_of(row)
-    site = find_repair_site(source, name, row["output"]) if name else None
-    if site is None:
-        shutil.rmtree(dest, ignore_errors=True)
-        raise ValueError("repair site not found in the repaired test (the case cannot be turned into a broken workspace)")
-    test_file.write_text(patch_source(source, site, broken_lines(row)), encoding="utf-8")
+    repaired = function_source(test_file.read_text(encoding="utf-8"), name) if name and test_file.exists() else None   # the repaired test, kept for scoring
+    if sibling_safe:
+        try:
+            revert_tests(dest, row["broken_hash"])
+            text = test_file.read_text(encoding="utf-8") if test_file.exists() else ""
+            site = find_repair_site(text, name, row["output"]) if name else None
+            if not test_file.exists() or function_source(text, name) is None:
+                raise ValueError("the target test does not exist in the broken version of its file")
+            if site is not None:
+                raise ValueError("the repaired span is still present after reverting the tests (the case is not a broken workspace)")
+        except Exception:
+            shutil.rmtree(dest, ignore_errors=True)
+            raise
+        site, parts = None, nodeid_parts(text, name)
+    else:
+        source = test_file.read_text(encoding="utf-8")
+        site = find_repair_site(source, name, row["output"]) if name else None
+        if site is None:
+            shutil.rmtree(dest, ignore_errors=True)
+            raise ValueError("repair site not found in the repaired test (the case cannot be turned into a broken workspace)")
+        test_file.write_text(patch_source(source, site, broken_lines(row)), encoding="utf-8")
+        parts = list(site.nodeid_parts)
     shutil.rmtree(dest / ".git")                                    # no history, no remote: nothing in the repository knows the repair
     _run(["git", "init", "--quiet"], cwd=dest)
     _run(["git", "add", "-A"], cwd=dest)
     _run(["git", *GIT_USER, "commit", "--quiet", "-m", "snapshot: failing test"], cwd=dest)
-    return {"test_file": row["relative_path"], "test_name": name, "site": site}
+    return {"test_file": row["relative_path"], "test_name": name, "site": site, "nodeid_parts": parts, "repaired_function": repaired[0] if repaired else None}
 
 
 def task_prompt(row):
@@ -93,6 +138,15 @@ def task_prompt(row):
         "- Do not use git history, the network or package installation; everything you need is in this directory.\n"
         "When the test passes, stop."
     )
+
+
+def nodeid_parts(source, name):
+    """[enclosing classes..., name] of the single function `name` in `source` (for the pytest node id); [name] if not unique or absent."""
+    try:
+        found = [chain for node, chain in iter_functions(ast.parse(source)) if node.name == name]
+    except SyntaxError:
+        return [name]
+    return list(found[0]) + [name] if len(found) == 1 else [name]
 
 
 def function_source(source, name, chain=None):

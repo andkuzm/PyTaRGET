@@ -1,4 +1,4 @@
-# WP5 level 3: an open-source coding agent with full repository access (preparation, written 2026-11-18; NOTHING HAS BEEN RUN)
+# WP5 level 3: an open-source coding agent with full repository access (written 2026-11-18; first run 2026-11-19, see Results)
 
 ## Question
 The ablation (docs/ablation_plan.md) adds fixed context to a single prompt. Does letting a model explore the repository and run tests itself help
@@ -47,3 +47,11 @@ and pin the version in the environment.**
 - A local 30B model in an agent loop may be weak at long tool use; a negative result is still a result (report steps, failure modes).
 - The environment problem of the Python projects (missing modules) limits the agent too: it cannot run tests that cannot run in the plausibility environment.
 - Cost accounting: local GPU time per solved case, not dollars; for comparison with remote models record tokens as well.
+
+
+## Results of the first run (2026-11-19; job 3737497 + 3741162, 80 cases, ~17 min of one H200 in total)
+- The pieces worked as designed: vLLM started inside the private network namespace in ~80 s, the in-job network probe printed 000, the sandbox showed only the case workspace, and the agent used tool calls (median 27 calls, 46 s per case; 57 submitted, 21 hit the 40-call limit, 2 exceeded the context window).
+- Rule violations: 13 cases left no test function, 10 edited code outside the test function, 1 changed another tracked file (excluded). 12 cases were flagged by the audit, all `pip install pytest-asyncio` (fails offline) or `git checkout <file>` inside the snapshot repository; none tried to fetch the answer.
+- Checked plausible@1 on the 71 cases common to all columns: agent 48/71 (weighted 65.2%) against Qwen3-Coder with the prompt-only context B 32/71 (37.3%), BC 34/71 (41.0%), baseline A 20/71 (21.9%) and particle-1 BC 47/71 (60.4%).
+- CONFOUND found when splitting by sibling tests: with other cases of the same repository+commit in the subset the agent solves 29/36 (Qwen B 15/36), without a sibling 19/35 (Qwen B 17/35, particle BC 25/35). The agent workspace is the repaired commit, in which the other tests fixed by the same commit are already repaired, so the agent can copy the fix pattern; the prompt-only runs never see them. The agent's advantage is therefore NOT established.
+- Control prepared: `prepare_workspace(..., sibling_safe=True)` reverts ALL test files that the repair changed to their broken-commit version (new test files removed), keeping the repaired source; `scripts/agent/prepare_cases.py --sibling-safe --root ~/agent_work2 --venvs-from ~/agent_work` builds it. Needs a rerun of the agent job on that root (`ROOT=$HOME/agent_work2 OUT=$HOME/eval_agent/qwen3coder_sibling_safe sbatch slurm/run_agent_qwen.sbatch`, ~15 min) and scoring with score_layout.py / plausibility_test.py, then agent_vs_ablation.py with the new result directory.
