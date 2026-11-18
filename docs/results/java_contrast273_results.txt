@@ -1,0 +1,25 @@
+Java contrast subset (273 cases without LGPL projects; 257 with a reference that passes in our environment: 128 solved-by-CodeT5+@1, 129 not) - 2026-11-18
+Scoring: data_processing/java_plausibility.py (authors' method, own implementation), reference control, span control scripts/thesis_analysis/java_span_control.py
+One candidate per case; free OpenRouter models + local vLLM models. Weighted with population 3468 / 3385 (CodeT5+ published @1 over TaRBench 50.29%).
+
+common cases 273, reference passes here: 257; groups: {'solved_at_1': 128, 'not_solved_at_1': 129}
+population: {'solved_at_1': 3468, 'not_solved_at_1': 3385}
+
+== RAW (test passes)
+qwen3coder         solved 85/128  66.4%  unsolved 18/129  14.0%  weighted  40.5%
+gpt-oss-20b        solved 76/128  59.4%  unsolved 21/129  16.3%  weighted  38.1%
+ernie-5.5-flash    solved 114/128  89.1%  unsolved 30/129  23.3%  weighted  56.6%
+particle-1         solved 119/128  93.0%  unsolved 48/129  37.2%  weighted  65.4%
+nemotron-3-ultra   solved 112/128  87.5%  unsolved 46/129  35.7%  weighted  61.9%
+
+== CHECKED (test needs the span or the candidate asserts)
+qwen3coder         solved 82/128  64.1%  unsolved 17/129  13.2%  weighted  38.9%
+gpt-oss-20b        solved 72/128  56.2%  unsolved 20/129  15.5%  weighted  36.1%
+ernie-5.5-flash    solved 110/128  85.9%  unsolved 30/129  23.3%  weighted  55.0%
+particle-1         solved 115/128  89.8%  unsolved 45/129  34.9%  weighted  62.7%
+nemotron-3-ultra   solved 108/128  84.4%  unsolved 44/129  34.1%  weighted  59.5%
+
+CodeT5+ published @1 over TaRBench: 50.29% (solved group 100% / unsolved 0% by construction)
+
+Successes identical to the reference apart from whitespace (of all successes): qwen3coder 80/103, gpt-oss 76/97, ernie 117/144, particle 126/167, nemotron 128/158.
+Caveats: contamination (public repos, recent models), groups are defined by CodeT5+ so rates are not representative without weighting, empty answers count as failures (ernie 15, particle 2, nemotron 4), 24 of 281 cases... environment: 19/300 reference_fails excluded (old dependencies).
