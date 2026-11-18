@@ -85,16 +85,24 @@ class TestPrompt:
         out = t.build_prompt(ROW)
         assert ("### Test Failure Output:" in out) == has_b and ("### Definitions of Changed Symbols:" in out) == has_c
 
-    def test_unknown_variant_and_unknown_case(self):
+    def test_unknown_variant_and_missing_case(self):
         class T:
             def build_prompt(self, row, max_hunks=None):
                 return BASE
         with pytest.raises(ValueError):
             ca.attach(T(), "A", {})
-        assert ca.attach(T(), "BC", {}).build_prompt(ROW) == BASE
+        with pytest.raises(KeyError):             # a missing case is an error, never a silent baseline prompt
+            ca.attach(T(), "BC", {}).build_prompt(ROW)
 
 
 def test_report_counts_reference_leaks(capsys):
     row = dict(ROW, output="[<REPAIREDTEST>]env.run(until=2) and more text here[</REPAIREDTEST>]")
     ca.report([row], {ca.case_key(row): {"failure": "", "definitions": "x env.run(until=2) and more text here y", "index_ok": True}})
     assert "verbatim in the added context: 1" in capsys.readouterr().out
+
+
+def test_nested_samples_contain_each_other_and_plain_samples_keep_their_size():
+    from data_processing.openrouter_run import sample_positions
+    small, large = sample_positions(300, 100, 7, nested=True), sample_positions(300, 200, 7, nested=True)
+    assert len(small) == 100 and len(large) == 200 and small <= large
+    assert len(sample_positions(300, 100, 7)) == 100 and len(sample_positions(10, 100, 7, nested=True)) == 10

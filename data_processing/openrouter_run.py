@@ -51,6 +51,17 @@ class RateLimiter:
             time.sleep(delay)
 
 
+def sample_positions(total, n, seed, nested=False):
+    """Positions of a random sample of n cases. With `nested` the sample of n is the first n of one fixed shuffle, so the sample of 100 is
+    contained in the sample of 200 (runs can be extended later without changing the cases already done)."""
+    rng = random.Random(seed)
+    if nested:
+        order = list(range(total))
+        rng.shuffle(order)
+        return set(order[:min(n, total)])
+    return set(rng.sample(range(total), min(n, total)))
+
+
 def strip_code_fence(text):
     """A model that answers with a Markdown block (```python ... ```) instead of [REPAIR] brackets: keep the code inside."""
     if "```" not in text:
@@ -79,6 +90,7 @@ def main():
     ap.add_argument("--java", action="store_true", help="Java cases (TaRBench rows): the Java prompt of llm_test.py")
     ap.add_argument("--sample", type=int, default=None, help="a random sample of N cases (fixed by --seed)")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--nested", action="store_true", help="--sample takes the first N of one fixed shuffle (samples of different N are nested)")
     ap.add_argument("--max-prompt-tokens", type=int, default=4096)
     ap.add_argument("--max-new-tokens", type=int, default=2048)
     ap.add_argument("--reasoning-effort", default=None, help="low | medium | high (OpenRouter's unified reasoning option)")
@@ -122,7 +134,7 @@ def main():
     chosen = None
     if args.sample is not None:
         total = sum(1 for _ in iter_rows(split))
-        chosen = set(random.Random(args.seed).sample(range(total), min(args.sample, total)))
+        chosen = sample_positions(total, args.sample, args.seed, args.nested)
 
     todo = []
     for i, row in enumerate(iter_rows(split)):

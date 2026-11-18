@@ -162,7 +162,10 @@ def attach(tester, variant, context):
     base = tester.build_prompt
 
     def build_prompt(row, max_hunks=None):
-        entry = context.get(case_key(row), {})
+        key = case_key(row)
+        if key not in context:                    # never fall back silently to the baseline prompt: the run would be mislabelled
+            raise KeyError(f"case not in the context file: {key}")
+        entry = context[key]
         return add_sections(base(row, max_hunks), entry.get("failure") if "B" in variant else None,
                             entry.get("definitions") if "C" in variant else None)
 
