@@ -27,6 +27,7 @@ from data_processing.plausibility_test import find_repair_site, find_test_name, 
 
 NETWORK_PATTERNS = [r"\bgit\s+(clone|fetch|pull|remote|ls-remote|log|show|reflog|checkout\s+\S+|branch\s+-a|tag)\b", r"\bcurl\b", r"\bwget\b",
                     r"\bpip3?\s+(download|install)\b", r"\bgh\s+", r"https?://(github|raw\.githubusercontent|pypi)", r"\.git/"]
+CACHE_PATH = re.compile(r"(^|/)(__pycache__|\.pytest_cache|\.mypy_cache|\.hypothesis|[^/]*\.egg-info)(/|$)|\.py[co]$")
 GIT_USER = ["-c", "user.name=agent", "-c", "user.email=agent@example.invalid"]
 
 
@@ -123,8 +124,8 @@ def collect_result(row, dest, chain=None):
     """What the agent left: the final function text, the files that differ from the snapshot, and whether anything outside the test function changed."""
     dest = Path(dest)
     name = test_name_of(row)
-    names = _run(["git", "status", "--porcelain"], cwd=dest).stdout.splitlines()
-    touched = sorted(l[3:] for l in names)
+    names = _run(["git", "status", "--porcelain", "-uall"], cwd=dest).stdout.splitlines()
+    touched = sorted(l[3:] for l in names if not CACHE_PATH.search(l[3:]))
     final = function_source((dest / row["relative_path"]).read_text(encoding="utf-8"), name, chain)
     before = _run(["git", "show", f"HEAD:{row['relative_path']}"], cwd=dest).stdout
     old = function_source(before, name, chain)
@@ -147,3 +148,21 @@ def audit_trajectory(commands):
                 flags.append({"command": command[:200], "pattern": pattern})
                 break
     return flags
+
+
+def commands_from_trajectory(trajectory):
+    """The shell commands of a mini-swe-agent trajectory (messages[].extra.actions[].command; tool-call arguments as a fallback)."""
+    import json
+    commands = []
+    for message in trajectory.get("messages", []):
+        actions = (message.get("extra") or {}).get("actions") or []
+        for action in actions:
+            if isinstance(action, dict) and action.get("command"):
+                commands.append(action["command"])
+        if not actions:
+            for call in message.get("tool_calls") or []:
+                try:
+                    commands.append(json.loads(call["function"]["arguments"]).get("command", ""))
+                except (KeyError, TypeError, ValueError):
+                    pass
+    return [c for c in commands if c]

@@ -101,3 +101,19 @@ def test_audit_flags_history_network_and_installs():
 def test_task_prompt_names_the_test_and_forbids_history():
     text = aw.task_prompt(ROW)
     assert "test_add" in text and "tests/test_calc.py" in text and "git history" in text and "weaken" in text
+
+
+def test_caches_are_not_counted_as_touched_files(origin, tmp_path):
+    ws = tmp_path / "ws"
+    aw.prepare_workspace(ROW, ws, clone=local_clone(origin))
+    (ws / "tests" / "__pycache__").mkdir()
+    (ws / "tests" / "__pycache__" / "x.pyc").write_text("x")
+    (ws / ".pytest_cache").mkdir()
+    (ws / ".pytest_cache" / "v").write_text("x")
+    assert aw.collect_result(ROW, ws)["touched_files"] == []
+
+
+def test_commands_from_a_trajectory():
+    traj = {"messages": [{"role": "system"}, {"role": "assistant", "extra": {"actions": [{"command": "ls"}, {"command": "git log"}]}},
+                         {"role": "assistant", "tool_calls": [{"function": {"arguments": '{"command": "pytest -x"}'}}]}]}
+    assert aw.commands_from_trajectory(traj) == ["ls", "git log", "pytest -x"]
