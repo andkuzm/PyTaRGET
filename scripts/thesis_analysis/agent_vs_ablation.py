@@ -6,9 +6,13 @@ import json, re
 from pathlib import Path
 R = Path.home()
 meta = json.load(open(R / "eval_results_perproject_llm/contrast300/subset_meta.json")); cases, pop = meta["cases"], meta["population"]
-manifest = json.load(open(R / "agent_work/manifest.json"))
+import sys
+ROOT = R / (sys.argv[1] if len(sys.argv) > 1 else "agent_work")                         # preparation root (manifest.json)
+LAYOUT = R / "eval_agent_plaus" / (sys.argv[2] if len(sys.argv) > 2 else "qwen3coder_agent")   # scoring layout of the agent run
+LABEL = sys.argv[3] if len(sys.argv) > 3 else "AGENT (qwen)"
+manifest = json.load(open(ROOT / "manifest.json"))
 ids = sorted((i for i, e in manifest.items() if e["status"] == "ok"), key=int)
-layout = R / "eval_agent_plaus/qwen3coder_agent/0.8"
+layout = LAYOUT / "0.8"
 case_map = json.load(open(layout / "case_map.json")); skipped = case_map["skipped"]
 derived = json.load(open(layout / "splits" / "test.json")); agent_res = json.load(open(layout / "plausibility_v3.json"))["results"]
 from data_processing import prediction_files
@@ -47,7 +51,7 @@ def rate(flags):
     return out, 100 * s, 100 * u, 100 * (pop["solved"] * s + pop["unsolved"] * u) / (pop["solved"] + pop["unsolved"])
 cols = {"qwen A": lambda i: counted(qwen["A"][i]), "qwen B": lambda i: counted(qwen["B"][i]), "qwen C": lambda i: counted(qwen["C"][i]), "qwen BC": lambda i: counted(qwen["BC"][i]),
         "particle A": lambda i: counted(part["A"][i]), "particle B": lambda i: counted(part["B"][i]), "particle BC": lambda i: counted(part["BC"][i]),
-        "AGENT (qwen)": lambda i: agent[i][2], "agent plain": lambda i: agent[i][1]}
+        LABEL: lambda i: agent[i][2], "agent plain": lambda i: agent[i][1]}
 print(f"{'column':14s} solved   unsolved  weighted  total pass | vs qwen B (paired +/-)")
 for name, f in cols.items():
     o, s, u, w = rate(f)
@@ -63,4 +67,4 @@ key = lambda r: (r["repository_name"], r["repaired_hash"])
 count = Counter(key(r) for r in rows)                      # cases of the same repository + repaired commit INSIDE the 300-case subset (a lower bound for siblings)
 print("\nSplit by siblings (other cases of the same repository and repaired commit in the 300-case subset; lower bound):")
 for name, sel in (("with siblings", [i for i in common if count[key(rows[int(i)])] > 1]), ("no sibling", [i for i in common if count[key(rows[int(i)])] == 1])):
-    print(f"  {name:14s} n={len(sel):3d} | " + " | ".join(f"{c} {sum(cols[c](i) for i in sel)}/{len(sel)}" for c in ("AGENT (qwen)", "qwen B", "qwen BC", "particle BC")))
+    print(f"  {name:14s} n={len(sel):3d} | " + " | ".join(f"{c} {sum(cols[c](i) for i in sel)}/{len(sel)}" for c in (LABEL, "qwen B", "qwen BC", "particle BC")))
