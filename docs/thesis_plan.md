@@ -121,3 +121,5 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 - Open: push (last push d3e66cf; later commits local), prompt/harness changes for the agent (edit discipline), stronger model in the agent (needs credit approval), writing.
 
 - 2026-11-19: one-page summary of agent vs no-agent scores: docs/results/agent_vs_no_agent_summary.txt. Next (user request): Java failure output (run the broken case) and definitions as context -> Java B/C/BC for local Qwen3-Coder and BC for particle-1, to fill the empty cells of that table.
+
+- 2026-11-19 evening: Java context ablation done (docs/results/java_ablation_results.txt): failure output +6 points for Qwen3-Coder (BC +8), +10 for particle-1 BC (72.7%); definitions no help. Summary table updated (docs/results/agent_vs_no_agent_summary.txt): with the context, particle-1 BC (74.5% on the 59 agent cases) is slightly above the 80-call Qwen agent (relaxed 70.3%).

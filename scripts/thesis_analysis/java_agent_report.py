@@ -38,6 +38,8 @@ def agent_columns(name, run_dir, ws_is_current=True):
         if r.get("status") != "evaluated" or not r.get("verdicts"): relaxed[i] = (False, False, False); continue
         plain = r["verdicts"][0]["status"] == "success"
         ws, row = Path(manifest[k]["ws"]), rows[i]
+        if not ws.exists():                          # the workspaces were deleted after scoring: plain pass (it equalled the checked count when they existed: 42/59 and 35/59)
+            relaxed[i] = (True, plain, plain); continue
         snap = subprocess.run(["git", "show", f"HEAD:{row['bPath']}"], cwd=ws, capture_output=True, text=True).stdout
         final = (ws / row["bPath"]).read_text(encoding="utf-8", errors="ignore")
         ref_asserts = len(ASSERT.findall(snap)) - len(ASSERT.findall(row["bSource"]["code"])) + len(ASSERT.findall(row["aSource"]["code"]))
@@ -59,6 +61,10 @@ cols = {"qwen3coder": column(R / "local/qwen3coder", 300), "gpt-oss-20b": column
         "ernie-5.5-flash": column(H / "eval_openrouter/java273_baidu_ernie-5.5-flash-preview_free", 273),
         "particle-1": column(H / "eval_openrouter/java273_particle-ai_particle-1_free", 273),
         "nemotron-3-ultra": column(H / "eval_openrouter/java273_nvidia_nemotron-3-ultra-550b-a55b_free", 273)}
+EA = H / "eval_ablation_java"
+for label, path in (("qwen3coder BC (context)", EA / "qwen3coder_BC"), ("particle-1 BC (context)", EA / "particle1_BC")):
+    if (path / "test_predictions.json").exists():
+        cols[label] = column(path, 273)
 for tag, name, run_dir in (("40", "java_qwen3coder", "java_qwen3coder"), ("80", "java_qwen3coder_80", "java_qwen3coder_80")):
     if (H / f"eval_agent_plaus/{name}_relaxed.json").exists():
         s, r = agent_columns(name, run_dir, ws_is_current=(tag == "80"))
@@ -82,7 +88,8 @@ for name, sel in (("clean (0 other lines)", clean), ("other tests repaired", [i 
 def paired(a, b):
     return sum(1 for i in common if cols[a][i][2] and not cols[b][i][2]), sum(1 for i in common if cols[b][i][2] and not cols[a][i][2])
 print()
-for a, b in (("AGENT 40 strict", "particle-1"), ("AGENT 40 relaxed", "particle-1"), ("AGENT 80 strict", "particle-1"), ("AGENT 80 relaxed", "particle-1"),
+for a, b in (("AGENT 80 relaxed", "particle-1 BC (context)"), ("AGENT 80 strict", "particle-1 BC (context)"), ("AGENT 80 relaxed", "qwen3coder BC (context)"), ("AGENT 80 strict", "qwen3coder BC (context)"),
+             ("AGENT 40 strict", "particle-1"), ("AGENT 40 relaxed", "particle-1"), ("AGENT 80 strict", "particle-1"), ("AGENT 80 relaxed", "particle-1"),
              ("AGENT 80 strict", "AGENT 40 strict"), ("AGENT 80 relaxed", "AGENT 40 relaxed"), ("AGENT 80 relaxed", "qwen3coder")):
     if a in cols and b in cols:
         p, m = paired(a, b); print(f"paired {a} vs {b}: +{p} -{m}")

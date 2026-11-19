@@ -20,4 +20,4 @@ for spec in specs:
         cands.setdefault(i300, {"target": data["target"][k], "c": []})["c"].append(data["preds"][k][0])
 cases = [{"row": rows[i], "key": str(i), "target": v["target"], "candidates": v["c"]} for i, v in sorted(cands.items())]
 print(len(cases), "cases", sum(len(c["candidates"]) for c in cases), "candidates", flush=True)
-JavaPlausibility(workdir, log_dir=Path(out).with_suffix(".logs")).run_union(cases, out, workers)
+JavaPlausibility(workdir, m2=__import__("os").environ.get("JAVA_M2"), log_dir=Path(out).with_suffix(".logs")).run_union(cases, out, workers)

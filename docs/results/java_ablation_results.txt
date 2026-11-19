@@ -1,0 +1,26 @@
+Java context ablation (failure output of the broken test, symbol definitions) - 2026-11-19
+B = + failure output (Maven output of the broken test: project at the after commit, target method put back to its before text, run once; cleaned to error lines, no machine paths, <= 2500 characters); C = + signatures of the identifiers of the broken lines looked up in non-test Java sources; BC = both. Same prompt, window (4096 tokens), temperature and one candidate as the earlier Java prompt-only runs (A). Checked plausible@1, weighted with the population sizes of the Java contrast subset; paired = cases gained/lost against A.
+Context build: 273 cases, broken runs: 191 compile errors, 63 test failures, 19 'unknown' (projects whose build fails here for environment reasons; their failure text was blanked so the prompt is not misled). 0 cases passed in the broken state. Reference repair verbatim in the added context: 0 of the 6 cases checked at validation.
+Note: the breakage lines (the lines the reference repair changes) are part of every prompt in all runs (TaRBench/TaRGet formulation), so B adds the error CONTENT, not the location.
+
+== all cases of the Java contrast subset whose reference passes here
+run             n extra tok empty | solved unsolved weighted | gain vs A (pts) | paired +/-
+qwen A        257         0     0 |   64.1     13.2     38.9 |   +0.0 | +0 -0
+qwen B        257       162     0 |   67.2     22.5     45.1 |   +6.2 | +20 -4
+qwen C        257       142     0 |   62.5     10.1     36.6 |   -2.3 | +1 -7
+qwen BC       257       304     0 |   68.8     24.8     47.0 |   +8.1 | +26 -5
+particle A    257         0     1 |   89.8     34.9     62.7 |   +0.0 | +0 -0
+particle BC   257       304     2 |   92.2     52.7     72.7 |  +10.0 | +30 -4
+
+== the 59 cases of the agent comparison
+run             n extra tok empty | solved unsolved weighted | gain vs A (pts) | paired +/-
+qwen A         59         0     0 |   63.6     19.2     41.7 |   +0.0 | +0 -0
+qwen B         59       162     0 |   57.6     23.1     40.5 |   -1.2 | +2 -3
+qwen C         59       142     0 |   60.6     15.4     38.3 |   -3.4 | +0 -2
+qwen BC        59       304     0 |   60.6     26.9     44.0 |   +2.3 | +4 -3
+particle A     59         0     0 |   90.9     42.3     66.9 |   +0.0 | +0 -0
+particle BC    59       304     1 |   90.9     57.7     74.5 |   +7.6 | +6 -2
+
+broken-run statuses of the context build: {'compile_error': 191, 'failure': 63, 'unknown': 19} | cases without failure text: 19 | without definitions: 24
+
+Reading: on Java the failure output helps much less than on Python (+6 points for Qwen, paired +20/-4; BC +8, +26/-5) and the definitions hurt slightly (-2.3, +1/-7); particle-1 gains +10 with BC (+30/-4), reaching 72.7% (74.5% on the 59 agent cases), which is above the 80-call agent (relaxed 70.3%, paired +8/-11) and the other free models. On the 59 agent cases the Qwen differences are within noise (B -1.2, BC +2.3). Possible reasons for the smaller Java gain (untested): higher Java baseline (less room), compile errors often repeat what the changed source already shows. Empty answers: particle BC 2-3 after a retry at 16384 tokens.
