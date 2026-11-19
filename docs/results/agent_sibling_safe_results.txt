@@ -1,0 +1,21 @@
+Agent (mini-SWE-agent v2.4.6 + Qwen3-Coder-30B-A3B, offline sandbox), SIBLING-SAFE workspaces (all test files changed by the repair put back to their broken version) vs the context-ablation runs on the SAME cases - 2026-11-19
+54 cases common to all columns (62 prepared cases; 12 agent failures by rule: missing function / other tracked files changed). Checked plausible@1, one candidate, weighted with the population sizes of the contrast subset.
+
+agent cases 62; judged for the agent 62; common to ALL columns 54; agent failures by rule (no usable function etc.): 12
+column         solved   unsolved  weighted  total pass | vs qwen B (paired +/-)
+qwen A           46.4       0.0      20.9    13/54    | +3 -12
+qwen B           67.9      11.5      36.8    22/54    | +0 -0
+qwen C           35.7       3.8      18.2    11/54    | +2 -13
+qwen BC          67.9      15.4      39.0    23/54    | +2 -1
+particle A       60.7       3.8      29.4    18/54    | +5 -9
+particle B       89.3      30.8      57.1    33/54    | +12 -1
+particle BC      82.1      34.6      56.0    32/54    | +11 -1
+AGENT sibling-safe   46.4      53.8      50.5    27/54    | +17 -12
+agent plain      57.1      57.7      57.4    31/54    | +19 -10
+groups in common: {'solved': 28, 'unsolved': 26}
+
+Split by siblings (other cases of the same repository and repaired commit in the 300-case subset; lower bound):
+  with siblings  n= 26 | AGENT sibling-safe 17/26 | qwen B 9/26 | qwen BC 10/26 | particle BC 13/26
+  no sibling     n= 28 | AGENT sibling-safe 10/28 | qwen B 13/28 | qwen BC 13/28 | particle BC 19/28
+
+Reading: compared with the first agent run (siblings repaired in the workspace: 65.2% weighted on 71 cases) the sibling-safe agent reaches 50.5% (54 cases), so copying already-repaired sibling tests accounted for roughly 15 points. The agent still beats Qwen3-Coder with the same failure output (B 36.8%, BC 39.0%; paired +17/-12 against B) but is below particle-1 with B/BC (57.1/56.0%). It is weaker than Qwen B on the solved group (46.4 vs 67.9) and much stronger on the unsolved group (53.8 vs 11.5). The sibling split still shows more passes for cases with siblings (17/26 vs 10/28) although the siblings are not visible to the agent: such cases may simply be easier (clear API rename), so that split is not proof of copying. Small samples: +-7 points per group.

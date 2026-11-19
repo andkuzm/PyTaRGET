@@ -99,5 +99,7 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 
 ## Status update 2026-11-19: WP5 first results
 - Ablation (docs/ablation_plan.md, docs/results/ablation_qwen_results.txt): failure output of the broken test +20 points (Qwen3-Coder) / +27 (particle-1) at ~400 extra tokens; symbol definitions ~0; both together +22 / +31.
-- Agent (docs/agent_plan.md): mini-SWE-agent + Qwen3-Coder in an offline sandbox works (80 cases, 17 min on one GPU); raw result 65% vs 37-41% for prompt-only runs on the same 71 cases, BUT confounded by already-repaired sibling tests in the workspace; the sibling-safe control is prepared (agent_work2) and needs one more agent job (user approval for the Slurm submission).
+- Agent (docs/agent_plan.md): mini-SWE-agent + Qwen3-Coder in an offline sandbox works. First run 65% (71 cases) was inflated by already-repaired sibling tests in the workspace; the sibling-safe control gives 50.5% (54 cases) against 37-39% for Qwen3-Coder with the failure output in the prompt and 56-57% for particle-1 with it (see docs/results/agent_sibling_safe_results.txt).
 - Next: sibling-safe agent run and scoring; retry the empty remote answers; more cases for the ablation (nested sample 200) if quota allows; push when the user asks (many local commits).
+
+- 2026-11-19 later: Java agent (Qwen3-Coder, offline Maven) is being prepared: the Java workspace keeps all other tests repaired (the module must compile), so each case records how many other test lines the repair changed; analyse clean cases (0 other lines) separately.
