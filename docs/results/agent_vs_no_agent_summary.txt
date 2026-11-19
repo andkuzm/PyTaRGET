@@ -1,0 +1,32 @@
+Agent vs no agent: summary of the checked plausible@1 scores (weighted with the population sizes of the contrast subsets) - 2026-11-19
+"No agent" = prompt-only (one call, fixed prompt: test context, broken lines, up to 4 source hunks; B adds the failure output of the broken test, C the definitions of the changed
+symbols). "Agent" = mini-SWE-agent + Qwen3-Coder-30B-A3B in an offline sandbox with a shell in the repository (read/grep/run tests), sibling-safe workspaces on Python, 40 or 80 calls.
+Each table uses the cases judged in every one of its columns; samples are small (about 60 cases, +-7 points per group), runs are sampled at temperature 0.7.
+
+SAME MODEL: Qwen3-Coder-30B-A3B (local)
+  setup                                          Python (61 cases)   Java (59 cases)
+  no agent, baseline prompt                           18.0%              41.7%
+  no agent, + failure output (B)                      35.3%              not available yet (see below)
+  no agent, + failure output + definitions (BC)       37.1%              not available yet
+  agent, 40 calls                                     46.1%*            47.4% strict / 57.3% relaxed
+  agent, 80 calls                                     48.3%             63.4% strict / 70.3% relaxed
+  (* paired set of 61 cases judged in both agent runs; the 54-case comparison of the first sibling-safe run gave 50.5%)
+
+OTHER MODELS WITHOUT AN AGENT
+  model                                          Python (61 cases)   Java (59 cases)
+  particle-1 (free), baseline prompt                  28.7%              66.9%
+  particle-1 (free), + failure output + definitions   57.0%              not available yet
+  nemotron-3-ultra (free)                             not run            55.1%
+  ernie-5.5-flash (free)                              not run            50.9%
+  gpt-oss-20b (local)                                 not run            36.7%
+  CodeT5+ published rank 1 (whole TaRBench)           -                  50.29%
+
+COST: a prompt-only run is one model call; the agent used a median of 29 (Java) / 43 (Python) calls and 64 / 79 s per case at the 80-call limit (22 / 33 calls at 40).
+
+READING
+- The agent lifts the same small model by about 30 points on Python (about 13 over the prompt that already holds the failure output) and by 22 (strict) to 29 (relaxed) points on Java.
+- On Java the 80-call agent (relaxed 70.3%) reaches the best free prompt-only model (particle-1 66.9%, paired +11/-10); on Python it stays below particle-1 with the failure output (57.0%).
+- The step limit mattered on Java (47.4 -> 63.4 strict) but not on Python (46.1 -> 48.0).
+CAVEATS: the Python first agent run (65.2%) was inflated by already-repaired sibling tests in the workspace, all agent numbers above use sibling-safe workspaces; on Java the other tests of the commit
+stay repaired (the module has to compile), only 4 of 59 cases are clean; the prompt-only Java models had no failure output, the agent sees compile errors by running the test (Java B/BC is being added).
+Sources: docs/results/agent_step_limit_results.txt, agent_sibling_safe_results.txt, ablation_qwen_results.txt, java_contrast273_results.txt.

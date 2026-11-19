@@ -119,3 +119,5 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 - The NEXT SESSION block above is done: 80-call agents on Java and Python were run and scored (docs/results/agent_step_limit_results.txt). Java: strict 63.4%, relaxed 70.3% (was 47.4% / 57.3%), on par with the best free prompt-only model; Python: no measurable change (46.1% -> 48.0%).
 - Cleanup: Python agent workspaces/environments deleted; ~/agent_java (workspaces + Maven repository, ~520k files) still there until the user confirms (needed only for re-scoring); home file count ~1.2M.
 - Open: push (last push d3e66cf; later commits local), prompt/harness changes for the agent (edit discipline), stronger model in the agent (needs credit approval), writing.
+
+- 2026-11-19: one-page summary of agent vs no-agent scores: docs/results/agent_vs_no_agent_summary.txt. Next (user request): Java failure output (run the broken case) and definitions as context -> Java B/C/BC for local Qwen3-Coder and BC for particle-1, to fill the empty cells of that table.
