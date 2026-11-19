@@ -43,7 +43,9 @@ PATH_PREFIX = re.compile(r"/(?:gpfs|home|tmp|scratch)/\S*?/(?:repos[\w.\-]*|java
 
 
 def case_key(row):
-    """Stable key of a case in the context file."""
+    """Stable key of a case in the context file (Python rows: repository|broken commit|test name; Java TaRBench rows: the case ID)."""
+    if "ID" in row and "repository_name" not in row:
+        return row["ID"]
     return f"{row['repository_name']}|{row['broken_hash']}|{row['test_name']}"
 
 
