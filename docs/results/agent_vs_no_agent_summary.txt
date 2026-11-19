@@ -16,7 +16,8 @@ SAME MODEL: Qwen3-Coder-30B-A3B (local)
 OTHER MODELS WITHOUT AN AGENT
   model                                          Python (61 cases)   Java (59 cases)     Java (all 257)
   particle-1 (free), baseline prompt                  28.7%              66.9%              62.7%
-  particle-1 (free), + failure output (B)             58.2%              not run            not run
+  particle-1 (free), + failure output (B)             58.2%              73.0%              73.5%
+  particle-1 (free), + definitions (C)                29.0%              65.0%              61.1%
   particle-1 (free), + failure output + definitions   57.0%              74.5%              72.7%
   nemotron-3-ultra (free)                             not run            55.1%              -
   ernie-5.5-flash (free)                              not run            50.9%              -
@@ -27,8 +28,8 @@ COST: a prompt-only run is one model call (plus ~160 / ~300 tokens of context fo
 
 READING
 - The agent lifts the same small model by about 30 points on Python (about 13 over the prompt that already holds the failure output) and, on Java, by 19 (strict) to 26 (relaxed) points over Qwen3-Coder with the best prompt (BC, 44.0%); paired relaxed +20/-5.
-- Against the strongest prompt-only setup the picture is mixed: on Java particle-1 with B+C context (74.5%) is slightly above the 80-call Qwen agent (relaxed 70.3%, paired +8/-11; strict 63.4%, +6/-13); on Python particle-1 with the failure output (57-58%) is above the agent (48.3%).
-- The failure output is worth +20 to +27 points on Python but only +6 to +10 on Java; the definitions add nothing or hurt slightly in both languages.
+- Against the strongest prompt-only setup the picture is mixed: on Java particle-1 with the failure output (B 73.0%, BC 74.5%) is slightly above the 80-call Qwen agent (relaxed 70.3%, paired +8/-11; strict 63.4%, +6/-13); on Python particle-1 with the failure output (57-58%) is above the agent (48.3%).
+- The failure output is worth +20 to +27 points on Python but only +6 to +11 on Java; the definitions add nothing or hurt slightly in both languages, and the failure output alone gives particle-1 its whole Java gain (B 73.5% vs BC 72.7% on 257 cases).
 - The step limit mattered on Java (47.4 -> 63.4 strict) but not on Python (46.1 -> 48.0).
 CAVEATS: the Python first agent run (65.2%) was inflated by already-repaired sibling tests in the workspace, all agent numbers above use sibling-safe workspaces; on Java the other tests of the commit stay repaired (the module has to compile),
 only 4 of 59 cases are clean; the agent gets no marked broken lines while all prompt-only runs do (the lines the reference repair changes); relaxed Java agent columns use the plain pass (workspaces deleted; the checked count equalled it before).

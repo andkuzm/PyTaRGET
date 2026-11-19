@@ -50,7 +50,7 @@ def rate(flags):
     s, u = (out[g][0] / out[g][1] if out[g][1] else float("nan") for g in out)
     return out, 100 * s, 100 * u, 100 * (pop["solved"] * s + pop["unsolved"] * u) / (pop["solved"] + pop["unsolved"])
 cols = {"qwen A": lambda i: counted(qwen["A"][i]), "qwen B": lambda i: counted(qwen["B"][i]), "qwen C": lambda i: counted(qwen["C"][i]), "qwen BC": lambda i: counted(qwen["BC"][i]),
-        "particle A": lambda i: counted(part["A"][i]), "particle B": lambda i: counted(part["B"][i]), "particle BC": lambda i: counted(part["BC"][i]),
+        "particle A": lambda i: counted(part["A"][i]), "particle B": lambda i: counted(part["B"][i]), "particle C": lambda i: counted(part["C"][i]), "particle BC": lambda i: counted(part["BC"][i]),
         LABEL: lambda i: agent[i][2], "agent plain": lambda i: agent[i][1]}
 print(f"{'column':14s} solved   unsolved  weighted  total pass | vs qwen B (paired +/-)")
 for name, f in cols.items():

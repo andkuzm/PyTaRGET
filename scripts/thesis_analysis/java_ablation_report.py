@@ -26,7 +26,8 @@ def column(path, space):
     return out
 E = H / "eval_ablation_java"
 cols = {"qwen A": column(R / "local/qwen3coder", 300), "qwen B": column(E / "qwen3coder_B", 273), "qwen C": column(E / "qwen3coder_C", 273), "qwen BC": column(E / "qwen3coder_BC", 273),
-        "particle A": column(H / "eval_openrouter/java273_particle-ai_particle-1_free", 273), "particle BC": column(E / "particle1_BC", 273)}
+        "particle A": column(H / "eval_openrouter/java273_particle-ai_particle-1_free", 273), "particle B": column(E / "particle1_B", 273),
+        "particle C": column(E / "particle1_C", 273), "particle BC": column(E / "particle1_BC", 273)}
 cols = {k: v for k, v in cols.items() if v is not None}
 tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-8B")
 extra = {"B": [], "C": [], "BC": []}
