@@ -43,23 +43,33 @@ def clone_from(origin_path):
     return lambda repo, commit, dest: subprocess.run(["git", "clone", "-q", str(origin_path), str(dest)], check=True)
 
 
-def test_workspace_has_repaired_source_and_all_tests_broken(origin, tmp_path):
+def test_default_workspace_breaks_only_the_target_method_and_counts_other_test_changes(origin, tmp_path):
     src, b, a = origin
     dest = tmp_path / "ws"
     info = aj.prepare_workspace(row(b, a), dest, clone=clone_from(src))
     test = (dest / "src/test/java/p/FooTest.java").read_text()
-    assert test == BEFORE                                                    # target AND the sibling testB are back at their before versions
-    assert not (dest / "src/test/java/p/NewTest.java").exists()
+    assert "Foo.plus(1, 2)" in test and "Foo.add" not in test                 # the target method is broken again
+    assert "Foo.fresh()" in test                                              # the sibling testB stays repaired (Java needs all tests to compile)
+    assert (dest / "src/test/java/p/NewTest.java").exists()
     assert "add(" in (dest / "src/main/java/p/Foo.java").read_text()          # source keeps the repaired state
     assert git(dest, "log", "--format=%s").strip() == "snapshot: failing test"
     assert info["class"] == "FooTest" and info["method"] == "testA" and info["method_lines"] == [4, 8]
+    assert info["other_test_lines_changed"] == 3                              # testB: 1 added + 1 deleted, NewTest.java: 1 added line
+
+
+def test_revert_all_tests_mode_restores_every_changed_test_file(origin, tmp_path):
+    src, b, a = origin
+    dest = tmp_path / "ws"
+    aj.prepare_workspace(row(b, a), dest, clone=clone_from(src), mode="revert_all_tests")
+    assert (dest / "src/test/java/p/FooTest.java").read_text() == BEFORE
+    assert not (dest / "src/test/java/p/NewTest.java").exists()
 
 
 def test_moved_files_and_misplaced_methods_are_refused(origin, tmp_path):
     src, b, a = origin
     with pytest.raises(ValueError):
         aj.prepare_workspace(dict(row(b, a), aPath="elsewhere/FooTest.java"), tmp_path / "w1", clone=clone_from(src))
-    bad = dict(row(b, a), bSource={"startLine": 6, "code": row(b, a)["bSource"]["code"]})
+    bad = dict(row(b, a), aSource={"startLine": 6, "code": row(b, a)["aSource"]["code"]})
     with pytest.raises(ValueError):
         aj.prepare_workspace(bad, tmp_path / "w2", clone=clone_from(src))
     assert not (tmp_path / "w2").exists()
@@ -68,16 +78,16 @@ def test_moved_files_and_misplaced_methods_are_refused(origin, tmp_path):
 def test_collect_extracts_the_final_method_and_flags_outside_edits(origin, tmp_path):
     src, b, a = origin
     dest = tmp_path / "ws"
-    aj.prepare_workspace(row(b, a), dest, clone=clone_from(src))
+    info = aj.prepare_workspace(row(b, a), dest, clone=clone_from(src))
     f = dest / "src/test/java/p/FooTest.java"
-    f.write_text(BEFORE.replace("Foo.plus", "Foo.add"))
-    r = aj.collect_result(row(b, a), dest)
+    f.write_text(f.read_text().replace("Foo.plus", "Foo.add"))
+    r = aj.collect_result(row(b, a), dest, info["method_lines"])
     assert r["method_found"] and "Foo.add(1, 2)" in r["method"] and r["method"].startswith("    @Test") and r["other_files_touched"] == []
-    f.write_text(BEFORE.replace("Foo.plus", "Foo.add").replace("testB", "testBB"))          # a sibling method changed too: outside the method
-    r = aj.collect_result(row(b, a), dest)
+    f.write_text(f.read_text().replace("testB", "testBB"))                                   # a sibling method changed too: outside the method
+    r = aj.collect_result(row(b, a), dest, info["method_lines"])
     assert r["test_file_changed_outside_method"] and r["method"] is None
     (dest / "scratch.txt").write_text("x")
-    assert aj.collect_result(row(b, a), dest)["new_files"] == ["scratch.txt"]
+    assert aj.collect_result(row(b, a), dest, info["method_lines"])["new_files"] == ["scratch.txt"]
 
 
 def test_the_derived_row_replaces_the_whole_after_method():
