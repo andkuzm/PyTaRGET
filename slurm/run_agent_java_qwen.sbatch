@@ -20,10 +20,11 @@ mkdir -p "$OUT"
 export HF_HUB_OFFLINE=1 PYTHONUNBUFFERED=1 TOKENIZERS_PARALLELISM=false PYTHONPATH="$HOME/PyTaRGET" VENV_VLLM="$HOME/venv_vllm" MAX_CASES="${MAX_CASES:-}"
 export PATH="$HOME/venv_vllm/bin:$PATH" WORKERS="${WORKERS:-6}" SPLIT_DIR ROOT OUT
 echo "=== start $(date) on $(hostname)"
+"$HOME/venv3.12/bin/python" scripts/agent/reset_workspaces_java.py "$ROOT"        # start every run from the snapshot (earlier runs edited the workspaces)
 # everything below runs without network
 unshare -rn bash -c '
   ip link set lo up
-  vllm serve Qwen/Qwen3-Coder-30B-A3B-Instruct --served-model-name qwen3-coder --port 8000 --max-model-len 32768 --gpu-memory-utilization 0.90 \
+  vllm serve Qwen/Qwen3-Coder-30B-A3B-Instruct --served-model-name qwen3-coder --port 8000 --max-model-len "${MODEL_LEN:-32768}" --gpu-memory-utilization 0.90 \
       --enable-auto-tool-choice --tool-call-parser qwen3_coder > "$OUT/vllm.log" 2>&1 &
   server=$!
   for i in $(seq 1 90); do                       # up to 15 minutes for the model to load
@@ -35,7 +36,7 @@ unshare -rn bash -c '
   echo "=== vllm ready $(date)"
   curl -s -m 4 -o /dev/null -w "network probe (expected 000): %{http_code}\n" https://github.com || true
   limit=""; [ -n "$MAX_CASES" ] && limit="--limit $MAX_CASES"
-  $VENV_VLLM/bin/python scripts/agent/run_cases_java.py --split-dir "$SPLIT_DIR" --root "$ROOT" --out "$OUT" --workers "$WORKERS" $limit
+  $VENV_VLLM/bin/python scripts/agent/run_cases_java.py --split-dir "$SPLIT_DIR" --root "$ROOT" --out "$OUT" --workers "$WORKERS" --step-limit "${STEP_LIMIT:-40}" $limit
   kill $server; wait $server 2>/dev/null
 '
 echo "=== done $(date)"

@@ -20,7 +20,7 @@ from data_processing import agent_workspace as aw
 HERE = Path(__file__).resolve().parent
 
 
-def run_case(i, row, entry, out_root, timeout, model, mini=None):
+def run_case(i, row, entry, out_root, timeout, model, mini=None, step_limit=40):
     out = out_root / str(i)
     out.mkdir(parents=True, exist_ok=True)
     shutil.copy(HERE / "mini_local.yaml", out / "mini_local.yaml")
@@ -31,7 +31,7 @@ def run_case(i, row, entry, out_root, timeout, model, mini=None):
     env = {"HOME": home, "PATH": f"{venv}/bin:{home}/venv_agent/bin:/usr/bin:/bin", "PYTHONPATH": f"{ws}:{ws}/src", "LANG": "C.UTF-8", "TERM": "dumb",
            "MSWEA_SILENT_STARTUP": "1", "MSWEA_CONFIGURED": "1", "MSWEA_GLOBAL_CONFIG_DIR": str(out / "home" / "cfg"), "PYTHONDONTWRITEBYTECODE": "1"}
     cmd = ["unshare", "-m", str(HERE / "sandbox_inner.sh"), str(ws), str(out), venv, pybase, "--",
-           mini or f"{home}/venv_agent/bin/mini", "-c", "mini.yaml", "-c", str(out / "mini_local.yaml"), "-m", model, "--agent-class", "default", "-y", "-l", "0",
+           mini or f"{home}/venv_agent/bin/mini", "-c", "mini.yaml", "-c", str(out / "mini_local.yaml"), "-c", f"agent.step_limit={step_limit}", "-m", model, "--agent-class", "default", "-y", "-l", "0",
            "-t", aw.task_prompt(row), "-o", str(out / "traj.json")]
     started = time.time()
     proc = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=open(out / "stdout.txt", "w"), stderr=subprocess.STDOUT, start_new_session=True)
@@ -67,6 +67,7 @@ def main():
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--timeout", type=int, default=1800, help="seconds per case")
     ap.add_argument("--model", default="hosted_vllm/qwen3-coder")
+    ap.add_argument("--step-limit", type=int, default=40, help="model calls per case")
     args = ap.parse_args()
     rows = json.load(open(Path(args.split_dir) / "splits" / "test.json"))
     manifest = json.load(open(Path(args.root) / "manifest.json"))
@@ -75,7 +76,7 @@ def main():
     todo = todo[:args.limit]
     print(len(todo), "cases to run", flush=True)
     with ThreadPoolExecutor(args.workers) as pool:
-        list(pool.map(lambda item: run_case(item[0], rows[item[0]], item[1], out_root, args.timeout, args.model), todo))
+        list(pool.map(lambda item: run_case(item[0], rows[item[0]], item[1], out_root, args.timeout, args.model, step_limit=args.step_limit), todo))
 
 
 if __name__ == "__main__":
