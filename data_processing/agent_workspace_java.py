@@ -168,3 +168,18 @@ def derived_row(row):
     new = dict(row)
     new["hunk"] = dict(row["hunk"], targetChanges=[{"lineNo": n, "type": "ADD", "line": ""} for n in range(first, last + 1)])
     return new
+
+
+def swap_method(dest, row, method_lines, to="after"):
+    """Write the AFTER (repaired) or BEFORE (broken) text of the target method into the workspace file; returns the file's previous text.
+    method_lines = the method's lines in the file as it is now (the manifest's method_lines for the broken snapshot)."""
+    path = Path(dest) / row["bPath"]
+    old = path.read_text(encoding="utf-8", errors="ignore")
+    lines = old.split("\n")
+    first, last = method_lines
+    code = (row["aSource"] if to == "after" else row["bSource"])["code"].split("\n")
+    indent = lines[first - 1][:len(lines[first - 1]) - len(lines[first - 1].lstrip())]
+    if code[0] == code[0].lstrip():
+        code[0] = indent + code[0]
+    path.write_text("\n".join(lines[:first - 1] + code + lines[last:]), encoding="utf-8")
+    return old

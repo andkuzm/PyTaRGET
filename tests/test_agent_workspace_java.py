@@ -101,3 +101,14 @@ def test_the_derived_row_replaces_the_whole_after_method():
 def test_prompt_names_the_method_and_command():
     text = aj.task_prompt(row("b", "a"), "mvn test -Dtest=FooTest#testA")
     assert "testA" in text and "FooTest.java" in text and "mvn test -Dtest=FooTest#testA" in text and "weaken" in text
+
+
+def test_swap_method_writes_the_repaired_text_and_returns_the_previous_file(origin, tmp_path):
+    src, b, a = origin
+    dest = tmp_path / "ws"
+    info = aj.prepare_workspace(row(b, a), dest, clone=clone_from(src))
+    old = aj.swap_method(dest, row(b, a), info["method_lines"], "after")
+    text = (dest / "src/test/java/p/FooTest.java").read_text()
+    assert "Foo.add(1, 2)" in text and "Foo.plus" not in text and "Foo.fresh()" in text and "Foo.plus(1, 2)" in old
+    aj.swap_method(dest, row(b, a), info["method_lines"], "before")
+    assert "Foo.plus(1, 2)" in (dest / "src/test/java/p/FooTest.java").read_text()
