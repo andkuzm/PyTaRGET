@@ -1,0 +1,57 @@
+Agent step limit 40 vs 80 (mini-SWE-agent + Qwen3-Coder-30B-A3B, offline sandbox, context 32k -> 64k, everything else identical) - 2026-11-19
+Same cases and prompt; the 80-call runs reset the workspaces first. Checked plausible@1, weighted with the population sizes of the contrast subsets.
+
+== JAVA (59 cases, Maven offline; strict = final method replaces the method, relaxed = whole final test file) ==
+Run facts: 40 calls: 50 submitted / 7 call limit / 2 context window, 22 method missing or edited outside it, 8 changed other tracked files, median 22 calls, 40 s. 80 calls: 59 submitted, 12 method missing / edited outside it, 0 changed other tracked files, median 29 calls, 64 s. Audit flags of the 80-call run: 17 commands, all git checkout/show inside the single-snapshot repository.
+cases 59; common to all columns 59; clean (no other test lines changed) 4
+
+column                solved  unsolved  weighted    total   (checked)
+qwen3coder              63.6      19.2      41.7   26/59
+gpt-oss-20b             57.6      15.4      36.7   23/59
+ernie-5.5-flash         81.8      19.2      50.9   32/59
+particle-1              90.9      42.3      66.9   41/59
+nemotron-3-ultra        78.8      30.8      55.1   34/59
+AGENT 40 strict         63.6      30.8      47.4   29/59
+AGENT 40 relaxed        75.8      38.5      57.3   35/59
+AGENT 80 strict         72.7      53.8      63.4   38/59
+AGENT 80 relaxed        78.8      61.5      70.3   42/59
+
+Split by whether the repair changed other test lines (checked passes):
+  clean (0 other lines)  n=  4 | AGENT 40 strict 3/4 | AGENT 40 relaxed 3/4 | AGENT 80 strict 3/4 | AGENT 80 relaxed 3/4 | qwen3coder 2/4 | particle-1 4/4 | nemotron-3-ultra 3/4
+  other tests repaired   n= 55 | AGENT 40 strict 26/55 | AGENT 40 relaxed 32/55 | AGENT 80 strict 35/55 | AGENT 80 relaxed 39/55 | qwen3coder 24/55 | particle-1 37/55 | nemotron-3-ultra 31/55
+
+paired AGENT 40 strict vs particle-1: +4 -16
+paired AGENT 40 relaxed vs particle-1: +7 -13
+paired AGENT 80 strict vs particle-1: +9 -12
+paired AGENT 80 relaxed vs particle-1: +11 -10
+paired AGENT 80 strict vs AGENT 40 strict: +14 -5
+paired AGENT 80 relaxed vs AGENT 40 relaxed: +11 -4
+paired AGENT 80 relaxed vs qwen3coder: +21 -5
+
+== PYTHON (sibling-safe workspaces) ==
+Run facts: 40 calls (62 cases): 35 submitted / 22 call limit / 5 context window, median 33 calls, 52 s. 80 calls (73 cases): 67 submitted / 6 call limit / 0 context window, median 43 calls, 79 s; function missing 8, edit outside the function 21, other tracked files 6, audit-flagged 26 (git checkout/pip inside the offline snapshot).
+cases in both runs 61; judged in both and baseline 61; failures by rule: 40-call 12, 80-call 12
+AGENT 40 calls   solved  43.3 unsolved  48.4 weighted  46.1  total 28/61  | plain 32
+AGENT 80 calls   solved  63.3 unsolved  35.5 weighted  48.0  total 30/61  | plain 33
+paired 80 vs 40: +10 -8
+by rule violation, 80-call failures: {'function missing': 7, 'changed other tracked files': 5} | 40-call: {'function missing': 8, 'changed other tracked files': 4}
+
+80-call run against the ablation columns (61 cases common to all columns):
+agent cases 73; judged for the agent 73; common to ALL columns 61; agent failures by rule (no usable function etc.): 14
+column         solved   unsolved  weighted  total pass | vs qwen B (paired +/-)
+qwen A           40.0       0.0      18.0    12/61    | +3 -14
+qwen B           66.7       9.7      35.3    23/61    | +0 -0
+qwen C           30.0       3.2      15.3    10/61    | +2 -15
+qwen BC          66.7      12.9      37.1    24/61    | +2 -1
+particle A       60.0       3.2      28.7    19/61    | +5 -9
+particle B       90.0      32.3      58.2    37/61    | +15 -1
+particle BC      83.3      35.5      57.0    36/61    | +14 -1
+AGENT 80 calls   60.0      38.7      48.3    30/61    | +16 -9
+agent plain      66.7      41.9      53.0    33/61    | +18 -8
+groups in common: {'solved': 30, 'unsolved': 31}
+
+Split by siblings (other cases of the same repository and repaired commit in the 300-case subset; lower bound):
+  with siblings  n= 29 | AGENT 80 calls 16/29 | qwen B 9/29 | qwen BC 10/29 | particle BC 14/29
+  no sibling     n= 32 | AGENT 80 calls 14/32 | qwen B 14/32 | qwen BC 14/32 | particle BC 22/32
+
+Reading: the higher limit removes almost all call-limit exits and context errors. On Java it lifts the agent by ~16 points (strict 47.4 -> 63.4, relaxed 57.3 -> 70.3; paired +14/-5 and +11/-4) to the level of the best free prompt-only model (particle-1 66.9%; paired relaxed +11/-10). On Python it makes no measurable difference (46.1 -> 48.0, paired +10/-8): the agent stays below particle-1 with the failure output (57-58%). Rule failures (editing more than the method, other files) fall on Java (25 -> 12) but not on Python (12 -> 12). Samples are small (59-61 cases, ~7 points per group) and the runs are sampled at temperature 0.7, so single differences of a few cases are noise.
