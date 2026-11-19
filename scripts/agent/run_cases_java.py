@@ -74,7 +74,9 @@ def main():
     rows = json.load(open(Path(args.split_dir) / "splits" / "test.json"))
     root, out_root = Path(args.root), Path(args.out)
     manifest = json.load(open(root / "manifest.json"))
-    todo = [(int(i), e) for i, e in sorted(manifest.items(), key=lambda kv: int(kv[0])) if e["status"] == "ok" and not (out_root / i / "result.json").exists()][:args.limit]
+    warm = json.load(open(root / "warm.json")) if (root / "warm.json").exists() else {}          # only cases whose repaired method passed online (offline-ready)
+    todo = [(int(i), e) for i, e in sorted(manifest.items(), key=lambda kv: int(kv[0]))
+            if e["status"] == "ok" and warm.get(i) == "success" and not (out_root / i / "result.json").exists()][:args.limit]
     print(len(todo), "cases to run", flush=True)
     with ThreadPoolExecutor(args.workers) as pool:
         list(pool.map(lambda item: run_case(item[0], rows[item[0]], item[1], root, out_root, args.timeout, args.model), todo))

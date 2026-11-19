@@ -1,0 +1,25 @@
+Java agent (mini-SWE-agent v2.4.6 + Qwen3-Coder-30B-A3B, offline sandbox + offline Maven) vs the prompt-only models on the SAME 59 Java contrast cases - 2026-11-19
+Cases: 59 of the 273-case Java contrast subset whose reference passes in our environment and whose workspace could be prepared (nested sample, max 3 per repository). Workspace = after commit with ONLY the target method put back to its before text (Java needs every test file of the module to compile, so tests repaired by the same commit stay repaired). 55 of the 59 cases have such repaired siblings; only 4 are clean.
+'AGENT (qwen)' = strict: the agent's final METHOD replaces the whole after-method; edits outside the method or in other tracked files = failure (25 of 59: 17 edited outside the method - only 4 of them just imports/blank lines - and 8 changed other tracked files). 'AGENT relaxed' = the agent's WHOLE final test file is the candidate (imports/helpers may change), only changes of other tracked files are failures (8).
+Checked plausible@1 (test passes AND (test needs the repaired method OR assertions kept)), weighted with the population sizes of the Java contrast subset.
+
+agent cases 59; common to all columns 59; clean (no other test lines changed) 4; agent failures by rule 25
+
+column              solved  unsolved  weighted    total   (checked)
+qwen3coder            63.6      19.2      41.7   26/59
+gpt-oss-20b           57.6      15.4      36.7   23/59
+ernie-5.5-flash       81.8      19.2      50.9   32/59
+particle-1            90.9      42.3      66.9   41/59
+nemotron-3-ultra      78.8      30.8      55.1   34/59
+AGENT (qwen)          63.6      30.8      47.4   29/59
+AGENT relaxed         75.8      38.5      57.3   35/59
+agent plain           63.6      30.8      47.4   29/59
+
+Split by whether the repair changed other test lines (agent could copy their pattern): checked passes
+  clean (0 other lines)  n=  4 | AGENT (qwen) 3/4 | AGENT relaxed 3/4 | qwen3coder 2/4 | particle-1 4/4 | nemotron-3-ultra 3/4
+  other tests repaired   n= 55 | AGENT (qwen) 26/55 | AGENT relaxed 32/55 | qwen3coder 24/55 | particle-1 37/55 | nemotron-3-ultra 31/55
+paired AGENT (qwen) vs particle-1: +4 -16
+paired AGENT relaxed vs particle-1: +7 -13
+
+Run facts: job 3741614, 11 min on one H200, 50 submitted / 7 call limit / 2 context window, median 22 calls and 40 s per case, network probe 000, 5 audit flags (all git checkout on the snapshot repository). Scoring controls: all 51 relaxed and 34 strict reference controls passed.
+Caveats: 59 cases (SE ~7 points); the prompt-only Java models had NO failure output (TaRBench has none) while the agent runs the test itself and sees compile errors (on Python the failure output alone gave +20-27 points); siblings repaired in the workspace may be copied (not separable here: 4 clean cases); contamination.

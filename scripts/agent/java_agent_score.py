@@ -16,14 +16,32 @@ ap.add_argument("--agent-out", required=True)
 ap.add_argument("--out", required=True)
 ap.add_argument("--workdir", required=True)
 ap.add_argument("--workers", type=int, default=3)
+ap.add_argument("--relaxed", action="store_true", help="score the agent's WHOLE final test file (edits outside the method, e.g. imports or helpers, are allowed); "
+                "only cases that changed other tracked files stay failures")
 args = ap.parse_args()
 rows = json.load(open(Path.home() / "eval_results_java_llm/contrast300/splits/test.json"))
+manifest = json.load(open(Path(args.root) / "manifest.json"))
 cases, skipped = [], {}
 for result_file in sorted(Path(args.agent_out).glob("*/result.json"), key=lambda f: int(f.parent.name)):
     i = result_file.parent.name
     r = json.loads(result_file.read_text())
+    manifest_entry = manifest[i]
     if r.get("other_files_touched"):
         skipped[i] = "changed other tracked files"
+    elif args.relaxed:
+        import subprocess
+        ws, row = Path(manifest_entry["ws"]), rows[int(i)]
+        snapshot = subprocess.run(["git", "show", f"HEAD:{row['bPath']}"], cwd=ws, capture_output=True, text=True).stdout.split("\n")
+        final = (ws / row["bPath"]).read_text(encoding="utf-8", errors="ignore")
+        n_after = len(snapshot) - len(row["bSource"]["code"].split("\n")) + len(row["aSource"]["code"].split("\n"))     # lines of the file at the after commit
+        derived = dict(row, hunk=dict(row["hunk"], targetChanges=[{"lineNo": n, "type": "ADD", "line": ""} for n in range(1, n_after + 1)]))
+        first, last = manifest_entry["method_lines"]
+        code = row["aSource"]["code"].split("\n")
+        indent = snapshot[first - 1][:len(snapshot[first - 1]) - len(snapshot[first - 1].lstrip())]
+        if code[0] == code[0].lstrip():
+            code[0] = indent + code[0]
+        after_file = "\n".join(snapshot[:first - 1] + code + snapshot[last:])            # the file at the after commit (the control)
+        cases.append({"row": derived, "key": i, "preds": [final.rstrip("\n")], "target": after_file.rstrip("\n")})
     elif r.get("test_file_changed_outside_method"):
         skipped[i] = "edited outside the method"
     elif not r.get("method_found"):

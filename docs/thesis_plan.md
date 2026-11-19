@@ -103,3 +103,8 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 - Next: sibling-safe agent run and scoring; retry the empty remote answers; more cases for the ablation (nested sample 200) if quota allows; push when the user asks (many local commits).
 
 - 2026-11-19 later: Java agent (Qwen3-Coder, offline Maven) is being prepared: the Java workspace keeps all other tests repaired (the module must compile), so each case records how many other test lines the repair changed; analyse clean cases (0 other lines) separately.
+
+## Status update 2026-11-19 (night): Java agent done
+- Java agent (Qwen3-Coder, offline Maven, 59 cases): strict 47.4%, relaxed 57.3% weighted checked plausible@1 vs 41.7% for the same model prompt-only and 55-67% for nemotron/particle (docs/agent_plan.md, docs/results/java_agent_results.txt). Python (sibling-safe): 50.5% vs 36.8% for Qwen with the failure output.
+- Cleanup: home file count 3.15M -> ~0.9M (Trash, old mining dirs, caches, scratch); verified dataset backup in ~/backups/2026-11-19/ (64 archives + SHA-256 manifest).
+- Open: push of the local commits (the last push attempt was denied by the permission classifier; waiting for the user), delete ~/agent_java/{ws,m2} when no longer needed, retry the empty remote answers, more cases for the ablation and agent runs, WP3 (paid models) and WP6 (writing; UT guidelines still to be saved).

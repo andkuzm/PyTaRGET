@@ -20,7 +20,7 @@ backup_dir() {       # directory relative to $HOME, tar.gz, verified by a full r
   out="$B/$(echo "$d" | tr '/' '__').tar.gz"
   grep -q "^$d/	.*	OK$" "$M" && { echo "skip $d"; return; }
   echo "=== $d $(date +%T)"
-  nice -n 10 tar -czf "$out.tmp" "$d" 2>/dev/null; n_tar=$(tar -tzf "$out.tmp" | grep -vc '/$'); n_find=$(find "$d" -type f | wc -l)
+  nice -n 10 tar -czf "$out.tmp" "$d" 2>/dev/null; n_tar=$(tar -tzf "$out.tmp" | grep -vc '/$'); n_find=$(find "$d" ! -type d | wc -l)
   if [ "$n_tar" = "$n_find" ]; then mv "$out.tmp" "$out"; printf "%s/\t%s\t%s\t%s\tOK\n" "$d" "$n_find files" "-" "$(stat -c %s "$out")" >> "$M"; else rm -f "$out.tmp"; printf "%s/\t%s\t-\t0\tVERIFY_FAILED(tar %s vs find %s)\n" "$d" "$n_find files" "$n_tar" "$n_find" >> "$M"; echo "VERIFY FAILED $d"; fi
 }
 # 1) mined datasets, funnels, resume lists (irreplaceable: days of mining)
@@ -30,7 +30,7 @@ for f in annotated_cases_v2_pr59.csv annotated_cases_v2_pr59_filtered_cap_clean.
          processed_repositories_trial3_pr58.txt processed_repositories_trial2_pr58.txt processed_repositories_trial_pr58.txt Untitled1.ipynb; do backup_file "$f"; done
 for f in $(ls annotated_cases_*_funnel.csv 2>/dev/null); do backup_file "$f"; done
 # 2) subsets and small result sets
-for d in eval_results_java_llm eval_ablation eval_java_plaus eval_agent eval_ablation_plaus eval_agent_plaus eval_openrouter eval_openrouter_plaus eval_java_check references; do backup_dir "$d"; done
+for d in eval_results_java_llm eval_ablation eval_java_plaus eval_agent eval_ablation_plaus eval_agent_plaus eval_openrouter eval_openrouter_plaus eval_java_check references agent_work agent_work2; do backup_dir "$d"; done
 for f in eval_results_perproject_llm/contrast300/splits/test.json eval_results_perproject_llm/contrast300/subset_meta.json eval_results_perproject_llm/matched/splits/test.json; do backup_file "$f"; done
 for f in $(cd "$HOME"; find eval_results_perproject_llm -maxdepth 3 -name "*.json" -size -3M 2>/dev/null); do backup_file "$f"; done
 # 3) encoded splits (derived from the CSV, expensive to rebuild): per-project split first (the one the results use), then the global split and the full-context one
