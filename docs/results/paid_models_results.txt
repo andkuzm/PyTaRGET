@@ -1,0 +1,63 @@
+Paid OpenRouter models, variants A (baseline prompt) and B (+ failure output), one candidate per case, 8192 output tokens (empty answers retried at 16384) - 2026-11-20
+Models: qwen/qwen3-coder-next (0.12/0.80 USD per 1M tokens in/out), qwen/qwen3-coder (0.30/1.00), mistralai/devstral-2512 (0.40/2.00), z-ai/glm-5.3 (0.07/1.40, reasoning, effort low), moonshotai/kimi-k2.5 (0.50/2.50, reasoning, effort low).
+Cases: Java = the 59 cases of the agent comparison and all 257 cases of the Java contrast subset whose reference passes here; Python = the 61 cases common to the agent comparison (Kimi: stage 1 only, the 59 / 61 cases; the other four models were extended to the full subsets, scored on Java 257; Python scored on the 61 cases). Checked plausible@1, weighted with the population sizes of the subsets; paired = cases gained/lost B against A. Cost = sum of the cost reported by the provider over ALL requests of the run directory (for the extended runs: the whole subset, not just the shown cases).
+Spend: 7.87 USD of the 10 USD credit (Kimi 5.5 USD for its 240 stage-1 answers: its reasoning writes 6-12k output tokens per answer, i.e. ~0.016 USD per Java and ~0.022 USD per Python case, 35-90x the price of Qwen3-Coder; its extension to the full subsets (~20 USD) was skipped).
+
+== JAVA: the 59 cases of the agent comparison
+model / variant                     n empty | solved unsolved weighted | B-A pts (paired +/-)   cost($)
+qwen3-coder-30b (local) A          59     0 |   63.6     19.2     41.7                                  
+qwen3-coder-30b (local) B          59     0 |   57.6     23.1     40.5 |   -1.2 (+2/-3)                 
+particle-1 (free) A                59     0 |   90.9     42.3     66.9                                  
+particle-1 (free) B                59     0 |   87.9     57.7     73.0 |   +6.1 (+7/-4)                 
+qwen3-coder-next A                 59     0 |   57.6     19.2     38.6                             0.027
+qwen3-coder-next B                 59     0 |   69.7     38.5     54.3 |  +15.6 (+10/-1)           0.027
+qwen3-coder A                      59     0 |   78.8     11.5     45.6                             0.057
+qwen3-coder B                      59     0 |   78.8     53.8     66.5 |  +20.9 (+13/-2)           0.071
+devstral-2512 A                    59     0 |   69.7     23.1     46.7                             0.091
+devstral-2512 B                    59     0 |   69.7     42.3     56.2 |   +9.5 (+7/-2)            0.110
+glm-5.3 A                          59     0 |   72.7     38.5     55.8                             0.174
+glm-5.3 B                          59     0 |   81.8     42.3     62.3 |   +6.5 (+7/-3)            0.273
+kimi-k2.5 A                        59     0 |   87.9     34.6     61.6                             1.306
+kimi-k2.5 B                        59     0 |   93.9     50.0     72.2 |  +10.7 (+7/-1)            0.940
+
+== JAVA: all cases covered by each run (n differs; Kimi only the 59 cases)
+model / variant                     n empty | solved unsolved weighted | B-A pts (paired +/-)   cost($)
+qwen3-coder-30b (local) A         257     0 |   64.1     13.2     38.9                                  
+qwen3-coder-30b (local) B         257     0 |   67.2     22.5     45.1 |   +6.2 (+20/-4)                
+particle-1 (free) A               257     1 |   89.8     34.9     62.7                                  
+particle-1 (free) B               257     3 |   92.2     54.3     73.5 |  +10.8 (+35/-7)                
+qwen3-coder-next A                257     0 |   64.8     20.2     42.8                             0.027
+qwen3-coder-next B                257     0 |   75.0     30.2     52.9 |  +10.1 (+32/-6)           0.027
+qwen3-coder A                     257     0 |   75.8     17.8     47.2                             0.057
+qwen3-coder B                     257     0 |   75.8     41.1     58.6 |  +11.5 (+38/-8)           0.071
+devstral-2512 A                   257     0 |   73.4     20.9     47.5                             0.091
+devstral-2512 B                   257     0 |   78.1     33.3     56.0 |   +8.5 (+30/-8)           0.110
+glm-5.3 A                         257     0 |   83.6     30.2     57.2                             0.174
+glm-5.3 B                         257     0 |   88.3     38.0     63.4 |   +6.2 (+31/-15)          0.273
+kimi-k2.5 A                        59     0 |   87.9     34.6     61.6                             1.306
+kimi-k2.5 B                        59     0 |   93.9     50.0     72.2 |  +10.7 (+7/-1)            0.940
+
+== PYTHON: the 61 common cases (judged in every shown run is not enforced: n shown)
+model / variant                     n empty | solved unsolved weighted | B-A pts (paired +/-)   cost($)
+qwen3-coder-30b (local) A          61     0 |   40.0      0.0     18.0                                  
+qwen3-coder-30b (local) B          61     0 |   66.7      9.7     35.3 |  +17.3 (+14/-3)                
+particle-1 (free) A                61     7 |   60.0      3.2     28.7                                  
+particle-1 (free) B                61     5 |   90.0     32.3     58.2 |  +29.5 (+18/-0)                
+qwen3-coder-next A                 61     0 |   43.3      3.2     21.2                             0.044
+qwen3-coder-next B                 61     0 |   56.7      9.7     30.8 |   +9.5 (+11/-5)           0.049
+qwen3-coder A                      61     0 |   46.7      0.0     21.0                             0.105
+qwen3-coder B                      61     0 |   80.0     22.6     48.4 |  +27.4 (+18/-1)           0.135
+devstral-2512 A                    61     0 |   40.0      0.0     18.0                             0.147
+devstral-2512 B                    61     0 |   66.7     22.6     42.4 |  +24.4 (+16/-1)           0.203
+glm-5.3 A                          61     0 |   56.7      3.2     27.2                             0.364
+glm-5.3 B                          61     0 |   76.7     19.4     45.1 |  +17.9 (+15/-4)           0.395
+kimi-k2.5 A                        61     1 |   53.3      9.7     29.3                             1.974
+kimi-k2.5 B                        61     0 |   86.7     38.7     60.3 |  +31.0 (+19/-0)           1.361
+
+For reference (agent, 80 calls, same cases): Java 59 strict 63.4 / relaxed 70.3; Python 61: 48.3.
+
+Reading:
+- The failure output helps every paid model: +6 to +21 points on Java (59 cases; +6 to +12 on all 257) and +10 to +31 on Python (61 cases), more than it helped the small local Qwen3-Coder-30B on Java (-1.2 on 59 cases).
+- Best with the failure output: Kimi-k2.5 (Python 60.3%, Java-59 72.2%) and the free particle-1 (Python 58.2%, Java 73.0% / 73.5%) at the same level; then Qwen3-Coder (Python 48.4%, Java-59 66.5%), GLM-5.3, Devstral, Qwen3-Coder-Next.
+- Cost-effectiveness: Qwen3-Coder with B reaches the 80-call agent's level on Python (48.4 vs 48.3) and Java-59 strict (66.5 vs 63.4) for ~0.0003-0.0005 USD per case; Kimi is ~12 points better on Python for 35-90x the price per case.
+- Caveats: ~60 cases (+-7 points per group), temperature 0.7, one candidate; the Python baselines of the free/local models are from earlier runs with the same prompts; contamination of recent models; costs are provider-reported.

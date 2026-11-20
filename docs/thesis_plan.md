@@ -123,3 +123,7 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 - 2026-11-19: one-page summary of agent vs no-agent scores: docs/results/agent_vs_no_agent_summary.txt. Next (user request): Java failure output (run the broken case) and definitions as context -> Java B/C/BC for local Qwen3-Coder and BC for particle-1, to fill the empty cells of that table.
 
 - 2026-11-19 evening: Java context ablation done (docs/results/java_ablation_results.txt): failure output +6 points for Qwen3-Coder (BC +8), +10 for particle-1 BC (72.7%); definitions no help. Summary table updated (docs/results/agent_vs_no_agent_summary.txt): with the context, particle-1 BC (74.5% on the 59 agent cases) is slightly above the 80-call Qwen agent (relaxed 70.3%).
+
+## Status update 2026-11-20: paid OpenRouter models (WP3 first step) done
+- Five paid models (Qwen3-Coder-Next, Qwen3-Coder, Devstral-2512, GLM-5.3, Kimi-K2.5) on Java and Python with variants A and B: docs/results/paid_models_results.txt, summary in docs/results/agent_vs_no_agent_summary.txt. Spend 7.87 USD of 10 (Kimi 5.5). Failure output +6..+31 points for all; Kimi and the free particle-1 best (~58-60 Python, ~72-73 Java); Qwen3-Coder with B matches the 80-call local agent at ~0.0004 USD per case. Kimi extension and DeepSeek not run (budget / user decision).
+- Remaining credit ~2.1 USD. Open: push (local commits), prompt/harness change for the agent, remote-model agent (needs a harness with API access outside the sandbox), more cases, writing.
