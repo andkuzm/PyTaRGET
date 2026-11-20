@@ -98,6 +98,9 @@ def main():
     ap.add_argument("--workers", type=int, default=1, help="parallel requests (paid models only need the rate limit)")
     ap.add_argument("--max-requests", type=int, default=None, help="stop after this many requests (a daily quota)")
     ap.add_argument("--max-cost", type=float, default=0.0, help="stop when the reported cost (USD) exceeds this")
+    ap.add_argument("--price-in", type=float, default=0.0, help="USD per 1M prompt tokens: the cost is estimated from the tokens when the response reports none (the larger of the two counts)")
+    ap.add_argument("--price-out", type=float, default=0.0, help="USD per 1M completion tokens (see --price-in)")
+    ap.add_argument("--only-ids", default=None, help="JSON file with a list of positions in the split's test.json: only these cases are run")
     ap.add_argument("--retry-empty", action="store_true",
                     help="ask again for the cases whose saved answer is empty (e.g. with a larger --max-new-tokens); the old "
                          "record is kept until a new answer replaces it")
@@ -136,8 +139,11 @@ def main():
         total = sum(1 for _ in iter_rows(split))
         chosen = sample_positions(total, args.sample, args.seed, args.nested)
 
+    only = set(json.load(open(args.only_ids))) if args.only_ids else None
     todo = []
     for i, row in enumerate(iter_rows(split)):
+        if only is not None and i not in only:
+            continue
         if args.limit is not None and i >= args.limit:
             break
         if (chosen is not None and i not in chosen) or i in seen:
@@ -171,12 +177,15 @@ def main():
                 text = (r.choices[0].message.content or "") if r.choices else ""
                 usage = r.usage
                 with lock:
-                    state["cost"] += float(getattr(usage, "cost", 0) or 0) if usage else 0.0
-                    state["tokens_in"] += getattr(usage, "prompt_tokens", 0) or 0
-                    state["tokens_out"] += getattr(usage, "completion_tokens", 0) or 0
+                    reported = float(getattr(usage, "cost", 0) or 0) if usage else 0.0
+                    t_in, t_out = (getattr(usage, "prompt_tokens", 0) or 0), (getattr(usage, "completion_tokens", 0) or 0)
+                    estimate = (t_in * args.price_in + t_out * args.price_out) / 1e6
+                    state["cost"] += max(reported, estimate)
+                    state["tokens_in"] += t_in
+                    state["tokens_out"] += t_out
                     log.write(json.dumps({"id": i, "secs": round(time.time() - started, 1),
                                           "finish": r.choices[0].finish_reason if r.choices else None,
-                                          "chars": len(text),
+                                          "chars": len(text), "tokens_in": t_in, "cost_reported": reported,
                                           "completion_tokens": getattr(usage, "completion_tokens", None)}) + "\n")
                     log.flush()
                 return text
