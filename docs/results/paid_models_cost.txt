@@ -1,0 +1,39 @@
+Tokens and cost of the paid OpenRouter runs, reconstructed from the request logs (docs/results/paid_models_results.txt has the scores) - 2026-11-21
+Source: ~/eval_paid/<run>/requests.jsonl (one line per request: case position, prompt tokens, completion tokens, provider-reported cost; empty-answer retries are extra lines of the same case). Script: scripts/thesis_analysis/paid_cost_report.py.
+Reconciliation: sum of the logs 7.852 USD + GLM trial 0.013 USD = 7.865 USD; the OpenRouter account shows 7.866 USD.
+'subset' = the 59 Java / 61 Python cases of the agent comparison (stage 1); 'all cases' = the whole run directory (Qwen3-Coder-Next, Qwen3-Coder, Devstral, GLM: 273 Java / 300 Python cases; Kimi: only the subset).
+
+model              run     | subset (59 Java / 61 Python): cases  req  tokens in   out   cost$  $/case | all cases of the run: cases  req  tokens in    out    cost$  $/case
+qwen3-coder-next   javaA   |    59   59      34592      2421   0.006  0.0001 |   273  273     156662     10432   0.027  0.0001
+qwen3-coder-next   javaB   |    59   59      46701      2329   0.006  0.0001 |   273  273     200876     10083   0.027  0.0001
+qwen3-coder-next   pyA     |    61   61      53834      3212   0.009  0.0001 |   300  300     264705     15377   0.044  0.0001
+qwen3-coder-next   pyB     |    61   61      79363      3138   0.010  0.0002 |   300  300     384818     14360   0.049  0.0002
+qwen3-coder-next   TOTAL   | stage-1 subset (A+B, Java 59 + Python 61): cost 0.032  tokens in 214490  out 11100 | whole model: cost 0.147  in 1007061  out 50252
+
+qwen3-coder        javaA   |    59   59      34592      2372   0.014  0.0002 |   273  273     156662     10381   0.057  0.0002
+qwen3-coder        javaB   |    59   59      46701      2344   0.011  0.0002 |   273  273     200876     10349   0.071  0.0003
+qwen3-coder        pyA     |    61   61      53834      3666   0.021  0.0003 |   300  301     265550     17546   0.105  0.0003
+qwen3-coder        pyB     |    61   61      79363      3419   0.019  0.0003 |   300  300     384818     15741   0.135  0.0005
+qwen3-coder        TOTAL   | stage-1 subset (A+B, Java 59 + Python 61): cost 0.065  tokens in 214490  out 11801 | whole model: cost 0.367  in 1007906  out 54017
+
+devstral-2512      javaA   |    59   59      38259      2556   0.020  0.0003 |   273  273     172695     11026   0.091  0.0003
+devstral-2512      javaB   |    59   59      51257      2696   0.026  0.0004 |   273  273     220026     11370   0.110  0.0004
+devstral-2512      pyA     |    61   61      57387      3667   0.030  0.0005 |   300  301     283411     16934   0.147  0.0005
+devstral-2512      pyB     |    61   61      88150      3654   0.043  0.0007 |   300  300     427163     15938   0.203  0.0007
+devstral-2512      TOTAL   | stage-1 subset (A+B, Java 59 + Python 61): cost 0.119  tokens in 235053  out 12573 | whole model: cost 0.551  in 1103295  out 55268
+
+glm-5.3            javaA   |    59   59      34497      8512   0.047  0.0008 |   273  274     157235     28126   0.174  0.0006
+glm-5.3            javaB   |    59   59      46211      6219   0.044  0.0007 |   273  277     202799     38894   0.273  0.0010
+glm-5.3            pyA     |    61   61      53689     16233   0.079  0.0013 |   300  302     265260     52923   0.364  0.0012
+glm-5.3            pyB     |    61   61      78088     10527   0.075  0.0012 |   300  301     380316     43011   0.395  0.0013
+glm-5.3            TOTAL   | stage-1 subset (A+B, Java 59 + Python 61): cost 0.245  tokens in 212485  out 41491 | whole model: cost 1.205  in 1005610  out 162954
+
+kimi-k2.5          javaA   |    59   59      34786    514883   1.306  0.0221 |    59   59      34786    514883   1.306  0.0221
+kimi-k2.5          javaB   |    59   61      47885    366530   0.940  0.0159 |    59   61      47885    366530   0.940  0.0159
+kimi-k2.5          pyA     |    61   64      56054    785919   1.974  0.0324 |    61   64      56054    785919   1.974  0.0324
+kimi-k2.5          pyB     |    61   62      78446    549645   1.361  0.0223 |    61   62      78446    549645   1.361  0.0223
+kimi-k2.5          TOTAL   | stage-1 subset (A+B, Java 59 + Python 61): cost 5.581  tokens in 217171  out 2216977 | whole model: cost 5.581  in 217171  out 2216977
+
+all paid runs: cost 7.852 USD, prompt tokens 4341043, completion tokens 2539468, requests 4840 (+ the 20-case GLM trial: 0.013 USD)
+
+Reading: Kimi-k2.5 spent 5.58 of the 7.85 USD and wrote 2.2M of the 2.5M completion tokens (8.7k-12.9k output tokens per answer; 0.016-0.032 USD per case); the four other models cost 0.0001-0.0013 USD per case. For the 59 Java + 61 Python cases (A and B) the whole comparison cost: Qwen3-Coder-Next 0.03, Qwen3-Coder 0.07, Devstral 0.12, GLM-5.3 0.25, Kimi-K2.5 5.58 USD. Per 1000 cases (B): Qwen3-Coder about 0.3-0.5 USD, Kimi about 16-22 USD.
