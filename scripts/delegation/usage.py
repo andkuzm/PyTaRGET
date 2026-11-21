@@ -9,6 +9,6 @@ out = subprocess.run(["claude", "-p", "/usage"], capture_output=True, text=True,
 s = re.search(r"Current session: (\d+)% used · resets ([^\n(]+)", out); w = re.search(r"Current week \(all models\): (\d+)% used · resets ([^\n(]+)", out)
 sp, sr = (int(s.group(1)), s.group(2).strip()) if s else (None, None)
 wp, wr = (int(w.group(1)), w.group(2).strip()) if w else (None, None)
-cap = 70   # user, 2026-11-21 15:10: daily window cap 70% "this time", week cap 95%
-print(json.dumps({"session_pct": sp, "session_reset": sr, "week_pct": wp, "week_reset": wr, "window_cap": cap, "week_cap": 95,
-                  "window_room": None if sp is None else cap - sp, "week_room": None if wp is None else 95 - wp}))
+cap = 70   # user, 2026-11-21 15:10: daily window cap 70% "this time", week cap 20% (user 2026-11-21 19:00: continue till 20% at most for now)
+print(json.dumps({"session_pct": sp, "session_reset": sr, "week_pct": wp, "week_reset": wr, "window_cap": cap, "week_cap": 20,
+                  "window_room": None if sp is None else cap - sp, "week_room": None if wp is None else 20 - wp}))
