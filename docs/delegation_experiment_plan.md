@@ -26,8 +26,9 @@ without weakening what they check". Only the working method differs.
 - **Pilots decide the delegation strategy:** the first (small) pilots compare ways of delegating; the full comparison against the solo arm uses the best one.
 
 ## Pacing and continuity across sessions
-- **Per-session cap:** a token budget for sub-agents per session, chosen so that the session stays near half of the allowance. I cannot see the allowance myself: in the first pilot I record the sub-agents' reported tokens and ask the user for the usage percentage before and after, then set the cap in tokens
-  (and re-check it in later sessions, the user tells me the current percentage at the start of a session).
+- **Usage is readable:** `claude -p "/usage"` run from a shell prints the current session percentage (and its reset time) and the weekly percentage for all models (approximate, "sessions on this machine only"; each call costs one small request).
+  Rule: read it at the start of a session and between batches; stop starting new sub-agents when the SESSION reaches about 80% (the user's setting for 2026-11-21) or the WEEK reaches about 90%, whichever comes first, and never start a batch that cannot finish below these thresholds.
+  The weekly limit is the real constraint when it is already high (2026-11-21 03:20: session 1%, week 79%, week resets 18:59 the same day): heavy runs wait for the reset. Record every reading in the state file together with the tokens the sub-agents reported, so that the tokens-to-percent ratio can be estimated.
 - **Small batches:** at most a few sub-agents in parallel, a fixed maximum number of tasks per session, stop when the cap is reached; nothing is started that cannot finish within the cap.
 - **State file:** `~/delegation_exp/state.json` (plus one directory per task, arm and repetition with workspace, prompt, transcript path, usage, result): the status of every task x arm x strategy x repetition, so that a new session reads it and continues where the last one stopped;
   the launcher is resumable and never reruns a finished cell. Results are scored automatically afterwards (plausibility runners), also in a later session.
