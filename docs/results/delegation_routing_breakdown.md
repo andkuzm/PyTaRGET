@@ -69,3 +69,12 @@ Source: sub-agent transcripts of 56 registered runs (`scripts/delegation/routing
 | shop calls / work | 4 / 36.8k | 8 / 40.1k | 9 / 90.9k | **6 / 25.5k** |
 
 Both runs pass (53/53, 32/32). S5 is 27-45% below the previous best (S1) in output tokens and removes the work penalty versus solo. Caveats: single runs; oracle delegate; the shop workspace has no tools/review; a real delegate takes longer, so the `--wait` call will occur (one cheap call). Not yet measured with a real delegate (credit exhausted).
+
+## S6: `tools/repair` (one call: start, delegate rounds, tests, review, ACCEPT/ESCALATE)
+`dtools/repair.py`; review flags that are only a dropped `assertTrue/False(call())` on a method that is now `void` in src/main are auto-accepted. Prompt: strategy_S6.md + verify_repair.md. Oracle delegate, 1 run each, both pass with nothing weakened (ledger 53/53, shop 32/32; shop has no tools/review).
+| Task | S5 out / calls / work | **S6 out / calls / work** |
+|---|---|---|
+| ledger | 1047 / 7 / 39.3k | **446 / 3 / 10.6k** |
+| shop | 795 / 6 / 25.5k | **448 / 3 / 8.2k** |
+
+Compared with solo (ledger 4194 out / 39.8k work; shop 3224 / 36.8k): -89% and -86% output tokens, -73% and -78% work. Caveats: oracle delegate (a real one is slower and wrong sometimes, so ESCALATE and `--wait` calls will appear); one run per task; the 3 calls are read prompt, `tools/repair`, final report, which is the floor of this design.

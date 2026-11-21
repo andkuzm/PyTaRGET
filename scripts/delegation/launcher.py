@@ -40,7 +40,7 @@ def new_run(a):
     if run.exists(): sys.exit(f"{rid} exists")
     ws = run / "ws"; shutil.copytree(task / "ws", ws, symlinks=True)
     cfg = json.loads((ws / ".delegation/config.json").read_text())
-    for name, script in (("start", "start.py"), ("delegate", "delegate_guard.py")):      # automation tools (see docs/results/delegation_routing_breakdown.md); delegate_guard never runs longer than 160 s per call
+    for name, script in (("start", "start.py"), ("delegate", "delegate_guard.py"), ("repair", "repair.py")):      # automation tools (see docs/results/delegation_routing_breakdown.md); delegate_guard never runs longer than 160 s per call
         f = ws / "tools" / name
         f.write_text('#!/usr/bin/bash\nexec %s %s "$(cd "$(dirname "$0")/.." && pwd)" "$@"\n' % (H / "venv3.12/bin/python", HERE / "dtools" / script)); f.chmod(0o755)
     if a.arm == "solo":
