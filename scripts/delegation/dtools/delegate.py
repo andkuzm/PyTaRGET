@@ -21,12 +21,13 @@ class DelegateUnavailable(Exception):
 
 def call_model(cfg, alias, prompt):
     d = cfg["delegates"][alias]
-    key = "none" if d.get("key") == "none" else Path(cfg["key_file"]).expanduser().read_text().strip()
+    key = "none" if d.get("key") == "none" else Path(d.get("key_file") or cfg["key_file"]).expanduser().read_text().strip()
+    base_url = Path(d["base_url_file"]).expanduser().read_text().strip() if d.get("base_url_file") else d["base_url"]   # a local server whose address is written by its Slurm job
     body = {"model": d["slug"], "messages": [{"role": "user", "content": prompt}], "temperature": d.get("temperature", 0.2), "max_tokens": d.get("max_tokens", 8192)}
     if d.get("reasoning"): body["reasoning"] = {"effort": d["reasoning"]}
     last = ""
     for attempt in range(6):
-        req = urllib.request.Request(d["base_url"].rstrip("/") + "/chat/completions", json.dumps(body).encode(), {"Authorization": "Bearer " + key, "Content-Type": "application/json", "User-Agent": "dtools"})
+        req = urllib.request.Request(base_url.rstrip("/") + "/chat/completions", json.dumps(body).encode(), {"Authorization": "Bearer " + key, "Content-Type": "application/json", "User-Agent": "dtools"})
         try:
             r = json.load(urllib.request.urlopen(req, timeout=300))
             u = r.get("usage") or {}

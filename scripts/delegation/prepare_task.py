@@ -53,7 +53,7 @@ def finalize(task, ws, ref_files, old_tests, diff_text, module, java_version, te
                "particle-free": {"slug": "particle-ai/particle-1:free", "base_url": "https://openrouter.ai/api/v1", "reasoning": "low", "price_in": 0, "price_out": 0},
                "particle": {"slug": "particle-ai/particle-1", "base_url": "https://openrouter.ai/api/v1", "reasoning": "low", "price_in": 0.07, "price_out": 0.50},
                "qwen3-coder": {"slug": "qwen/qwen3-coder", "base_url": "https://openrouter.ai/api/v1", "price_in": 0.30, "price_out": 1.00},
-               "local": {"slug": "qwen3-coder", "base_url": "http://localhost:8000/v1", "key": "none"}}}
+               "local": {"slug": "qwen3-coder", "base_url_file": "~/delegation_exp/local_delegate_endpoint.txt", "key_file": "~/.config/delegation/local_token", "max_tokens": 8192, "price_in": 0, "price_out": 0}}}
     (ws / ".delegation").mkdir(exist_ok=True); (ws / ".delegation" / "config.json").write_text(json.dumps(cfg, indent=1))
     (ws / ".gitignore").write_text("target/\n.delegation/\n")
     shutil.rmtree(ws / ".git", ignore_errors=True)

@@ -1,6 +1,7 @@
 """Create the three runs (solo, S4+review, S1+review) of one repo and repetition and print the agent pointer prompts as JSON lines.
 usage: make_batch.py <task> <rep> [arms=solo,S4,S1]"""
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ if task.startswith("ledger"): hand = H / "delegation_exp/ledger_handoff.txt"
 for arm in arms:
     cmd = LAUNCH + ["new-run", task, "solo" if arm == "solo" else "delegate", rep, "--cell", f"R-{task}-{arm}-{rep}"]
     if arm != "solo": cmd += ["--strategy", arm, "--context", "auto", "--verify", "review"]
+    if arm != "solo" and os.environ.get("DELEGATE_MODEL"): cmd += ["--delegate-model", os.environ["DELEGATE_MODEL"]]
     if hand.exists(): cmd += ["--handoff", str(hand)]
     rid = subprocess.run(cmd, capture_output=True, text=True).stdout.split("\n")[0].strip()
     print(json.dumps({"arm": arm, "run": rid}))
