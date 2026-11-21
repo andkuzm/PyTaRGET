@@ -1,6 +1,6 @@
 """Build a delegation task: a Java project at the AFTER state of its source with the OLD tests, a SOURCE_CHANGES.diff of the main-source changes (what the "developer" just changed), tools, and the
 reference material for scoring kept OUTSIDE the workspace.
-  python prepare_task.py synth <task id>                      # the synthetic shop project (~/delegation_exp/synth/shop)
+  python prepare_task.py synth <task id>                      [<project>]   # a synthetic project (~/delegation_exp/synth/<project>, default shop; also ledger)
   python prepare_task.py real <task id> <repo> <aCommit> <bCommit> [<module dir>]   # a commit of a real project (TaRBench): all test files changed by the repair are put back to their old version
 Task directory ~/delegation_exp/tasks/<id>/: ws/ (the workspace template), ref/ (reference tests), old_tests/, source_hashes.json, meta.json."""
 import hashlib
@@ -63,8 +63,8 @@ def finalize(task, ws, ref_files, old_tests, diff_text, module, java_version, te
     return cfg
 
 
-def synth(task_id):
-    S = EXP / "synth" / "shop"; task = EXP / "tasks" / task_id
+def synth(task_id, project="shop"):
+    S = EXP / "synth" / project; task = EXP / "tasks" / task_id
     shutil.rmtree(task, ignore_errors=True); task.mkdir(parents=True)
     run([str(S / "build_variants.sh"), str(S / "variants")])
     ws = task / "ws"; shutil.copytree(S / "variants" / "task", ws)
@@ -110,5 +110,5 @@ def real(task_id, repo, a, b, module):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "synth": synth(sys.argv[2])
+    if sys.argv[1] == "synth": synth(sys.argv[2], *(sys.argv[3:4]))
     else: real(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6] if len(sys.argv) > 6 else "")

@@ -165,11 +165,11 @@ def find_methods(text):
     for idx, l in enumerate(lines):
         if not TEST_ANNOTATION.match(l):
             continue
+        sig = lambda line: re.sub(r"@\w+(\([^)]*\))?", "", line)      # a line without its annotations
         j = idx
-        while j < len(lines) and not re.search(r"\b(\w+)\s*\([^;]*$", lines[j]) or (j < len(lines) and lines[j].strip().startswith("@")):
+        while j < len(lines) and not re.search(r"\b(\w+)\s*\(", sig(lines[j])):
             j += 1
-            if j >= len(lines): break
-        m = re.search(r"\b(\w+)\s*\(", lines[j]) if j < len(lines) else None
+        m = re.search(r"\b(\w+)\s*\(", sig(lines[j])) if j < len(lines) else None
         if not m: continue
         start = offsets[j]; i = text.find("{", start)
         if i < 0: continue

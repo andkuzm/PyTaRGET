@@ -1,5 +1,5 @@
 """Delegation experiment launcher (state: ~/delegation_exp/state.json, runs: ~/delegation_exp/runs/<run id>/).
-  launcher.py new-run <task> solo|delegate <rep> [--strategy S1|S2|S3] [--context auto|strong|both] [--verify exec|diff] [--delegate-model particle-free]
+  launcher.py new-run <task> solo|delegate <rep> [--strategy S1|S2|S3|S4] [--handoff <file>] [--context auto|strong|both] [--verify exec|diff] [--delegate-model particle-free]
         -> copies the task workspace, removes the delegate tool for the solo arm, writes prompt.md and prints its path (you give it to a fresh Claude Code sub-agent)
   launcher.py finish-run <run id> --tokens N --tool-uses N --duration-s S [--percent-before a --percent-after b]
         -> scores the workspace (score_task.py), summarises the delegate calls, updates the state
@@ -24,9 +24,10 @@ def state():
 def save(s): (EXP / "state.json").write_text(json.dumps(s, indent=1))
 
 
-def prompt_for(ws, arm, strategy, context, verify):
+def prompt_for(ws, arm, strategy, context, verify, handoff=None):
     t = lambda n: (PROMPTS / n).read_text().strip()
     parts = [t("run_common.md").replace("{WS}", str(ws))]
+    if handoff: parts.append(t("handoff.md").replace("{HANDOFF}", Path(handoff).read_text().strip()))
     if arm == "solo": parts.append(t("arm_solo.md"))
     else: parts += [t("arm_delegate_intro.md"), t(f"strategy_{strategy}.md"), t(f"context_{context}.md"), t(f"verify_{verify}.md")]
     return "\n\n".join(parts) + "\n"
@@ -45,7 +46,7 @@ def new_run(a):
         cfg["default_delegate"] = a.delegate_model
         cfg["fallback"] = {"particle-free": "particle"}; cfg["paid_cap_usd"] = 0.20; cfg["paid_ledger"] = str(EXP / "delegate_paid_ledger.json")
     (ws / ".delegation/config.json").write_text(json.dumps(cfg, indent=1))
-    (run / "prompt.md").write_text(prompt_for(ws, a.arm, a.strategy, a.context, a.verify))
+    (run / "prompt.md").write_text(prompt_for(ws, a.arm, a.strategy, a.context, a.verify, a.handoff))
     s = state(); s["runs"][rid] = {"task": a.task, "arm": a.arm, "strategy": a.strategy if a.arm != "solo" else None, "context": a.context if a.arm != "solo" else None,
                                    "verify": a.verify if a.arm != "solo" else None, "delegate_model": a.delegate_model if a.arm != "solo" else None, "rep": a.rep, "cell": a.cell, "status": "prepared", "created": time.strftime("%F %H:%M")}
     save(s); print(rid); print("prompt:", run / "prompt.md"); print("workspace:", ws)
@@ -71,7 +72,7 @@ def status(_):
 def main():
     ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
     n = sub.add_parser("new-run"); n.add_argument("task"); n.add_argument("arm", choices=["solo", "delegate"]); n.add_argument("rep", type=int)
-    n.add_argument("--strategy", default="S1"); n.add_argument("--context", default="auto"); n.add_argument("--verify", default="exec"); n.add_argument("--delegate-model", default="particle-free"); n.add_argument("--cell", default=None)
+    n.add_argument("--strategy", default="S1"); n.add_argument("--context", default="auto"); n.add_argument("--verify", default="exec"); n.add_argument("--delegate-model", default="particle-free"); n.add_argument("--cell", default=None); n.add_argument("--handoff", default=None)
     f = sub.add_parser("finish-run"); f.add_argument("run_id"); f.add_argument("--tokens", type=int, required=True); f.add_argument("--tool-uses", type=int, default=0); f.add_argument("--duration-s", type=int, default=0)
     f.add_argument("--percent-before", type=int, default=None); f.add_argument("--percent-after", type=int, default=None)
     sub.add_parser("status")

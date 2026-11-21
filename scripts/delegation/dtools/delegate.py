@@ -143,7 +143,10 @@ def run_round(ws, cfg, args, rnd, strong):
     units = context.units_from_state(ws, kind, data, cfg)
     if args.units != "all-failing":
         want = set(args.units.split(","))
-        units = [u for u in units if u["file"] in want or u["name"] in want or Path(u["file"]).name in want]
+        # accepted: path, file name, file name without .java, unit name, Class#method (a whole-file unit of that class also matches)
+        classes = {w.split("#")[0] for w in want}
+        units = [u for u in units if u["file"] in want or u["name"] in want or Path(u["file"]).name in want or Path(u["file"]).stem in want
+                 or (Path(u["file"]).stem in classes and (u["kind"] in ("file", "header") or any(w.split("#")[-1] == u.get("method") for w in want if w.split("#")[0] == Path(u["file"]).stem)))]
     hunks = context.parse_hunks((ws / "SOURCE_CHANGES.diff").read_text()) if (ws / "SOURCE_CHANGES.diff").exists() else []
     units = units[:args.max_units]
     prompts = [context.build_prompt(ws, u, log, hunks, args.context, strong) for u in units]
