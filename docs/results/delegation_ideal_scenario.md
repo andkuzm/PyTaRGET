@@ -1,0 +1,22 @@
+# Ideal-scenario experiment: what delegation could save with a PERFECT delegate (2026-11-22)
+
+Setup: the strong arm gets exactly the same prompt as in the other delegated runs (delegate the failing tests, then verify) but `tools/delegate --model oracle` does not call a model: it writes the REAL repaired test (method, file or header) from the reference into the workspace (a renamed reference test is mapped to the old name; a test the real repair removed gets an empty answer). Zero tokens, zero cost, instant. The agent does not know it is an oracle. Tasks: the two small hand-written ones where solo is not scriptable (`ledger`, 53 tests; `shop`, 32 tests). Arms: S1 (delegate all, then verify) 2 runs per task, S4 (plain renames itself, delegate the rest) 1 run per task. All 6 runs: 53/53 and 32/32 tests pass, nothing weakened. Caveat: the `shop` workspace has no `tools/review` (prepared before it existed), so the shop agents verified with `git diff`/greps; the solo baselines of shop and ledger come from the earlier pilots (4 calls on shop, 5.5 on ledger) which did not read a prompt file (batch runs have +1 call).
+
+| Task | Arm | Output tokens | Model calls | Added context | Work (extra input tokens) |
+|---|---|---|---|---|---|
+| ledger | solo (baseline, 2 runs) | 4194 | 5.5 | 11.8k | 39.8k |
+| ledger | oracle S1 (2 runs) | 1427 (-66%) | 7.5 | 9.2k (-22%) | 45.2k (+14%) |
+| ledger | oracle S4 (1 run) | 2186 (-48%) | 9 | 14.7k (+24%) | 85.8k (+116%) |
+| shop | solo (baseline, 2 runs) | 3224 | 4 | 15.0k | 36.8k |
+| shop | oracle S1 (2 runs) | 1453 (-55%) | 8 | 8.3k (-45%) | 40.1k (+9%) |
+| shop | oracle S4 (1 run) | 2039 (-37%) | 9 | 13.9k (-7%) | 90.9k (+147%) |
+
+## Reading
+- **Ceiling for the best arm (delegate all + verify): about 55-66% fewer strong-arm OUTPUT tokens** on tasks where solo has to hand-write edits, and 22-45% less added context. That is the most any delegate could save here.
+- **Total input processed does not fall**: the pipeline itself costs 7-8 model calls (read prompt, run tests, read diff, delegate, re-run tests, review, report) whatever the delegate does, each re-reading the 44k fixed context; "work" ends up 9-14% higher than solo for S1 and more than double for S4. The saving is in output tokens only, so it matters only if output tokens are priced several times higher than cached input (the usual case; I have not priced it).
+- **A perfect delegate still leaves about 1.4-1.6k output tokens** (commands, summary, review reading) - the floor of the pipeline. On tasks where solo needs only ~0.8-1.3k (scripted fixes: rename, formula, one API change, see solo_baseline.md) the ideal saving is zero or negative.
+- **S4 (route renames yourself, delegate the logic) saves less than S1 even with a perfect delegate** (37-48% vs 55-66%) because the agent spends calls and output tokens on the sed step and on judging what to delegate.
+- Real delegates reach part of this: on the same units particle-1 fixes 461 of 651 (see below); each wrong or empty answer costs the strong arm repair calls that the oracle never causes. The real savings measured earlier (ledger S1 with particle-1: 1.7k-2.5k output tokens vs 4.2k solo) are therefore within 1.2-1.8x of the ceiling on that task.
+
+## Particle-1 unit sets (what it can and cannot fix), built from its own round-1 answers in the delegate-all runs
+Raw dataset (prompt as rebuilt from the initial state with the current prompt builder, raw answer, reference method, final method, outcome and reason): `~/delegation_exp/delegate_units/{fixed,not_fixed}.jsonl` (third-party code, not in git); builder `scripts/delegation/delegate_units.py`. 651 units from 23 runs: 461 fixed (392 equal the reference method exactly, the rest survived unchanged into the final passing workspace), 190 not fixed: 99 empty answers (free-tier outage, not a model failure), 57 applied but rewritten by the strong agent, 33 rejected by the apply step/validation, 1 wrong method name. Fixed by task: rules_big 108/108, rules_logic 108/108, rules_rename 16/16, tablesaw 27/27, ta4j 14/15, shop 36/40, ledger 13/16, rules_exc 27/37, gson_a80 112/270 (59 model failures + 99 empty), gson_cbad 0/14. The unfixed ones are mostly the larger methods and whole files with several errors (mean 25 lines, 3.8 assertions vs 9-17 lines, 1.5-2.4 assertions for the fixed ones in the first count): gson's big test files and the tasks whose repair needs a semantic decision.
