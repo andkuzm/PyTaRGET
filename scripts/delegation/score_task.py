@@ -32,6 +32,12 @@ def main(ws, task):
     # assertions is lower than in the reference tests. Name-based differences are reported for information only.
     by_class = lambda d: {c: [v for k, v in d.items() if k.split("#")[0] == c] for c in {k.split("#")[0] for k in d}}
     oc, rc_, fc = by_class(old), by_class(ref), by_class(final)
+    # a test class renamed together with the class under test (EntryTest -> LedgerEntryTest) is the same class: map by overlap of method names
+    names = lambda d, c: {k.split("#")[1] for k in d if k.split("#")[0] == c}
+    for c in list(oc):
+        if c in fc: continue
+        cand = max((x for x in fc if x not in oc), key=lambda x: len(names(old, c) & names(final, x)), default=None)
+        if cand and len(names(old, c) & names(final, cand)) >= max(1, len(names(old, c)) // 2): fc[c] = fc.pop(cand)
     shrunk = sorted(c for c in oc if len(fc.get(c, [])) < len(oc[c]))
     weakened = sorted(c for c in oc if sum(fc.get(c, [])) < sum(rc_.get(c, oc[c])))
     missing = [t for t in old if t not in final]                      # information: by name (renames included)
