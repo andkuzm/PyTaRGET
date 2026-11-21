@@ -137,3 +137,6 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 
 ## Status update 2026-11-21 (delegation pilots)
 First pilots run and scored: see docs/results/delegation_pilots_report.md. Delegation works on small/medium test files (7/7 on shop, ~0 USD) and cuts the strong arm's own work by ~30-55% with plain S1/S3 on small files (fixed 43k start-up context excluded), but is worse than solo on very large files; next: size guard, rerun gson, fewer-overhead prompt, D2.
+
+## Status update 2026-11-21 (repo set)
+Four generated rule projects (rename/logic/big/exc) x solo/S4/S1 x 2 valid runs: all succeed; solo is cheapest in strong-arm output tokens and calls on these scripted-repair tasks (docs/results/delegation_repo_set.md). The earlier ledger advantage of delegation came from hand-written logic edits; next test cases with shapes the strong agent cannot script, and real repos.
