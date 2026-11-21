@@ -1,7 +1,7 @@
 Paid OpenRouter models, variants A (baseline prompt) and B (+ failure output), one candidate per case, 8192 output tokens (empty answers retried at 16384) - 2026-11-20
 Models: qwen/qwen3-coder-next (0.12/0.80 USD per 1M tokens in/out), qwen/qwen3-coder (0.30/1.00), mistralai/devstral-2512 (0.40/2.00), z-ai/glm-5.3 (0.07/1.40, reasoning, effort low), moonshotai/kimi-k2.5 (0.50/2.50, reasoning, effort low).
 Cases: Java = the 59 cases of the agent comparison and all 257 cases of the Java contrast subset whose reference passes here; Python = the 61 cases common to the agent comparison (Kimi: stage 1 only, the 59 / 61 cases; the other four models were extended to the full subsets, scored on Java 257; Python scored on the 61 cases). Checked plausible@1, weighted with the population sizes of the subsets; paired = cases gained/lost B against A. Cost = sum of the cost reported by the provider over ALL requests of the run directory (for the extended runs: the whole subset, not just the shown cases).
-Spend: 7.87 USD of the 10 USD credit (Kimi 5.5 USD for its 240 stage-1 answers: its reasoning writes 6-12k output tokens per answer, i.e. ~0.016 USD per Java and ~0.022 USD per Python case, 35-90x the price of Qwen3-Coder; its extension to the full subsets (~20 USD) was skipped).
+Spend: 7.87 USD of the 10 USD credit (Kimi 5.5 USD for its 240 stage-1 answers: its reasoning writes 6-12k output tokens per answer, i.e. ~0.016 USD per Java and ~0.022 USD per Python case, 50-105x the price of Qwen3-Coder; its extension to the full subsets (~20 USD) was skipped).
 
 == JAVA: the 59 cases of the agent comparison
 model / variant                     n empty | solved unsolved weighted | B-A pts (paired +/-)   cost($)
@@ -59,5 +59,5 @@ For reference (agent, 80 calls, same cases): Java 59 strict 63.4 / relaxed 70.3;
 Reading:
 - The failure output helps every paid model: +6 to +21 points on Java (59 cases; +6 to +12 on all 257) and +10 to +31 on Python (61 cases), more than it helped the small local Qwen3-Coder-30B on Java (-1.2 on 59 cases).
 - Best with the failure output: Kimi-k2.5 (Python 60.3%, Java-59 72.2%) and the free particle-1 (Python 58.2%, Java 73.0% / 73.5%) at the same level; then Qwen3-Coder (Python 48.4%, Java-59 66.5%), GLM-5.3, Devstral, Qwen3-Coder-Next.
-- Cost-effectiveness: Qwen3-Coder with B reaches the 80-call agent's level on Python (48.4 vs 48.3) and Java-59 strict (66.5 vs 63.4) for ~0.0003-0.0005 USD per case; Kimi is ~12 points better on Python for 35-90x the price per case.
+- Cost-effectiveness: Qwen3-Coder with B reaches the 80-call agent's level on Python (48.4 vs 48.3) and Java-59 strict (66.5 vs 63.4) for ~0.0003-0.0005 USD per case; Kimi is ~12 points better on Python for 50-105x the price per case.
 - Caveats: ~60 cases (+-7 points per group), temperature 0.7, one candidate; the Python baselines of the free/local models are from earlier runs with the same prompts; contamination of recent models; costs are provider-reported.

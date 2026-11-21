@@ -36,7 +36,7 @@ PAID OPEN-WEIGHT MODELS (OpenRouter, one candidate, baseline prompt A -> + failu
   agent, 80 calls (Qwen3-Coder-30B, local)   48.3   63.4 strict / 70.3 relaxed   -             GPU, ~29-43 calls per case
   Spend: 7.87 USD of the 10 USD credit (Kimi 5.5 USD).
   Reading: with the failure output the large Qwen3-Coder matches the local 30B agent on Python (48.4 vs 48.3) and Java-59 strict (66.5 vs 63.4) at a fraction of a cent per case; Kimi-k2.5 and the free particle-1 are the best prompt-only models (Python ~58-60, Java ~72-73), at
-  about the level of the Java relaxed agent (70.3) and above the Python agent; Kimi costs 35-90x more per case than Qwen3-Coder. The failure output adds +6 to +31 points for every model.
+  about the level of the Java relaxed agent (70.3) and above the Python agent; Kimi costs about 50-105x more per case than Qwen3-Coder (50-62x on the B runs). The failure output adds +6 to +31 points for every model.
 
 COST: a prompt-only run is one model call (plus ~160 / ~300 tokens of context for B / BC); the agent used a median of 29 (Java) / 43 (Python) calls and 64 / 79 s per case at the 80-call limit (22 / 33 calls at 40).
 
