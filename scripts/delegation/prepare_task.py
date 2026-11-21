@@ -44,7 +44,7 @@ def finalize(task, ws, ref_files, old_tests, diff_text, module, java_version, te
     (ws / "SOURCE_CHANGES.diff").write_text(diff_text)
     (ws / "tools").mkdir(exist_ok=True)
     py = str(H / "venv3.12/bin/python")
-    for name, script in (("run_tests", "run_tests.py"), ("delegate", "delegate.py")):
+    for name, script in (("run_tests", "run_tests.py"), ("delegate", "delegate.py"), ("review", "review.py")):
         f = ws / "tools" / name
         f.write_text(WRAPPER.format(py=py, tool=HERE / "dtools" / script)); f.chmod(0o755)
     cfg = {"java_home": homes[str(java_version)], "maven_home": homes["maven"], "m2": str(EXP / "m2"), "test_roots": [test_root], "module": module,
