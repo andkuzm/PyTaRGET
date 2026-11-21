@@ -165,6 +165,7 @@ def run_round(ws, cfg, args, rnd, strong):
     notes, tin_s, tout_s, cost_s = [], 0, 0, 0.0
     # Several units of one file are applied from the BOTTOM up (header last): an edit that changes the number of lines must not shift the line numbers of units not yet applied.
     order = sorted(range(len(units)), key=lambda i: (units[i]["file"], 1 if units[i]["kind"] == "header" else 0, -units[i].get("first", 0)))
+    pending_imports = {}
     for i in order:
         u, (ans, tin, tout, cost, secs, used) = units[i], out[i]
         repair, imports = extract(ans, "REPAIR"), extract(ans, "IMPORTS")
@@ -174,10 +175,15 @@ def run_round(ws, cfg, args, rnd, strong):
         else:
             bk = backup / Path(u["file"]).name
             if not bk.exists(): bk.write_text((ws / u["file"]).read_text())
-            ok, note = apply(ws, u, repair, imports)
+            ok, note = apply(ws, u, repair, None)                      # imports are added AFTER all units of a file: an added import line would shift the line numbers of the units still to be applied
+            if ok and imports: pending_imports.setdefault(u["file"], []).append(imports)
         notes.append(f"{u['name']}: {note}")
         with open(ws / ".delegation" / "delegate_calls.jsonl", "a") as f:
             f.write(json.dumps({"round": rnd, "unit": u["name"], "model": used, "tokens_in": tin, "tokens_out": tout, "cost": cost, "seconds": round(secs, 1), "applied": ok, "note": note, "context": args.context}) + "\n")
+    for rel, imps in pending_imports.items():
+        path = ws / rel; lines = path.read_text(errors="ignore").split("\n")
+        for imp in imps: lines = add_imports(lines, imp)
+        path.write_text("\n".join(lines))
     return {"units": len(units), "tin": tin_s, "tout": tout_s, "cost": cost_s, "notes": notes}, ""
 
 

@@ -44,7 +44,7 @@ def new_run(a):
         (ws / "tools" / "delegate").unlink(); cfg.pop("delegates", None)
     else:
         cfg["default_delegate"] = a.delegate_model
-        cfg["fallback"] = {"particle-free": "particle"}; cfg["paid_cap_usd"] = 0.20; cfg["paid_ledger"] = str(EXP / "delegate_paid_ledger.json")
+        cfg["fallback"] = {"particle-free": "particle"}; cfg["paid_cap_usd"] = 0.30; cfg["paid_ledger"] = str(EXP / "delegate_paid_ledger.json")
     (ws / ".delegation/config.json").write_text(json.dumps(cfg, indent=1))
     (run / "prompt.md").write_text(prompt_for(ws, a.arm, a.strategy, a.context, a.verify, a.handoff))
     s = state(); s["runs"][rid] = {"task": a.task, "arm": a.arm, "strategy": a.strategy if a.arm != "solo" else None, "context": a.context if a.arm != "solo" else None,
