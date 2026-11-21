@@ -1,0 +1,1 @@
+Verification: run `tools/run_tests` and make sure everything passes, then look at what changed in the tests (`git diff --stat` and, for a few files, `git diff`) to make sure no test was deleted, no assertion was removed or loosened and no expected value was simply copied from the failure message without thinking about whether the new behaviour is right.

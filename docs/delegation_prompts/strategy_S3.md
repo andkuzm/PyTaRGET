@@ -1,0 +1,1 @@
+Method: first run `tools/run_tests` to see the failures. Then call `tools/delegate --rounds 3`: it repairs the failing files, re-runs the tests and feeds the new errors back to the delegate for up to 3 rounds. Finally verify (see below) and repair whatever is still wrong yourself.
