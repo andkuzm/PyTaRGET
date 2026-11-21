@@ -1,1 +1,2 @@
 Method: first run `tools/run_tests` and read SOURCE_CHANGES.diff. Delegate the test files that need only mechanical changes (renamed methods, extra arguments, changed imports or types) with `tools/delegate --units <file names, comma separated>`; repair the files that need judgement (changed behaviour, new expected values, changed exceptions) yourself. Finally verify (see below).
+Note: `tools/delegate` can take up to 4 minutes; call it with a Bash timeout of 300000 ms and wait for it in that single call (do not poll, sleep or run other tests meanwhile).

@@ -1,1 +1,2 @@
 Method: first run `tools/run_tests` to see the failures. Then call `tools/delegate` (it repairs every failing test file). If tests still fail, call it again, at most 2 more times. Finally verify (see below) and repair whatever is still wrong yourself.
+Note: `tools/delegate` can take up to 4 minutes; call it with a Bash timeout of 300000 ms and wait for it in that single call (do not poll, sleep or run other tests meanwhile).

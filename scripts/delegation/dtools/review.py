@@ -70,11 +70,12 @@ def main(ws, only):
             shown.append((rel, name + (f" -> {renamed_to}" if renamed_to else ""), flags, oa, na))
     print(f"review: {same} test methods changed only by renames (not shown), {changed} changed in meaning, {removed} removed; flagged first")
     shown.sort(key=lambda s: (not s[2], s[0]))
-    for rel, name, flags, oa, na in shown[:30]:
-        print(f"\n{Path(rel).name}#{name}" + (f"   [{'; '.join(flags)}]" if flags else ""))
-        for l in oa[:5]: print("  - " + l[:170])
-        for l in na[:5]: print("  + " + l[:170])
-    if len(shown) > 30: print(f"\n... {len(shown) - 30} more changed methods not shown")
+    flagged = [x for x in shown if x[2]]; plain = [x for x in shown if not x[2]]
+    for rel, name, flags, oa, na in flagged[:20]:
+        print(f"\n{Path(rel).name}#{name}   [{'; '.join(flags)}]")
+        for l in oa[:4]: print("  - " + l[:150])
+        for l in na[:4]: print("  + " + l[:150])
+    if plain: print(f"\nchanged in meaning but not flagged ({len(plain)}; expected values/behaviour updated, nothing dropped): " + ", ".join(f"{Path(r).stem}#{n}" for r, n, *_ in plain[:40]))
     return 0
 
 

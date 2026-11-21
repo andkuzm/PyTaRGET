@@ -9,4 +9,4 @@ Rules (they matter for the evaluation):
 4. Run the tests with `tools/run_tests` (offline Maven; it prints a compact result and keeps the full log in .delegation/last_test.log). Use it instead of calling mvn yourself; to run only some tests pass them as arguments, for example `tools/run_tests MyTest#myMethod`.
 5. Be economical: read only what you need, prefer targeted reads over dumping large files.
 
-When all tests pass, reply with a short summary (at most 10 lines): which test files you changed and anything you are not sure about. Do not paste code in the summary.
+When all tests pass, reply with a summary of at most 3 short lines: which test files you changed and anything you are not sure about. No lists, no code.
