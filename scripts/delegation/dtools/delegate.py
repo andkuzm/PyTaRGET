@@ -154,6 +154,9 @@ def run_round(ws, cfg, args, rnd, strong):
         return None, f"dry run: {len(units)} unit(s); first prompt ({len(prompts[0]) if prompts else 0} chars):\n" + (prompts[0][:3000] if prompts else "")
     def one(i):
         t = time.time(); used, (ans, tin, tout, cost) = call_with_fallback(cfg, args.model, prompts[i])
+        for _ in range(2):                                             # the free endpoint often returns an empty answer (its reasoning uses up the token budget): ask again, at most twice
+            if "[REPAIR]" in (ans or ""): break
+            used, (a2, i2, o2, c2) = call_with_fallback(cfg, args.model, prompts[i]); ans, tin, tout, cost = a2, tin + i2, tout + o2, cost + c2
         return ans, tin, tout, cost, time.time() - t, used
     out = []
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -174,7 +177,7 @@ def run_round(ws, cfg, args, rnd, strong):
             ok, note = apply(ws, u, repair, imports)
         notes.append(f"{u['name']}: {note}")
         with open(ws / ".delegation" / "delegate_calls.jsonl", "a") as f:
-            f.write(json.dumps({"round": rnd, "unit": u["name"], "model": used, "tokens_in": tin, "tokens_out": tout, "cost": cost, "seconds": round(secs, 1), "applied": ok, "context": args.context}) + "\n")
+            f.write(json.dumps({"round": rnd, "unit": u["name"], "model": used, "tokens_in": tin, "tokens_out": tout, "cost": cost, "seconds": round(secs, 1), "applied": ok, "note": note, "context": args.context}) + "\n")
     return {"units": len(units), "tin": tin_s, "tout": tout_s, "cost": cost_s, "notes": notes}, ""
 
 
