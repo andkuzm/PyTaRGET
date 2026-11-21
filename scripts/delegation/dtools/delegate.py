@@ -156,7 +156,7 @@ def run_round(ws, cfg, args, rnd, strong):
         t = time.time(); used, (ans, tin, tout, cost) = call_with_fallback(cfg, args.model, prompts[i])
         return ans, tin, tout, cost, time.time() - t, used
     out = []
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=8) as pool:
         out = list(pool.map(one, range(len(units))))
     backup = ws / ".delegation" / "backup" / f"round{rnd}"; backup.mkdir(parents=True, exist_ok=True)
     notes, tin_s, tout_s, cost_s = [], 0, 0, 0.0

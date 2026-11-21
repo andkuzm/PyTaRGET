@@ -46,3 +46,10 @@ Fixed start-up context 44k tokens (system prompt + tool definitions, every call 
 - Wasted calls in S4 run 1: two delegate calls with 0 units (fixed).
 Not yet re-measured with these changes; expected saving per routed run: about 0.5-1k output tokens (final report, polling) and 3-5 calls.
 Open option: let the delegate do the plain renames too (S1 + review): the strong agent's output would be one delegate call, the review and a 3-line report, but earlier S1 runs showed the delegate sometimes mishandling large files.
+
+## Rerun with the call-cutting changes (L4, 2026-11-21): S4+review r5 and S1+review r5
+| Run | Success | Work | Added context | Output tokens | Calls |
+|---|---|---|---|---|---|
+| S4+review r5 | yes (54 tests: review flagged `withdrawMoreThanBalanceFails` FAILURE CHECK LOST; the agent kept it as a new-behaviour test and added an OverdraftException test; also added balance/ledger checks to the suspended-transfer test) | 64.5k | 10.6k | 2.6k | 10 |
+| S1+review r5 (delegate does ALL, strong agent only runs it, reviews, reports) | yes (53/53, no manual edits, review flagged only the harmless assertTrue(transfer())) | 46.2k | 8.3k | 1.7k | 9 |
+Reading: S1+review has the lowest strong-arm output so far (1.7k vs solo 3.9-4.5k, routed 2.1-3.0k) and the lowest work among delegated runs; it needed no repair this time, but it is one run, on a small project, and earlier gson runs showed the delegate corrupting large files (now guarded by answer validation). The review step produced a live catch in S4 r5 (the lost failure check was flagged and repaired by the agent), which was the open question. The 3-line report cut the final message to 270-315 tokens (was 380-610). Polling for the delegate is NOT gone: the harness still moves the long `tools/delegate` call to the background (per-unit latency of the free endpoint up to 186 s with 4 workers), so the agents still spend 2-3 calls waiting; workers raised from 4 to 8 to shorten it (not re-measured).
