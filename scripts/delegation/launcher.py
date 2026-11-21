@@ -44,6 +44,7 @@ def new_run(a):
         (ws / "tools" / "delegate").unlink(); cfg.pop("delegates", None)
     else:
         cfg["default_delegate"] = a.delegate_model
+        cfg["delegates"]["oracle"] = {"oracle": True, "ref_dir": str(EXP / "tasks" / a.task / "ref")}     # ideal-scenario experiment only (--delegate-model oracle)
         cfg["fallback"] = {"particle-free": "particle"}; cfg["paid_cap_usd"] = 0.30; cfg["paid_ledger"] = str(EXP / "delegate_paid_ledger.json")
     (ws / ".delegation/config.json").write_text(json.dumps(cfg, indent=1))
     (run / "prompt.md").write_text(prompt_for(ws, a.arm, a.strategy, a.context, a.verify, a.handoff))

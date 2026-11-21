@@ -44,7 +44,7 @@ for run, agent in amap.items():
     dc = ws / ".delegation/delegate_calls.jsonl"; rows = [json.loads(x) for x in open(dc)] if dc.exists() else []
     res[run] = {"success": s.get("success"), "pass": s.get("tests_pass"), "total": s.get("tests_final"), "weakened": s.get("weakened_classes"), "shrunk": s.get("shrunk_classes"), "failing": len(s.get("failing", [])),
                 "src_mod": s.get("source_modified"), "audit_flags": [f["what"][:60] for f in a.get("flags", []) if "tasks/" not in f["what"]], **tokens(agent),
-                "delegate_unavailable": "delegate: UNAVAILABLE" in (T / f"{agent}.output").read_text(), "delegate_units": len(rows), "delegate_applied": sum(r["applied"] for r in rows), "delegate_cost": round(sum(r["cost"] for r in rows), 4)}
+                "delegate_model": json.loads((ws / ".delegation/config.json").read_text()).get("default_delegate"), "delegate_unavailable": "delegate: UNAVAILABLE" in (T / f"{agent}.output").read_text(), "delegate_units": len(rows), "delegate_applied": sum(r["applied"] for r in rows), "delegate_cost": round(sum(r["cost"] for r in rows), 4)}
     res_f.write_text(json.dumps(res, indent=1))
 print(f"{'run':<44} ok   pass/total  calls  added   out   work  deleg(applied/units, $)")
 for run, r in sorted(res.items()):

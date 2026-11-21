@@ -74,6 +74,30 @@ def call_with_fallback(cfg, alias, prompt):
     return use, res
 
 
+def oracle_answer(ws, d, u):
+    """ORACLE delegate (ideal-scenario experiment): instead of asking a model, answer with the REAL repaired test from the reference: the method (method units), the whole file (file units) or the header; the imports the
+    reference has and the workspace lacks go into [IMPORTS]. A method that does not exist in the reference (removed or renamed by the real repair) gets an empty answer. Zero tokens, zero cost."""
+    ref = Path(d["ref_dir"]).expanduser() / u["file"]
+    if not ref.exists(): return ""
+    text = ref.read_text(errors="ignore"); lines = text.split("\n")
+    if u["kind"] == "file": body = text
+    elif u["kind"] == "header":
+        ms = common.find_methods(text); body = "\n".join(lines[:(ms[0][1] - 1) if ms else len(lines)])
+    else:
+        ms = common.find_methods(text); hit = next(((a, b) for n, a, b in ms if n == u.get("method")), None)
+        if not hit:                                                    # the real repair renamed the test: take the most similar reference method that is not an old method name, under the OLD name
+            import difflib
+            old_names = {n for n, _, _ in common.find_methods((ws / u["file"]).read_text(errors="ignore"))}
+            old_body = context.unit_text(ws, u)
+            cand = [(difflib.SequenceMatcher(None, old_body, "\n".join(lines[a - 1:b])).ratio(), n, a, b) for n, a, b in ms if n not in old_names]
+            if not cand or max(cand)[0] < 0.5: return ""
+            _, rn, a, b = max(cand); body = "\n".join(lines[a - 1:b]).replace(rn + "(", u["method"] + "(", 1)
+        else: body = "\n".join(lines[hit[0] - 1:hit[1]])
+    have = set(l.strip() for l in (ws / u["file"]).read_text(errors="ignore").split("\n"))
+    imps = [l for l in lines if l.startswith("import ") and l.strip() not in have]
+    return ("[IMPORTS]\n" + "\n".join(imps) + "\n[/IMPORTS]\n" if imps and u["kind"] == "method" else "") + "[REPAIR]\n" + body + "\n[/REPAIR]"
+
+
 def extract(answer, tag):
     m = re.search(rf"\[{tag}\](.*?)\[/{tag}\]", answer, re.S)
     if not m: return None
@@ -155,6 +179,8 @@ def run_round(ws, cfg, args, rnd, strong):
     if args.dry_run:
         return None, f"dry run: {len(units)} unit(s); first prompt ({len(prompts[0]) if prompts else 0} chars):\n" + (prompts[0][:3000] if prompts else "")
     def one(i):
+        if cfg["delegates"][args.model].get("oracle"):                 # ideal-scenario experiment: the delegate "answers" with the reference repair
+            t = time.time(); return oracle_answer(ws, cfg["delegates"][args.model], units[i]), 0, 0, 0.0, time.time() - t, args.model
         t = time.time(); used, (ans, tin, tout, cost) = call_with_fallback(cfg, args.model, prompts[i])
         for _ in range(2):                                             # the free endpoint often returns an empty answer (its reasoning uses up the token budget): ask again, at most twice
             if "[REPAIR]" in (ans or ""): break
