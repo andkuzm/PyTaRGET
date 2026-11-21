@@ -15,5 +15,6 @@
 | P1-5 gson_cbad solo | 6 | 21,972 | 84,716 | 1,990 |
 | P1-6 gson_cbad S1 | 14 | 19,865 | 124,408 | 3,617 |
 | P3-2 gson_cbad S2 | 9 | 14,281 | 92,932 | 1,978 |
+| P4-1 gson_a80 S1 validated tool | 15 | 15,564 | 130,533 | 3,998 |
 
 fixed start-up context (first call): 43,000 - 43,540 tokens

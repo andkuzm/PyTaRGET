@@ -178,7 +178,7 @@ def run_round(ws, cfg, args, rnd, strong):
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("workspace"); ap.add_argument("--units", default="all-failing"); ap.add_argument("--context", default="auto", choices=["auto", "strong", "both"])
-    ap.add_argument("--model", default=None); ap.add_argument("--rounds", type=int, default=1); ap.add_argument("--max-units", type=int, default=40); ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--model", default=None); ap.add_argument("--rounds", type=int, default=1); ap.add_argument("--max-units", type=int, default=100); ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
     ws = Path(args.workspace); cfg = common.load_config(ws); args.model = args.model or cfg["default_delegate"]
     sf = ws / ".delegation" / "context.json"
