@@ -136,4 +136,4 @@ Complete learning curves (EM / plausible @1 / @5 plain; 1293 / 1342 / 1585 test 
 - 2026-11-21: delegation experiment gets a second factor: context made automatically (as in the searcher), by the strong agent for all tests at once, or both; and an agentic local delegate (Qwen3-Coder + mini-SWE-agent) next to the prompt-only particle-1; step 0 compares the context makers offline on the 59/61 cases first (docs/delegation_experiment_plan.md).
 
 ## Status update 2026-11-21 (delegation pilots)
-First pilots run and scored: see docs/results/delegation_pilots_report.md. Delegation works on small/medium test files (7/7 on shop, ~0 USD) but saves little strong-model effort and is worse than solo on very large files; next: size guard, rerun gson, fewer-overhead prompt, D2.
+First pilots run and scored: see docs/results/delegation_pilots_report.md. Delegation works on small/medium test files (7/7 on shop, ~0 USD) and cuts the strong arm's own work by ~30-55% with plain S1/S3 on small files (fixed 43k start-up context excluded), but is worse than solo on very large files; next: size guard, rerun gson, fewer-overhead prompt, D2.
