@@ -31,7 +31,7 @@ without weakening what they check". Only the working method differs.
 - **Small batches:** at most a few sub-agents in parallel, a fixed maximum number of tasks per session, stop when the cap is reached; nothing is started that cannot finish within the cap.
 - **State file:** `~/delegation_exp/state.json` (plus one directory per task, arm and repetition with workspace, prompt, transcript path, usage, result): the status of every task x arm x strategy x repetition, so that a new session reads it and continues where the last one stopped;
   the launcher is resumable and never reruns a finished cell. Results are scored automatically afterwards (plausibility runners), also in a later session.
-- **Order:** pilots first (3 tasks), strategy comparison next (about 10 tasks x the candidate strategies), then the final comparison (20-30 tasks x solo vs the best strategy x 2-3 repetitions), each stage only after the previous stage was read.
+- **Order:** step 0 (offline context makers, above), then pilots first (3 tasks), strategy comparison next (about 10 tasks x the candidate strategies), then the final comparison (20-30 tasks x solo vs the best strategy x 2-3 repetitions), each stage only after the previous stage was read.
 
 ## Delegation strategies to compare in the pilots (arm B variants)
 - **S1, delegate everything, then verify:** the delegate repairs every failing test first; the strong agent runs the tests, reads the diff and fixes the leftovers.
@@ -39,6 +39,29 @@ without weakening what they check". Only the working method differs.
 - **S3, delegate with feedback:** S1 plus one second delegate call that passes the failure output of the first attempt back before the strong agent steps in.
 - **S4, verification depth:** S1 with execution-only verification (run the tests, do not read the diff) against reading the diff as well (is the test still meaningful?).
 Measure for each: strong-model tokens, how often the delegate's repair was accepted as is, how often it had to be repaired, wrongly accepted repairs (against the scoring), and success per test.
+
+## Second factor (user idea, 2026-11-21): how the delegate gets its context, and what the delegate is
+The delegate (a prompt-only model such as particle-1) is only as good as the context it is given. Three ways to make that context, and an extra kind of delegate:
+
+| Context maker | How the delegate's context is made |
+|---|---|
+| **C-auto** | automatically, the way the searcher/prompt pipeline does it: the failing tests, their failure output (running the tests), the error lines found in that output, and the source hunks of the change ranked by the TF-IDF `HunkPrioritizer` and trimmed to the window |
+| **C-strong** | the strong agent (Sonnet 5.5) reads the changes for ALL failing tests at once and itself picks, per test, which hunks, helper code and failure lines the delegate gets (one reading pass shared by all tests of the task) |
+| **C-both** | the automatic context, which the strong agent then curates or extends (adds what it thinks is missing, removes noise) |
+
+| Delegate | What it is |
+|---|---|
+| **D1** | particle-1 (or another cheap API model), prompt-only, one call per test with the context above |
+| **D2** | an **agentic local model**: Qwen3-Coder-30B with mini-SWE-agent (our sandboxed agent, 80 calls) that explores the repository itself; the context of the strong agent, if any, is only a short brief |
+
+- **Realism gap to measure:** in our datasets the prompts contain the BREAKAGE lines (the lines the reference repair changes), which a real run does not have; C-auto must derive the location from the error lines of the failure output (the TaRGet paper: error lines and breakage lines coincide in only about half of the cases).
+  So the pipeline comparison has to include "oracle lines" vs "derived lines".
+- **Strong-agent cost of context:** C-strong and C-both spend strong-model tokens on reading the changes; the savings of delegating must be larger than that. Measure the tokens of the context-making step separately.
+- **D2 needs a GPU behind the sub-agent:** a sub-agent cannot start a GPU job interactively without queueing delays; either keep a vLLM server on a reserved GPU node for the duration of a session (then D2 is a call like D1) or run D2 as a batch step (the strong agent hands over, waits for the result). Decide in the pilots.
+
+### Step 0 (offline, cheap, no sub-agents): test the context makers on the data we already have
+Use the 59 Java and 61 Python cases (and their workspaces) with prompt-only delegates (particle-1, Qwen3-Coder with failure output: about 0.0005 USD per case) and compare C-auto (without oracle lines), C-auto with oracle lines (what we measured so far), C-strong and C-both:
+plausible@1 per context maker, and the strong-model tokens spent on making the context. Only a few Sonnet 5.5 sub-agent calls are needed (one per task for C-strong), so it also serves as the first calibration of the usage cap. The result decides which context maker goes into the pilots.
 
 ## Tasks
 - Commit-level tasks, not single tests: a repository at the AFTER commit (source change in place) with ALL test files that the repair changed put back to their BEFORE version, one fresh single-commit repository without history or remote
