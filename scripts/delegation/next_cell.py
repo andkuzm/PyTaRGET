@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 EXP = Path.home() / "delegation_exp"
 q = json.loads((EXP / "plan_queue.json").read_text()); st = json.loads((EXP / "state.json").read_text()).get("runs", {})
-done = {r.get("cell") for r in st.values() if r.get("status") == "scored"}
+done = {r.get("cell") for r in st.values() if r.get("status") == "scored" and not r.get("invalid")}
 for c in q["cells"]:
     if c["id"] in done: continue
     cmd = f"python scripts/delegation/launcher.py new-run {c['task']} {c['arm']} {c['rep']}" + (f" --strategy {c['strategy']} --context {c['context']} --verify {c['verify']}" if c["arm"] == "delegate" else "") + f" --cell {c['id']}"

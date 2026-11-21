@@ -27,15 +27,20 @@ def main(ws, task):
     final = methods_of(ws / cfg["test_roots"][0]) if (ws / cfg["test_roots"][0]).exists() else {}
     passed = {}
     if kind == "tests":
-        for cls, m, status, _ in data: passed[f"{cls.split('.')[-1].split('$')[0]}#{m.split('(')[0]}"] = status == "pass"
-    missing = [t for t in old if t not in final]
-    failing = [t for t in old if t in final and not passed.get(t, False)]
-    weakened = [t for t in old if t in final and final[t] < ref.get(t, old[t])]
+        for cls, m, status, _ in data: passed[f"{cls.split('.')[-1].split('$')[0]}#{m.split('(')[0]}"] = status
+    # Tests are compared per CLASS, not by name: a renamed test is not a deletion. A class is "shrunk" when it has fewer test methods than in the old suite, and "weakened" when its total number of
+    # assertions is lower than in the reference tests. Name-based differences are reported for information only.
+    by_class = lambda d: {c: [v for k, v in d.items() if k.split("#")[0] == c] for c in {k.split("#")[0] for k in d}}
+    oc, rc_, fc = by_class(old), by_class(ref), by_class(final)
+    shrunk = sorted(c for c in oc if len(fc.get(c, [])) < len(oc[c]))
+    weakened = sorted(c for c in oc if sum(fc.get(c, [])) < sum(rc_.get(c, oc[c])))
+    missing = [t for t in old if t not in final]                      # information: by name (renames included)
+    failing = sorted(t for t, st in passed.items() if st in ("fail", "error")) if kind == "tests" else list(final)
     now = hashes(ws, module); before = json.loads((task / "source_hashes.json").read_text())
     source_modified = sorted(k for k in set(now) | set(before) if now.get(k) != before.get(k))
-    res = {"compile_ok": kind != "compile_error", "tests_expected": len(old), "tests_pass": sum(1 for t in old if passed.get(t)), "missing": missing, "failing": failing, "weakened": weakened,
+    res = {"compile_ok": kind != "compile_error", "tests_expected": len(old), "tests_pass": sum(1 for t in final if passed.get(t) == "pass"), "tests_final": len(final), "missing_by_name": missing, "shrunk_classes": shrunk, "failing": failing, "weakened_classes": weakened,
            "new_tests": sorted(t for t in final if t not in old), "source_modified": source_modified,
-           "success": kind != "compile_error" and not missing and not failing and not weakened and not source_modified}
+           "success": kind != "compile_error" and not shrunk and not failing and not weakened and not source_modified}
     print(json.dumps(res, indent=1))
     return 0
 

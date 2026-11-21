@@ -131,13 +131,17 @@ def run_round(ws, cfg, args, rnd, strong):
         out = list(pool.map(one, range(len(units))))
     backup = ws / ".delegation" / "backup" / f"round{rnd}"; backup.mkdir(parents=True, exist_ok=True)
     notes, tin_s, tout_s, cost_s = [], 0, 0, 0.0
-    for u, (ans, tin, tout, cost, secs, used) in zip(units, out):
+    # Several units of one file are applied from the BOTTOM up (header last): an edit that changes the number of lines must not shift the line numbers of units not yet applied.
+    order = sorted(range(len(units)), key=lambda i: (units[i]["file"], 1 if units[i]["kind"] == "header" else 0, -units[i].get("first", 0)))
+    for i in order:
+        u, (ans, tin, tout, cost, secs, used) = units[i], out[i]
         repair, imports = extract(ans, "REPAIR"), extract(ans, "IMPORTS")
         tin_s += tin; tout_s += tout; cost_s += cost
         (backup / (u["name"].replace("#", "_").replace(" ", "_") + ".answer.txt")).write_text(ans)
         if repair is None: ok, note = False, "no [REPAIR] block in the answer"
         else:
-            (backup / Path(u["file"]).name).write_text((ws / u["file"]).read_text())
+            bk = backup / Path(u["file"]).name
+            if not bk.exists(): bk.write_text((ws / u["file"]).read_text())
             ok, note = apply(ws, u, repair, imports)
         notes.append(f"{u['name']}: {note}")
         with open(ws / ".delegation" / "delegate_calls.jsonl", "a") as f:
