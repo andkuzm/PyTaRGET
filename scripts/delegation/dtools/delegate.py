@@ -79,7 +79,8 @@ def extract(answer, tag):
     if not m: return None
     text = m.group(1).strip("\n")
     fence = re.match(r"^```\w*\n(.*?)\n?```\s*$", text.strip(), re.S)
-    return fence.group(1) if fence else text
+    text = fence.group(1) if fence else text
+    return "\n".join(l for l in text.split("\n") if not re.match(r"^\s*```\w*\s*$", l))        # stray fence lines inside the answer break the Java file
 
 
 def add_imports(lines, imports):
