@@ -1,5 +1,5 @@
 """Delegation experiment launcher (state: ~/delegation_exp/state.json, runs: ~/delegation_exp/runs/<run id>/).
-  launcher.py new-run <task> solo|delegate <rep> [--strategy S1|S2|S3|S4] [--handoff <file>] [--context auto|strong|both] [--verify exec|diff] [--delegate-model particle-free]
+  launcher.py new-run <task> solo|delegate <rep> [--strategy S1|S2|S3|S4|S5] [--handoff <file>] [--context auto|strong|both] [--verify exec|diff] [--delegate-model particle-free]
         -> copies the task workspace, removes the delegate tool for the solo arm, writes prompt.md and prints its path (you give it to a fresh Claude Code sub-agent)
   launcher.py finish-run <run id> --tokens N --tool-uses N --duration-s S [--percent-before a --percent-after b]
         -> scores the workspace (score_task.py), summarises the delegate calls, updates the state
@@ -40,6 +40,9 @@ def new_run(a):
     if run.exists(): sys.exit(f"{rid} exists")
     ws = run / "ws"; shutil.copytree(task / "ws", ws, symlinks=True)
     cfg = json.loads((ws / ".delegation/config.json").read_text())
+    for name, script in (("start", "start.py"), ("delegate", "delegate_guard.py")):      # automation tools (see docs/results/delegation_routing_breakdown.md); delegate_guard never runs longer than 160 s per call
+        f = ws / "tools" / name
+        f.write_text('#!/usr/bin/bash\nexec %s %s "$(cd "$(dirname "$0")/.." && pwd)" "$@"\n' % (H / "venv3.12/bin/python", HERE / "dtools" / script)); f.chmod(0o755)
     if a.arm == "solo":
         (ws / "tools" / "delegate").unlink(); cfg.pop("delegates", None)
     else:
