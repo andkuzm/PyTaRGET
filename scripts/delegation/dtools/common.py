@@ -140,6 +140,20 @@ def _skip_literals(text, i):
     return i
 
 
+def brace_delta(text):
+    """(number of '{') - (number of '}') outside strings and comments; also returns False for a negative running depth (a '}' without '{')."""
+    depth, k, ok = 0, 0, True
+    while k < len(text):
+        k2 = _skip_literals(text, k)
+        if k2 != k: k = k2; continue
+        if text[k] == "{": depth += 1
+        elif text[k] == "}":
+            depth -= 1
+            if depth < 0: ok = False
+        k += 1
+    return depth, ok
+
+
 def find_methods(text):
     """[(name, first_line, last_line)] (1-based, annotations included) of the test methods of a Java file."""
     lines = text.split("\n")

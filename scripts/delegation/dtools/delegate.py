@@ -89,9 +89,33 @@ def add_imports(lines, imports):
     return lines[:last + 1] + new + lines[last + 1:]
 
 
+def validate(unit, repair, old):
+    """Structural checks of a candidate BEFORE it is written; returns an error text or None. A bad answer must give a bad test, never a broken file."""
+    d_new, ok_new = common.brace_delta(repair); d_old, _ = common.brace_delta(old)
+    if not ok_new: return "rejected: closing brace without an opening one"
+    if unit["kind"] == "method":
+        if d_new != 0: return "rejected: braces of the method are not balanced"
+        ms = common.find_methods(repair)
+        name = unit["name"].split("#")[-1]
+        if len(ms) != 1 or ms[0][0] != name: return f"rejected: the answer must contain exactly the method {name}"
+        tail = "\n".join(repair.split("\n")[ms[0][2]:]).strip()
+        if tail: return "rejected: text after the end of the method"
+    elif d_new != d_old:
+        return "rejected: brace balance differs from the original (a header or file must keep its structure)"
+    elif unit["kind"] == "header":
+        cls = re.findall(r"\b(?:class|interface|enum)\s+(\w+)", old)
+        if cls and not re.search(r"\b(?:class|interface|enum)\s+" + re.escape(cls[0]) + r"\b", repair): return "rejected: the class declaration is missing"
+    elif unit["kind"] == "file":
+        if len(common.find_methods(repair)) < len(common.find_methods(old)): return "rejected: fewer test methods than the original"
+    return None
+
+
 def apply(ws, unit, repair, imports):
     """Apply a candidate; returns (ok, note). Refuses candidates that would delete most of the code."""
     path = Path(ws) / unit["file"]; lines = path.read_text(errors="ignore").split("\n"); new = repair.split("\n")
+    old_text = ("\n".join(lines) if unit["kind"] == "file" else "\n".join(lines[:unit["last_line"]]) if unit["kind"] == "header" else "\n".join(lines[unit["first"] - 1:unit["last"]]))
+    err = validate(unit, repair, old_text)
+    if err: return False, err
     if unit["kind"] == "file":
         if len(new) < 0.5 * len(lines) or common.count_asserts(repair) < 0.7 * common.count_asserts("\n".join(lines)) - 1:
             return False, "rejected (removes too much code or too many assertions)"
@@ -104,6 +128,8 @@ def apply(ws, unit, repair, imports):
             return False, "rejected (fewer assertions than the old test)"
         lines = lines[:unit["first"] - 1] + new + lines[unit["last"]:]
     if imports: lines = add_imports(lines, imports)
+    d_after, ok_after = common.brace_delta("\n".join(lines)); d_before, _ = common.brace_delta(path.read_text(errors="ignore"))
+    if not ok_after or d_after != d_before: return False, "rejected: the file would lose its brace balance"
     path.write_text("\n".join(lines))
     return True, "applied"
 

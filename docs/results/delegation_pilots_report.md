@@ -39,3 +39,6 @@ Strong arm: fresh Claude Sonnet 5.5 sub-agents (prompt only, offline Maven sandb
 - Fix the scorer criterion (per class vs the old suite) and rescore gson_cbad.
 - D2 (agentic local delegate) and Step 0 context-maker comparison are still not run.
 - Usage: window 44%, week 85% at the end (the week resets 19:00 Nov 21); the pilots used about 25 window points and 3 week points.
+
+## Addendum 2026-11-21 (validation of delegate answers)
+`tools/delegate` now validates every answer before writing it (balanced braces, exactly the expected method, no text after it, class declaration kept in the header, file brace balance unchanged); a bad answer is rejected and the unit stays unchanged. Direct runs of the delegate (no strong agent, 3 rounds) on fresh workspaces: gson_cbad left a compiling file with 1 failing test (the delegate wrote the URL form `blob/main` instead of `master`, a wrong expected value), gson_a80 left 1 compile error in JsonReaderTest (wrong exception type in one test, a semantic mistake). Neither run produced a structurally corrupted file (before: stray braces, lost class declaration, duplicated methods). Not done: programmatic repair of unbalanced answers and re-asking the delegate with the error text (the rejection log showed almost no brace problems in these two runs; the remaining failures are wrong values or types).
