@@ -25,7 +25,20 @@ Tasks verified (repaired tests pass, old tests fail): cactoos (1319 tests), Logi
 
 ## State at the graceful stop (2026-11-21 19:05; user: "basically stop gracefully")
 - Weekly usage had just reset (0% at 19:02); the user's cap for this phase was 20% of the week. No agents are running. No crons are scheduled.
-- LogicNG pair b, r1 (3 agents, started 18:36): their transcripts were never written after the launch (no progress in 28 minutes, no handback) - treated as not run; the three run directories still exist under ~/delegation_exp/runs/real_logicng_b__* and are listed as created, so `select/next_real.py` skips them: delete them (or rename) before rerunning that task.
+- LogicNG pair b, r1 (3 agents, started 18:36): CORRECTION of an earlier note - they did finish (about 30-35 minutes each; their transcripts are only written when the agent ends, so "no progress" was a wrong inference) and are scored. See the LogicNG section below. Their run directories exist; the pair counts as done for repetition 1.
 - The six runs prepared at 19:03 (sonar-cxx r1 and cactoos r2, three arms each) were never started and were removed; `next_real.py` will offer them again.
 - Free-tier delegate answered at 19:02 (a trivial call took 5.5 s); paid credit is nearly exhausted (see above); the fallback cap in the run configs is 0.30 USD and already exceeded.
 - To resume: `python scripts/delegation/select/next_real.py` -> `make_batch.py <task> <rep>` -> launch the three agents with the pointer prompt -> `batch_report.py <run> <agent> ...` -> `aggregate.py`. Verified tasks: cactoos, logicng_b, ta4j, tablesaw, sonarcxx. To fix first: preparation of cucumber-jvm and LogicNG pair a (scratch directory error in the clone step), mockserver-core (build problem); decide the delegate (credit / other free model / local model via one Slurm job with a wake-up).
+
+
+## LogicNG pair b (the first heterogeneous real case), repetition 1
+API change in LogicNG: `Literal` -> `Variable` typed signatures, `literal(...)` -> `variable(...)`, `contains` -> `containsVariable`/`containsNode` (new node-based semantics), `SubformulaFunction` -> `SubNodeFunction`, `getSubstitution` removed. About 30-34 test files change, plus real semantic edits (flipped expectations in SubformulaTest, reworked SubstitutionTest, tests that can no longer be expressed).
+
+| Run | Tests pass | Model calls | Output tokens | Work (extra input tokens) | Delegate | Strict success |
+|---|---|---|---|---|---|---|
+| solo | 569/569 | 58 | 19.8k | 3.9M | none | no (see below) |
+| S4 + review | 569/569 | 54 | 22.0k | 2.9M | HTTP 402, unusable | no |
+| S1 + review | 570/570 | 51 | 20.3k | 2.7M | 1 unit applied, then HTTP 402 | no |
+
+- All three finish with a passing suite but fail the strict criterion: 3-4 tests were deleted (`PBConstraintTest#testIllegalCC/AMO/EXO`, `SubstitutionTest#testIllegalAdd`) because the new Variable-typed API makes negative literals / mixed factories impossible to express; `tools/review` flags exactly these as REMOVED and LiteralTest has fewer assertions than the reference. The reference repair (the real commit) did the same kind of thing for some of them, so the strict rule is too tight for this task: it needs a per-case judgement (the real reference tells which removals are legitimate).
+- This is where delegation could matter (about 20k output tokens and 50+ calls per run, mostly hand-written adaptation), but the delegate was out of credit during all three runs, so none of them tests delegation. First priority after the delegate is available again: rerun this task with S4/S1.
