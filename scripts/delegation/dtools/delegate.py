@@ -43,6 +43,36 @@ def call_model(cfg, alias, prompt):
     raise DelegateUnavailable("model did not answer: " + last)
 
 
+_ACTIVE = {}
+_LOCK = None
+
+
+def paid_spent(cfg):
+    f = Path(cfg.get("paid_ledger", "~/delegation_exp/delegate_paid_ledger.json")).expanduser()
+    return json.loads(f.read_text()).get("spent", 0.0) if f.exists() else 0.0
+
+
+def paid_add(cfg, cost):
+    f = Path(cfg.get("paid_ledger", "~/delegation_exp/delegate_paid_ledger.json")).expanduser()
+    f.write_text(json.dumps({"spent": round(paid_spent(cfg) + cost, 6)}))
+
+
+def call_with_fallback(cfg, alias, prompt):
+    """Returns (alias used, (text, tokens in, tokens out, cost)). If the model is unavailable and a paid fallback is configured, switches to it for the rest of the run (global spending cap in the ledger)."""
+    use = _ACTIVE.get(alias, alias)
+    try:
+        res = call_model(cfg, use, prompt)
+    except DelegateUnavailable:
+        fb = cfg.get("fallback", {}).get(use)
+        if not fb or paid_spent(cfg) >= cfg.get("paid_cap_usd", 0.30):
+            raise
+        _ACTIVE[alias] = use = fb
+        res = call_model(cfg, use, prompt)
+    if cfg["delegates"][use].get("price_out", 0) > 0:
+        paid_add(cfg, res[3])
+    return use, res
+
+
 def extract(answer, tag):
     m = re.search(rf"\[{tag}\](.*?)\[/{tag}\]", answer, re.S)
     if not m: return None
@@ -94,14 +124,14 @@ def run_round(ws, cfg, args, rnd, strong):
     if args.dry_run:
         return None, f"dry run: {len(units)} unit(s); first prompt ({len(prompts[0]) if prompts else 0} chars):\n" + (prompts[0][:3000] if prompts else "")
     def one(i):
-        t = time.time(); ans, tin, tout, cost = call_model(cfg, args.model, prompts[i])
-        return ans, tin, tout, cost, time.time() - t
+        t = time.time(); used, (ans, tin, tout, cost) = call_with_fallback(cfg, args.model, prompts[i])
+        return ans, tin, tout, cost, time.time() - t, used
     out = []
     with ThreadPoolExecutor(max_workers=4) as pool:
         out = list(pool.map(one, range(len(units))))
     backup = ws / ".delegation" / "backup" / f"round{rnd}"; backup.mkdir(parents=True, exist_ok=True)
     notes, tin_s, tout_s, cost_s = [], 0, 0, 0.0
-    for u, (ans, tin, tout, cost, secs) in zip(units, out):
+    for u, (ans, tin, tout, cost, secs, used) in zip(units, out):
         repair, imports = extract(ans, "REPAIR"), extract(ans, "IMPORTS")
         tin_s += tin; tout_s += tout; cost_s += cost
         (backup / (u["name"].replace("#", "_").replace(" ", "_") + ".answer.txt")).write_text(ans)
@@ -111,7 +141,7 @@ def run_round(ws, cfg, args, rnd, strong):
             ok, note = apply(ws, u, repair, imports)
         notes.append(f"{u['name']}: {note}")
         with open(ws / ".delegation" / "delegate_calls.jsonl", "a") as f:
-            f.write(json.dumps({"round": rnd, "unit": u["name"], "model": args.model, "tokens_in": tin, "tokens_out": tout, "cost": cost, "seconds": round(secs, 1), "applied": ok, "context": args.context}) + "\n")
+            f.write(json.dumps({"round": rnd, "unit": u["name"], "model": used, "tokens_in": tin, "tokens_out": tout, "cost": cost, "seconds": round(secs, 1), "applied": ok, "context": args.context}) + "\n")
     return {"units": len(units), "tin": tin_s, "tout": tout_s, "cost": cost_s, "notes": notes}, ""
 
 
