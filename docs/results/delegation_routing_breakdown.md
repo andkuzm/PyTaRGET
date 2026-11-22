@@ -111,3 +111,10 @@ Caveats: the evidence is mostly from gson (one task family); literal sync accept
 | gson_cbad r12 (after fixes) | no* | 492 (1990) | 3 (6) | 136k | 47k | 8.3k (84.7k) |
 \* the strict score fails on the same four classes in every gson_cbad run, solo and S1/S2 included (all 1257 tests run, 1238 pass, 0 fail): a property of the reference, not of S6.
 Fixes after r11: `parse_surefire` keeps 8 lines / 1000 chars; `expected_actual` parses multi-line values; new append sync (same appended text, e.g. a new `See https://...` line, in >= 3 failing tests: appended to the matching literal inside each failing method); `tools/repair` stops delegate rounds when a round makes no progress. Replay: gson_cbad 14 failing -> 2 with no model call; gson_a80 stays 0 (strict success). Paid spend of these runs: $0 (ledger still 0.316). cactoos, logicng_b, ta4j and shop S6 runs not yet done.
+
+## real_cactoos with S6 and the rollback (solo in brackets, n=1)
+| Run | strict | out tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| r11 (no rollback) | yes | 9742 (4856) | 21 (12) | 1.25M (675k) | 72k (65k) | 357k (164k) |
+| r12 (rollback) | yes | 4103 (4856) | 11 (12) | 602k (675k) | 63k (65k) | 134k (164k) |
+The delegate applied 31 units, but a round fixed only 68 -> 49 compile errors (new constructor of a final library class); the strong agent then had to undo the half-right edits. `tools/repair` now snapshots the test tree before each delegate round and rolls it back when the round fixed less than half of the compile errors / failing tests (`dtools/repair.py`). r12: the round was rolled back, the strong agent wrote one helper matcher and finished. Paid spend $0. The difference to solo (-16% output) is within what one solo run can vary; the rollback removes the loss, it does not create a gain on this repo.

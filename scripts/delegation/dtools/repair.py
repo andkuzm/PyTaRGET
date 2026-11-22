@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent))
 FLAGS = ("ASSERTIONS DROPPED", "FAILURE CHECK LOST", "REMOVED")
 
 
@@ -36,16 +37,44 @@ def benign(ws, rv):
     return "\n".join(keep), n
 
 
+def badness(out):
+    """how much is still wrong: compile errors count as 1e6 + N (nothing ran), failing tests as their number, 0 when everything passes."""
+    m = re.search(r"COMPILE ERRORS: (\d+)", out)
+    if m: return 10**6 + int(m.group(1))
+    m = re.search(r"TESTS: \d+ run, \d+ passed, (\d+) failed", out)
+    return int(m.group(1)) if m else 10**7
+
+
+def snapshot(ws, dst):
+    import shutil
+    from dtools import common
+    cfg = common.load_config(ws); shutil.rmtree(dst, ignore_errors=True)
+    for r in cfg.get("test_roots", ["src/test/java"]):
+        if (ws / r).exists(): shutil.copytree(ws / r, dst / r)
+
+
+def restore(ws, src):
+    import shutil
+    from dtools import common
+    cfg = common.load_config(ws)
+    for r in cfg.get("test_roots", ["src/test/java"]):
+        if (src / r).exists(): shutil.rmtree(ws / r); shutil.copytree(src / r, ws / r)
+
+
 def pipeline(ws):
     print("== tools/start"); st = sh(["start.py"], ws); print(st.stdout.strip()[-1500:])
     t = st.stdout
     failed = lambda out: int((re.search(r"(\d+) failed", out) or [0, 10**6])[1]) if "TESTS:" in out else 10**6      # compile errors count as "all failing"
     for rnd in range(1, 4):
         if passed(t): break
-        print(f"== delegate round {rnd}"); before = failed(t); d = sh(["delegate.py"], ws); lines = d.stdout.strip().splitlines(); print("\n".join(lines[-12:]))
+        print(f"== delegate round {rnd}"); before = failed(t); b0 = badness(t); snap = ws / ".delegation" / f"snap_round{rnd}"; snapshot(ws, snap); d = sh(["delegate.py"], ws); lines = d.stdout.strip().splitlines(); print("\n".join(lines[-12:]))
         if d.returncode and not d.stdout.strip(): print("delegate failed:", d.stderr[-300:]); break
         no_units = bool(re.search(r"\b0 unit\(s\)", d.stdout))
         t = sh(["run_tests.py"], ws).stdout
+        b1 = badness(t); show = lambda b: f"{b - 10**6} compile errors" if b >= 10**6 else f"{b} failing tests"
+        if not no_units and not passed(t) and (b1 - (10**6 if b1 >= 10**6 else 0)) > 0.5 * (b0 - (10**6 if b0 >= 10**6 else 0)) and (b1 >= 10**6) == (b0 >= 10**6):   # the round fixed less than half of what was wrong: undo it, the strong agent starts from the state before it (partial, partly wrong edits cost it more than they save)
+            restore(ws, snap); t = sh(["run_tests.py"], ws).stdout
+            print(f"== ROLLED BACK delegate round {rnd}: {show(b0)} before, {show(b1)} after; fixed less than half; the tests are as before the round"); break
         if no_units or (not passed(t) and failed(t) >= before): print("== no progress this round (nothing left that the delegate can take): stopping the delegate rounds"); break
     else: t = sh(["run_tests.py"], ws).stdout
     print("== tests"); print(t.strip()[-1500:])
