@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from dtools import common, context
+from dtools import common, context, route  # noqa: E402
 
 
 class DelegateUnavailable(Exception):
@@ -166,7 +166,21 @@ def run_round(ws, cfg, args, rnd, strong):
     kind, data = common.result_of(ws, rc, log)
     if kind == "tests" and all(r[2] in ("pass", "skipped") for r in data):
         return None, "all tests pass"
+    auto = kind == "tests" and args.units == "all-failing" and not args.no_route          # automatic routing only when the delegate chooses the units itself (see route.py)
+    synced = []
+    if auto:
+        synced = route.literal_sync(ws, data, context.test_files(ws, cfg))                  # same substitution in several failing tests: replace it everywhere, no model
+        if synced:
+            rc, log = common.mvn(ws); kind, data = common.result_of(ws, rc, log)
+            if kind == "tests" and all(r[2] in ("pass", "skipped") for r in data): return {"units": 0, "tin": 0, "tout": 0, "cost": 0.0, "notes": [], "synced": synced, "routed": []}, ""
     units = context.units_from_state(ws, kind, data, cfg)
+    routed = []
+    if auto:
+        keep = []
+        for u in units:
+            why = route.route(u, context.unit_text(ws, u), u["errors"][0][1] if u.get("errors") else "")
+            (routed.append((u["name"], why)) if why else keep.append(u))
+        units = keep
     if args.units != "all-failing":
         want = set(args.units.split(","))
         # accepted: path, file name, file name without .java, unit name, Class#method (a whole-file unit of that class also matches)
@@ -212,32 +226,37 @@ def run_round(ws, cfg, args, rnd, strong):
         path = ws / rel; lines = path.read_text(errors="ignore").split("\n")
         for imp in imps: lines = add_imports(lines, imp)
         path.write_text("\n".join(lines))
-    return {"units": len(units), "tin": tin_s, "tout": tout_s, "cost": cost_s, "notes": notes}, ""
+    return {"units": len(units), "tin": tin_s, "tout": tout_s, "cost": cost_s, "notes": notes, "synced": synced, "routed": routed}, ""
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("workspace"); ap.add_argument("--units", default="all-failing"); ap.add_argument("--context", default="auto", choices=["auto", "strong", "both"])
     ap.add_argument("--model", default=None); ap.add_argument("--rounds", type=int, default=1); ap.add_argument("--max-units", type=int, default=100); ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-route", action="store_true", help="no literal sync and no automatic routing (send every failing unit to the delegate)")
     args = ap.parse_args(argv)
     ws = Path(args.workspace); cfg = common.load_config(ws); args.model = args.model or cfg["default_delegate"]
     sf = ws / ".delegation" / "context.json"
     strong = json.loads(sf.read_text()) if sf.exists() else {}
     if args.context in ("strong", "both") and not strong:
         print("delegate: --context %s needs .delegation/context.json (written by you); none found" % args.context); return 2
-    total = {"units": 0, "tin": 0, "tout": 0, "cost": 0.0}; notes = []
+    total = {"units": 0, "tin": 0, "tout": 0, "cost": 0.0}; notes = []; synced_all = []; routed_all = []
     try:
         for rnd in range(1, args.rounds + 1):
             res, msg = run_round(ws, cfg, args, rnd, strong)
             if res is None:
                 print(f"delegate: {msg}"); break
             for k in total: total[k] += res[k]
-            notes += res["notes"]
+            notes += res["notes"]; synced_all += res.get("synced", []); routed_all += res.get("routed", [])
     except DelegateUnavailable as e:
         print(f"delegate: UNAVAILABLE ({e}). Repair the remaining tests yourself."); return 3
     if args.dry_run: return 0
     print(f"delegate: model {args.model} | {total['units']} unit(s) in {args.rounds} round(s) | tokens in {total['tin']} out {total['tout']} | cost ${total['cost']:.4f}")
     for n in notes[:25]: print("  " + n)
+    for needle, repl, nt, nr in synced_all: print(f"  LITERAL SYNC (no model): '{needle}' -> '{repl}' in {nt} failing test(s), {nr} replacement(s)")
+    if routed_all:
+        print(f"  ROUTED TO YOU, not sent to the delegate ({len(routed_all)} unit(s); they are still failing):")
+        for n, why in routed_all[:15]: print(f"    {n}: {why}")
     rc, log = common.mvn(ws); kind, data = common.result_of(ws, rc, log)
     print(common.compact(ws, kind, data, rc))
     return 0 if kind == "tests" and all(r[2] in ("pass", "skipped") for r in data) else 1

@@ -78,3 +78,25 @@ Both runs pass (53/53, 32/32). S5 is 27-45% below the previous best (S1) in outp
 | shop | 795 / 6 / 25.5k | **448 / 3 / 8.2k** |
 
 Compared with solo (ledger 4194 out / 39.8k work; shop 3224 / 36.8k): -89% and -86% output tokens, -73% and -78% work. Caveats: oracle delegate (a real one is slower and wrong sometimes, so ESCALATE and `--wait` calls will appear); one run per task; the 3 calls are read prompt, `tools/repair`, final report, which is the floor of this design.
+
+## Automatic routing inside `tools/delegate` (dtools/route.py; `--no-route` disables it)
+Pattern found in the 651 particle-1 units: 179 units (all gson) had a reference method identical to the failing one, because the fix lived in a helper/constant (`master` -> `main` in a URL). Signal: the failure says `expected: X but was: Y` and X is not in the method text (X in method: 94% fixed; not in method: 9%). All 99 "empty answers" are in this group (85 used the whole 8192-token budget; earlier I wrongly called them infrastructure failures).
+1. **Literal sync (no model):** one substitution X->Y shared by >= 3 failing tests is replaced in the test files of the failing classes (also for failing tests whose message merely contains the old text).
+2. **Routing:** method units whose expected text is not in the method are not sent to the delegate; they remain failing for the strong agent (listed in the delegate output as "ROUTED TO YOU"). Only when the delegate picks the units itself (not with `--units`).
+
+Replay on the stored units (`scripts/delegation/replay_routing.py`):
+```
+method units 562; literal sync would resolve 260 of them without a model; substitutions: 'gson/blob/master/Troubleshoo'->'gson/blob/main/Troubleshoo'
+
+| decision | units | fixed by particle-1 anyway | not fixed |
+|---|---|---|---|
+| literal sync | 260 | 109 | 151 |
+| routed to strong | 10 | 0 | 10 |
+| to delegate | 292 | 271 | 21 |
+
+sent to the delegate: 292 units, fixed 271 (93%) vs 380/562 (68%) without routing
+remaining misses among delegated: [(('rules_exc', 'rejected by the apply step'), 10), (('gson_cbad', 'applied but rewritten by the'), 4), (('gson_a80', 'empty answer'), 2), (('gson_a80', 'rejected by the apply step'), 2), (('gson_a80', 'applied but rewritten by the'), 2), (('gson_a80', 'rejected: the answer must co'), 1)]
+routed units that particle-1 did fix: []
+```
+End-to-end on a copy of the gson_a80 task: 66 failing tests -> 0 with literal sync alone, no model call (strict score: success). No change on rules_exc, rules_logic, gson_cbad (10 of 14 units routed to the strong agent) and real_tablesaw.
+Caveats: the evidence is mostly from gson (one task family); literal sync accepts the new behaviour blindly (as the delegate would), so a real regression that changes a message would be "fixed" too.
