@@ -169,7 +169,10 @@ def run_round(ws, cfg, args, rnd, strong):
     auto = kind == "tests" and args.units == "all-failing" and not args.no_route          # automatic routing only when the delegate chooses the units itself (see route.py)
     synced = []
     if auto:
-        synced = route.literal_sync(ws, data, context.test_files(ws, cfg))                  # same substitution in several failing tests: replace it everywhere, no model
+        tf = context.test_files(ws, cfg)
+        synced = route.literal_sync(ws, data, tf)                                           # same substitution in several failing tests: replace it everywhere, no model
+        appended = route.append_sync(ws, data, tf, common.find_methods)                      # same text appended to the message in several failing tests: append it to the literal in each method
+        synced += [(f"(append) {s}", "", nt, nr) for s, nt, nr in appended]
         if synced:
             rc, log = common.mvn(ws); kind, data = common.result_of(ws, rc, log)
             if kind == "tests" and all(r[2] in ("pass", "skipped") for r in data): return {"units": 0, "tin": 0, "tout": 0, "cost": 0.0, "notes": [], "synced": synced, "routed": []}, ""

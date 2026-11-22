@@ -39,11 +39,14 @@ def benign(ws, rv):
 def pipeline(ws):
     print("== tools/start"); st = sh(["start.py"], ws); print(st.stdout.strip()[-1500:])
     t = st.stdout
+    failed = lambda out: int((re.search(r"(\d+) failed", out) or [0, 10**6])[1]) if "TESTS:" in out else 10**6      # compile errors count as "all failing"
     for rnd in range(1, 4):
         if passed(t): break
-        print(f"== delegate round {rnd}"); d = sh(["delegate.py"], ws); lines = d.stdout.strip().splitlines(); print("\n".join(lines[-12:]))
+        print(f"== delegate round {rnd}"); before = failed(t); d = sh(["delegate.py"], ws); lines = d.stdout.strip().splitlines(); print("\n".join(lines[-12:]))
         if d.returncode and not d.stdout.strip(): print("delegate failed:", d.stderr[-300:]); break
+        no_units = bool(re.search(r"\b0 unit\(s\)", d.stdout))
         t = sh(["run_tests.py"], ws).stdout
+        if no_units or (not passed(t) and failed(t) >= before): print("== no progress this round (nothing left that the delegate can take): stopping the delegate rounds"); break
     else: t = sh(["run_tests.py"], ws).stdout
     print("== tests"); print(t.strip()[-1500:])
     if not passed(t): print("\nESCALATE: tests still fail (above). Repair these yourself or call tools/delegate --units <Class#method>."); return

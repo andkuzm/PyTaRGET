@@ -100,3 +100,14 @@ routed units that particle-1 did fix: []
 ```
 End-to-end on a copy of the gson_a80 task: 66 failing tests -> 0 with literal sync alone, no model call (strict score: success). No change on rules_exc, rules_logic, gson_cbad (10 of 14 units routed to the strong agent) and real_tablesaw.
 Caveats: the evidence is mostly from gson (one task family); literal sync accepts the new behaviour blindly (as the delegate would), so a real regression that changes a message would be "fixed" too.
+
+## S6 on previously problematic repos (particle-1 free, 1 run each; solo in brackets)
+| Task | strict | out tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| gson_a80 | yes | 436 (804) | 3 (4) | 135k | 47k | 7.6k (23.0k) |
+| rules_exc | yes | 455 (900) | 3 (5.5) | 136k (260k) | 47k (29k) | 8.4k (26.2k) |
+| ledger_dev | yes | 1078 (4194) | 6 (5.5) | 287k | 50k | 31.6k (39.8k) |
+| gson_cbad r11 (before fixes) | no* | 2873 (1990) | 10 (6) | 506k | 56k | 80.6k (84.7k) |
+| gson_cbad r12 (after fixes) | no* | 492 (1990) | 3 (6) | 136k | 47k | 8.3k (84.7k) |
+\* the strict score fails on the same four classes in every gson_cbad run, solo and S1/S2 included (all 1257 tests run, 1238 pass, 0 fail): a property of the reference, not of S6.
+Fixes after r11: `parse_surefire` keeps 8 lines / 1000 chars; `expected_actual` parses multi-line values; new append sync (same appended text, e.g. a new `See https://...` line, in >= 3 failing tests: appended to the matching literal inside each failing method); `tools/repair` stops delegate rounds when a round makes no progress. Replay: gson_cbad 14 failing -> 2 with no model call; gson_a80 stays 0 (strict success). Paid spend of these runs: $0 (ledger still 0.316). cactoos, logicng_b, ta4j and shop S6 runs not yet done.

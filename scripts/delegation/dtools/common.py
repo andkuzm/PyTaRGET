@@ -84,7 +84,7 @@ def parse_surefire(ws):
                 if node is not None:
                     status = {"failure": "fail", "error": "error", "skipped": "skipped"}[tag]
                     lines = [l.strip() for l in ((node.get("message") or node.text or "").strip().split("\n")) if l.strip()]
-                    message = " | ".join(lines[:4])[:400]          # keeps "expected: ... | but was : ..." (Truth/JUnit), not only the first line
+                    message = " | ".join(lines[:8])[:1000]         # keeps "expected: ... | but was : ..." (Truth/JUnit) including multi-line values (the difference can be in a later line)
             out.append((case.get("classname"), case.get("name"), status, message))
     return out
 
