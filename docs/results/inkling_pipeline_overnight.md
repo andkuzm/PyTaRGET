@@ -37,30 +37,30 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
 
 | repo | arm | strict pass | output tok | calls | total input | fresh input | work |
 |---|---|---|---|---|---|---|---|
-| gson_a80 | solo | 1/1 | 1307 (n=1) | 5.0 (n=1) | 242.4k (n=1) | 53.0k (n=1) | 26.9k (n=1) |
-| gson_a80 | pipeline (Inkling agent) | 2/2 | 554 (549-558, n=2) | 3.0 (3.0-3.0, n=2) | 137.5k (137.5k-137.5k, n=2) | 37.1k (26.8k-47.4k, n=2) | 8126 (8125-8126, n=2) |
+| gson_a80 | solo | 2/2 | 1190 (1074-1307, n=2) | 5.5 (5.0-6.0, n=2) | 266.5k (242.4k-290.6k, n=2) | 52.8k (52.6k-53.0k, n=2) | 29.4k (26.9k-31.9k, n=2) |
+| gson_a80 | pipeline (Inkling agent) | 3/3 | 551 (545-558, n=3) | 3.0 (3.0-3.0, n=3) | 137.5k (137.5k-137.5k, n=3) | 40.6k (26.8k-47.4k, n=3) | 8126 (8125-8126, n=3) |
 | gson_cbad | solo | 0/1 | 2423 (n=1) | 8.0 (n=1) | 433.4k (n=1) | 40.0k (n=1) | 88.5k (n=1) |
-| gson_cbad | pipeline (Inkling agent) | 0/2 | 835 (756-914, n=2) | 4.0 (4.0-4.0, n=2) | 185.5k (185.5k-185.5k, n=2) | 27.7k (27.7k-27.7k, n=2) | 13.1k (13.1k-13.1k, n=2) |
+| gson_cbad | pipeline (Inkling agent) | 0/3 | 853 (756-914, n=3) | 4.0 (4.0-4.0, n=3) | 185.5k (185.5k-185.5k, n=3) | 27.7k (27.7k-27.7k, n=3) | 13.1k (13.1k-13.1k, n=3) |
 | ledger_dev | solo | 1/1 | 7856 (n=1) | 12.0 (n=1) | 686.9k (n=1) | 46.3k (n=1) | 169.6k (n=1) |
-| ledger_dev | pipeline (Inkling agent) | 2/2 | 1388 (1388-1389, n=2) | 4.5 (4.0-5.0, n=2) | 215.6k (190.2k-241.0k, n=2) | 40.2k (29.6k-50.8k, n=2) | 21.6k (17.7k-25.4k, n=2) |
+| ledger_dev | pipeline (Inkling agent) | 3/3 | 1358 (1298-1389, n=3) | 4.3 (4.0-5.0, n=3) | 208.0k (190.2k-241.0k, n=3) | 37.4k (29.6k-50.8k, n=3) | 21.2k (17.7k-25.4k, n=3) |
 | real_cactoos | solo | 2/2 | 4115 (3374-4856, n=2) | 10.0 (8.0-12.0, n=2) | 436.0k (n=1) | 43.6k (n=1) | 127.7k (91.1k-164.2k, n=2) |
 | real_cactoos | pipeline (Inkling agent) | 2/2 | 1842 (1506-2179, n=2) | 10.0 (8.0-12.0, n=2) | 475.7k (377.8k-573.7k, n=2) | 29.4k (28.9k-29.8k, n=2) | 44.5k (32.8k-56.2k, n=2) |
 | real_logicng_b | solo | 0/2 | 18.9k (17.9k-19.8k, n=2) | 49.0 (40.0-58.0, n=2) | 4618.1k (n=1) | 124.4k (n=1) | 3403.7k (2893.7k-3913.7k, n=2) |
 | real_logicng_b | pipeline (Inkling agent) | 0/2 | 6502 (6350-6654, n=2) | 20.5 (20.0-21.0, n=2) | 1153.8k (1126.0k-1181.6k, n=2) | 61.6k (51.8k-71.4k, n=2) | 269.8k (263.5k-276.0k, n=2) |
 | real_ta4j | solo | 3/3 | 1374 (1233-1577, n=3) | 6.0 (6.0-6.0, n=3) | 320.2k (n=1) | 43.1k (n=1) | 49.4k (42.4k-61.5k, n=3) |
-| real_ta4j | pipeline (Inkling agent) | 2/2 | 589 (585-593, n=2) | 3.0 (3.0-3.0, n=2) | 138.4k (138.4k-138.4k, n=2) | 27.8k (27.8k-27.8k, n=2) | 9065 (9053-9077, n=2) |
+| real_ta4j | pipeline (Inkling agent) | 3/3 | 584 (575-593, n=3) | 3.0 (3.0-3.0, n=3) | 138.4k (138.4k-138.4k, n=3) | 27.8k (27.8k-27.8k, n=3) | 9066 (9053-9077, n=3) |
 | real_tablesaw | solo | 3/3 | 1064 (1056-1074, n=3) | 5.7 (5.0-6.0, n=3) | 252.1k (n=1) | 34.9k (n=1) | 43.7k (36.5k-47.8k, n=3) |
 | real_tablesaw | pipeline (Inkling agent) | 2/2 | 446 (428-463, n=2) | 3.0 (3.0-3.0, n=2) | 138.1k (138.1k-138.1k, n=2) | 27.5k (27.5k-27.5k, n=2) | 8750 (8737-8764, n=2) |
 | rules_big | solo | 3/3 | 1096 (980-1259, n=3) | 5.0 (5.0-5.0, n=3) | 244.8k (n=1) | 32.2k (n=1) | 30.1k (29.3k-31.4k, n=3) |
 | rules_big | pipeline (Inkling agent) | 2/2 | 473 (444-502, n=2) | 3.0 (3.0-3.0, n=2) | 138.4k (138.4k-138.4k, n=2) | 27.6k (27.6k-27.6k, n=2) | 9052 (9051-9052, n=2) |
 | rules_exc | solo | 3/3 | 963 (829-1089, n=3) | 5.3 (5.0-6.0, n=3) | 241.2k (n=1) | 31.0k (n=1) | 26.0k (24.3k-28.0k, n=3) |
-| rules_exc | pipeline (Inkling agent) | 2/2 | 543 (541-545, n=2) | 3.0 (3.0-3.0, n=2) | 138.2k (138.2k-138.2k, n=2) | 27.4k (27.4k-27.4k, n=2) | 8833 (8833-8833, n=2) |
+| rules_exc | pipeline (Inkling agent) | 3/3 | 548 (541-559, n=3) | 3.0 (3.0-3.0, n=3) | 138.2k (138.2k-138.2k, n=3) | 34.3k (27.4k-48.0k, n=3) | 8833 (8833-8834, n=3) |
 | rules_logic | solo | 3/3 | 1249 (1118-1496, n=3) | 5.0 (5.0-5.0, n=3) | 242.8k (n=1) | 31.4k (n=1) | 27.0k (26.8k-27.3k, n=3) |
 | rules_logic | pipeline (Inkling agent) | 2/2 | 462 (449-474, n=2) | 3.0 (3.0-3.0, n=2) | 138.5k (138.5k-138.5k, n=2) | 37.9k (27.6k-48.2k, n=2) | 9118 (9118-9119, n=2) |
 | rules_rename | solo | 3/3 | 886 (783-974, n=3) | 5.0 (5.0-5.0, n=3) | 247.1k (n=1) | 34.1k (n=1) | 23.4k (19.0k-31.6k, n=3) |
-| rules_rename | pipeline (Inkling agent) | 2/2 | 463 (438-488, n=2) | 3.0 (3.0-3.0, n=2) | 138.0k (138.0k-138.0k, n=2) | 27.3k (27.3k-27.3k, n=2) | 8672 (8672-8673, n=2) |
+| rules_rename | pipeline (Inkling agent) | 3/3 | 478 (438-507, n=3) | 3.0 (3.0-3.0, n=3) | 138.0k (138.0k-138.0k, n=3) | 34.1k (27.3k-47.8k, n=3) | 8673 (8672-8673, n=3) |
 | shop | solo | 1/1 | 6893 (n=1) | 12.0 (n=1) | 719.7k (n=1) | 50.8k (n=1) | 202.4k (n=1) |
-| shop | pipeline (Inkling agent) | 2/2 | 826 (556-1095, n=2) | 3.5 (3.0-4.0, n=2) | 163.5k (138.1k-188.9k, n=2) | 28.8k (27.5k-30.1k, n=2) | 12.6k (8757-16.4k, n=2) |
+| shop | pipeline (Inkling agent) | 3/3 | 1056 (556-1516, n=3) | 4.0 (3.0-5.0, n=3) | 188.9k (138.1k-239.6k, n=3) | 29.3k (27.5k-30.2k, n=3) | 16.4k (8757-24.0k, n=3) |
 
 ## Regressions and fix attempts
 ### R1. shop (run r24, Inkling agent): a test was deleted and accepted
@@ -86,4 +86,5 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
 - **Rerun r34 (with R3): worked as a detection fix.** review flagged all 4 tests (FAILURE CHECK LOST; EXPECTED EXCEPTION LOST), tools/repair ended ESCALATE, and the strong agent rewrote them to assert real library behaviour (operands, coefficients, comparator, rhs, stored mappings) with positive inputs, instead of a statement about Java types. They no longer check that bad input is REJECTED (not expressible with the new types; the reference drops these tests). 573/573; strict NO only on LiteralTest (as every run incl. solo). Cost: 6350 output tokens (r33 without the flag: 1782; solo 19838), 20 calls (12; 58).
 - **Repeat pair r52 (pipeline) vs solo r52:** pipeline 6654 output tokens / 21 calls, solo 17882 / 40; both 573/573, strict NO only on LiteralTest. The delegate again wrote the four weak tests and review flagged them (ESCALATE); the strong agent "restored" them as `expected = ClassCastException` (raised by a cast or raw list in the test itself) and, as the S6 prompt only asks for a test run after hand repairs, did not run the review again, so the weak form stayed. **The SOLO run wrote the same four ClassCastException tests on its own** (review flags 4 of them there too): this weakness is not specific to the pipeline. In r34 the strong agent instead rewrote them to assert real library behaviour: the outcome varies between runs. Open: rerun review after hand repairs (prompt change, not made: it would change the compared pipeline).
 - **Scoring note:** the solo r52 workspace first scored 541/573 while two scoring processes ran at the same time (0 failures, tests missing from the reports); scored alone it is 573/573. Score one run at a time.
+- **R1 follow-up (run shop r59):** the delegate DELETED `MoneyTest#convertsToDouble` again; with fix R1 the review flagged it (ESCALATE) and the strong agent RESTORED it (checking `cents() / 100.0` against 2.5; since `toDouble()` no longer exists the test no longer exercises a production conversion). This is the first observation that a flagged deletion gets repaired. 33/33, strict yes, 1516 output tokens. So the delegate's deleting behaviour occurred in 2 of 4 shop runs.
 
