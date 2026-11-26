@@ -1,0 +1,10 @@
+Inkling-2-Mini (local, effort low, 1 candidate, 4096-token prompts), Java contrast subset - 2026-11-26
+Scored like java_contrast273_results.txt: the same 257 cases whose reference passed in the earlier runs, weighted with the population sizes. Script: scripts/thesis_analysis/java_inkling_report.py
+
+inkling low    RAW     solved 116/128  90.6%  unsolved 47/129  36.4%  weighted  63.9%  (cases the reference did not pass in this run, counted as failed: 0)
+inkling low    CHECKED solved 112/128  87.5%  unsolved 44/129  34.1%  weighted  61.1%  (cases the reference did not pass in this run, counted as failed: 0)
+  verdicts: Counter({'success': 165, 'compile_error': 66, 'failure': 24, 'reference_fails': 14, 'empty': 3, 'unrelated_compile_error': 1})
+
+Earlier, CHECKED weighted: particle-1 62.7, nemotron-3-ultra 59.5, ernie-5.5-flash 55.0, Qwen3-Coder 38.9, gpt-oss-20b (low) 36.1; CodeT5+ published @1: 50.29.
+The first scoring job had 7 out-of-memory kills; all 106 unsuccessful cases were rerun with 96 GB and 2 workers (no kills): no compile error or failure became a success; one reference_fails case outside the 257 passed, one compile_error became reference_fails.
+Caveats: no significance test; share of successes equal to the reference (contamination / easy cases, about 75-80% for the earlier models) not yet checked for Inkling.
