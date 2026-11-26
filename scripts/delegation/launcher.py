@@ -41,12 +41,14 @@ def new_run(a):
     if run.exists(): sys.exit(f"{rid} exists")
     ws = run / "ws"; shutil.copytree(task / "ws", ws, symlinks=True)
     cfg = json.loads((ws / ".delegation/config.json").read_text())
-    for name, script in (("start", "start.py"), ("delegate", "delegate_guard.py"), ("repair", "repair.py"), ("review", "review.py")):      # automation tools (see docs/results/delegation_routing_breakdown.md); delegate_guard never runs longer than 160 s per call
-        f = ws / "tools" / name
-        f.write_text('#!/usr/bin/bash\nexec %s %s "$(cd "$(dirname "$0")/.." && pwd)" "$@"\n' % (H / "venv3.12/bin/python", HERE / "dtools" / script)); f.chmod(0o755)
-    if a.arm == "solo":
-        (ws / "tools" / "delegate").unlink(); cfg.pop("delegates", None)
+    if a.arm == "solo":                                # solo = the workspace as prepared for the task (run_tests, plus tools/review only where the task already had it), never the automation tools
+        for extra in ("delegate", "start", "repair"):
+            (ws / "tools" / extra).unlink(missing_ok=True)
+        cfg.pop("delegates", None)
     else:
+        for name, script in (("start", "start.py"), ("delegate", "delegate_guard.py"), ("repair", "repair.py"), ("review", "review.py")):      # automation tools (see docs/results/delegation_routing_breakdown.md); delegate_guard never runs longer than 160 s per call
+            f = ws / "tools" / name
+            f.write_text('#!/usr/bin/bash\nexec %s %s "$(cd "$(dirname "$0")/.." && pwd)" "$@"\n' % (H / "venv3.12/bin/python", HERE / "dtools" / script)); f.chmod(0o755)
         cfg["default_delegate"] = a.delegate_model
         cfg["delegates"]["inkling"] = {"slug": "inkling", "base_url_file": "~/delegation_exp/local_delegate_endpoint.txt", "key_file": "~/.config/delegation/local_token", "max_tokens": 12288,
                                        "chat_template_kwargs": {"reasoning_effort": os.environ.get("INKLING_EFFORT", "low")}, "price_in": 0, "price_out": 0}

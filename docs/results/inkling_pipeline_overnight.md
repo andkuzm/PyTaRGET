@@ -29,6 +29,7 @@ Solo mean in brackets (n/a: the solo transcripts of older runs are gone). Strong
 | rules_big r31 | yes (56/56) | 444 (1014) | 3 (5) | 138408 (n/a) | 27556 (n/a) | 9051 (30594) | ACCEPT | 1 agent run(s): 8 calls, 24 s, 64k in / 2.8k out |
 | real_tablesaw r32 | yes (750/755) | 463 (1065) | 3 (6) | 138130 (n/a) | 27482 (n/a) | 8764 (47222) | ACCEPT | 1 agent run(s): 14 calls, 36 s, 200k in / 2.0k out; audit flags 1 |
 | real_logicng_b r33 | NO LiteralTest (573/573) | 1782 (19838) | 12 (58) | 572149 (n/a) | 50301 (n/a) | 54685 (3913678) | ACCEPT | 1 agent run(s): 115 calls, 694 s, 11701k in / 43.3k out; discarded changes: 21; audit flags 2 | (after fix R2)
+| real_logicng_b r34 | NO LiteralTest (573/573) | 6350 (19838) | 20 (58) | 1125982 (n/a) | 71415 (n/a) | 263542 (3913678) | ESCALATE | 1 agent run(s): 129 calls, 616 s, 11634k in / 43.1k out; discarded changes: 21; audit flags 3 | (after fix R3)
 <!--rows-->
 
 ## Regressions and fix attempts
@@ -52,4 +53,5 @@ Solo mean in brackets (n/a: the solo transcripts of older runs are gone). Strong
 - **Why it passed (two confirmed bugs in tools/review):** (1) any failure-style check (here assertFalse) counted as keeping an expected exception; (2) a change of only the expected exception TYPE was treated as "unchanged" (the comparison looked at assertions and literals only).
 - **Fix R3:** new flag EXPECTED EXCEPTION LOST (old test expects an exception, new one none; or newly expects ClassCastException, which a cast in the test can raise); the expected exception type is part of the comparison. Replayed on stored workspaces: flags exactly the 4 hollow tests in r28 and r33, no new flags in 9 other runs.
 - **Limit of the fix:** it only DETECTS. The new library types make the old situation impossible to express, so there may be no faithful repair; the reference drops these tests, which our rules forbid.
+- **Rerun r34 (with R3): worked as a detection fix.** review flagged all 4 tests (FAILURE CHECK LOST; EXPECTED EXCEPTION LOST), tools/repair ended ESCALATE, and the strong agent rewrote them to assert real library behaviour (operands, coefficients, comparator, rhs, stored mappings) with positive inputs, instead of a statement about Java types. They no longer check that bad input is REJECTED (not expressible with the new types; the reference drops these tests). 573/573; strict NO only on LiteralTest (as every run incl. solo). Cost: 6350 output tokens (r33 without the flag: 1782; solo 19838), 20 calls (12; 58).
 
