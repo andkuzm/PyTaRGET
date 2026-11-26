@@ -108,9 +108,19 @@ def extract(answer, tag):
     return "\n".join(l for l in text.split("\n") if not re.match(r"^\s*```\w*\s*$", l))        # stray fence lines inside the answer break the Java file
 
 
+# members of assertion classes (assertThrows, assertEquals, assertThat, fail ...) can only be imported with `import static`; a plain import breaks the compilation of the whole module
+ASSERT_MEMBER = re.compile(r"^import\s+((?:org\.junit(?:\.jupiter\.api)?\.(?:Assertions|Assert|Assumptions|Assume)|org\.assertj\.core\.api\.Assertions|org\.hamcrest\.(?:MatcherAssert|Matchers|CoreMatchers))\.(?:[a-z]\w*|\*)\s*;)")
+
+
+def fix_import(line):
+    m = ASSERT_MEMBER.match(line)
+    return "import static " + m.group(1) if m else line
+
+
 def add_imports(lines, imports):
     existing = set(l.strip() for l in lines)
-    new = [i.strip() for i in imports.split("\n") if i.strip().startswith("import ") and i.strip() not in existing]
+    new = [fix_import(i.strip()) for i in imports.split("\n") if i.strip().startswith("import ")]
+    new = [i for i in dict.fromkeys(new) if i not in existing]
     if not new: return lines
     last = max([k for k, l in enumerate(lines) if l.startswith("import ")] or [next((k for k, l in enumerate(lines) if l.startswith("package ")), -1)])
     return lines[:last + 1] + new + lines[last + 1:]

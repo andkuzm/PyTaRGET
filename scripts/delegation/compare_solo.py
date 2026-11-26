@@ -27,6 +27,9 @@ def stats(run):
 def solo(task):
     s = [x for x in (stats(k) for k in R if k.startswith(task + "__solo__")) if x]
     if s: return {k: st.mean(x[k] for x in s) for k in s[0]} | {"n": len(s)}
+    # transcripts of older runs are deleted by the system after a while: fall back to the recorded numbers (no input-token columns then)
+    s = [v for k, v in R.items() if k.startswith(task + "__solo__") and v.get("out")]
+    if s: return {"out": st.mean(v["out"] for v in s), "calls": st.mean(v["calls"] for v in s), "work": st.mean(v["work"] for v in s), "n": len(s)}
     return None
 
 
@@ -35,6 +38,6 @@ for run in sys.argv[1:]:
     task = run.split("__")[0]; r = stats(run); b = solo(task)
     if not r: print(f"| {task} | no transcript | | | | | |"); continue
     sc = R.get(run, {}).get("success", "?")
-    f = lambda k, fmt="{:.0f}": fmt.format(r[k]) + (" (" + fmt.format(b[k]) + ")" if b else (" (" + str(FALLBACK[task][{"out": 0, "calls": 1, "work": 2}[k]]) + ")" if task in FALLBACK and k in ("out", "calls", "work") else " (n/a)"))
+    f = lambda k, fmt="{:.0f}": fmt.format(r[k]) + (" (" + fmt.format(b[k]) + ")" if b and k in b else (" (" + str(FALLBACK[task][{"out": 0, "calls": 1, "work": 2}[k]]) + ")" if task in FALLBACK and k in ("out", "calls", "work") else " (n/a)"))
     print(f"| {task} | {sc} | {f('out')} | {f('calls', '{:.1f}')} | {f('total_in')} | {f('fresh_in')} | {f('work')} |")
 print("\n(solo mean in brackets; solo n = " + ", ".join(f"{run.split('__')[0]}:{(solo(run.split('__')[0]) or {}).get('n', 'fallback')}" for run in sys.argv[1:]) + ")")
