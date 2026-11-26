@@ -25,6 +25,7 @@ def call_model(cfg, alias, prompt):
     base_url = Path(d["base_url_file"]).expanduser().read_text().strip() if d.get("base_url_file") else d["base_url"]   # a local server whose address is written by its Slurm job
     body = {"model": d["slug"], "messages": [{"role": "user", "content": prompt}], "temperature": d.get("temperature", 0.2), "max_tokens": d.get("max_tokens", 8192)}
     if d.get("reasoning"): body["reasoning"] = {"effort": d["reasoning"]}
+    if d.get("chat_template_kwargs"): body["chat_template_kwargs"] = d["chat_template_kwargs"]      # local vLLM: e.g. {"reasoning_effort": "low"} for Inkling
     last = ""
     for attempt in range(6):
         req = urllib.request.Request(base_url.rstrip("/") + "/chat/completions", json.dumps(body).encode(), {"Authorization": "Bearer " + key, "Content-Type": "application/json", "User-Agent": "dtools"})

@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# One-off: separate venv (venv_vllm stays untouched) with the vLLM NIGHTLY (needed for Inkling-2-Mini, vLLM >= 0.35, CUDA 13 wheels) and the official weights.
+# One-off: separate venv (venv_vllm stays untouched) with the vLLM NIGHTLY (needed for Inkling-2-Mini, vLLM >= 0.35, CUDA 13.2 wheels; the cu130 nightly was too old to contain inkling2) and the official weights.
 #   sbatch slurm/install_inkling.sbatch      (from the PyTaRGET directory)
 #SBATCH -J install-inkling
 #SBATCH -p amd
@@ -13,9 +13,9 @@ VENV="$HOME/venv_inkling"
 python3 -m venv "$VENV"
 "$VENV/bin/pip" install -q --upgrade pip uv
 # pinned nightly wheel: otherwise the PyPI 0.34.0 release outranks it
-"$VENV/bin/uv" pip install --python "$VENV/bin/python" -U "vllm==0.34.0rc1.dev156+g4e3463c87" --prerelease=allow    \
+"$VENV/bin/uv" pip install --python "$VENV/bin/python" -U "vllm==0.34.1rc1.dev167+ga53e0a051" --prerelease=allow    \
     \
-    --extra-index-url https://wheels.vllm.ai/nightly/cu130 --extra-index-url https://download.pytorch.org/whl/cu130 --index-strategy unsafe-best-match
+    --extra-index-url https://wheels.vllm.ai/nightly/cu132 --extra-index-url https://download.pytorch.org/whl/cu132 --index-strategy unsafe-best-match
 "$VENV/bin/python" -I -c "import importlib.metadata as m;print({p:m.version(p) for p in ('vllm','torch','transformers')})"
 "$VENV/bin/python" -I -c "import vllm,os,subprocess;d=os.path.dirname(vllm.__file__);print('inkling files:',subprocess.run(['grep','-ril','inkling',d],capture_output=True,text=True).stdout[:1500])"
 echo "=== download weights $(date)"

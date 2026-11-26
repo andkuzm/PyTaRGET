@@ -69,6 +69,14 @@ def final_answer(text):
     return "" if text.lstrip().startswith("analysis") else text
 
 
+def inkling_answer(text):
+    """Inkling writes '<|content_thinking|>...<|end_message|>...<|content_text|>ANSWER<|end_message|>...' (special tokens kept in the output). Only the last text block is the answer;
+    a generation cut off inside the reasoning gives an empty prediction."""
+    if "<|content_text|>" not in text:
+        return ""
+    return text.split("<|content_text|>")[-1].split("<|")[0]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
@@ -92,6 +100,7 @@ def main():
     ap.add_argument("--context-variant", choices=["B", "C", "BC"], default=None,
                     help="context ablation (context_ablation.py): B = failure output, C = definitions of the changed symbols, BC = both")
     ap.add_argument("--context-file", default=None, help="context.json built by `context_ablation build` (required with --context-variant)")
+    ap.add_argument("--dump-raw", type=int, default=0, help="save the raw output text of the first N cases to raw_samples.json (to check the output format)")
     args = ap.parse_args()
     if bool(args.context_variant) != bool(args.context_file):
         raise SystemExit("--context-variant and --context-file go together")
@@ -118,7 +127,10 @@ def main():
 
     llm = LLM(model=args.model, tensor_parallel_size=args.tp, gpu_memory_utilization=args.gpu_mem,
               max_model_len=args.max_model_len, trust_remote_code=True, seed=1234)
-    params = SamplingParams(n=args.n, temperature=args.temperature, top_p=0.95, max_tokens=args.max_new_tokens, seed=1234)
+    inkling = "inkling" in args.model.lower()
+    params = SamplingParams(n=args.n, temperature=args.temperature, top_p=0.95, max_tokens=args.max_new_tokens, seed=1234, skip_special_tokens=not inkling)
+    answer = inkling_answer if inkling else final_answer
+    raw, stats = [], {"candidates": 0, "empty": 0, "cut_off": 0, "output_tokens": 0}
 
     def chat(prompt):
         # the base prompt ends with '### Repaired Code:\n'; sent as one user turn, the model answers in [REPAIR] brackets
@@ -132,12 +144,17 @@ def main():
         outputs = llm.generate(prompts, params)
         for (i, row), out in zip(chunk, outputs):
             # gpt-oss writes its reasoning first ('analysis...assistantfinal<answer>' once special tokens are stripped)
-            preds = [tester.postprocess_prediction(final_answer(c.text)) for c in out.outputs]
+            if len(raw) < args.dump_raw:
+                raw.append({"ID": i, "prompt_tail": tester.fit_prompt(row)[-1500:], "raw": [c.text for c in out.outputs]})
+                json.dump(raw, open(out_file.parent / "raw_samples.json", "w"), indent=1)
+            preds = [tester.postprocess_prediction(answer(c.text)) for c in out.outputs]
+            stats["candidates"] += len(preds); stats["empty"] += sum(not x.strip() for x in preds)
+            stats["cut_off"] += sum(c.finish_reason == "length" for c in out.outputs); stats["output_tokens"] += sum(len(c.token_ids) for c in out.outputs)
             if args.reindent and not args.java:
                 preds = [reindent(x, row["input"]) for x in preds]
             predictions.append({"ID": i, "target": row["output"], "preds": preds})
         prediction_files.save(predictions, out_file)
-        print(f"saved {len(predictions)} cases", flush=True)
+        print(f"saved {len(predictions)} cases; this run: {stats}", flush=True)
 
     json.dump({"model": args.model, "n": args.n, "temperature": args.temperature,
                "max_prompt_tokens": args.max_prompt_tokens, "reasoning_effort": args.reasoning_effort,
