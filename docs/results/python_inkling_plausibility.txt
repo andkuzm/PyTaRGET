@@ -1,0 +1,13 @@
+Inkling-2-Mini (local, effort low, 5 candidates) - Python per-project test set, plausibility with span control (same settings as the earlier zero-shot LLM runs) - 2026-11-26
+full_inkling_low {'cases': 1768, 'evaluated': 1460, 'statuses': {'deleted_repair': 23, 'evaluated': 1460, 'reference_fails': 266, 'setup_failed': 17, 'repair_site_not_found': 2}, 'candidate_timeouts': 1, 'plausible@1': 53.97, 'plausible@k': 63.08, 'not_discriminating': 513, 'span_unparseable': 536, 'plausible@1_checked': 53.63, 'plausible@k_checked': 62.81, 'checked_cases': 1460, 'plausible@1_discriminating': 57.42, 'plausible@k_discriminating': 64.96, 'discriminating_cases': 411}
+
+Compared on the 1458 cases evaluated for all three:
+inkling cases processed so far: 1768 | evaluated by all three: 1458
+inkling low    plain @1  53.98 @5   63.1 | checked @1  53.64 @5  62.83 | needs-the-span subset @1 57.56 (n=410)
+qwen3coder     plain @1   20.1 @5  23.05 | checked @1  18.45 @5  20.99 | needs-the-span subset @1 23.9 (n=410)
+gptoss20b low  plain @1  18.79 @5  32.44 | checked @1  16.67 @5   28.4 | needs-the-span subset @1 24.88 (n=410)
+paired checked@1 vs qwen3coder: only inkling 534, only qwen3coder 21
+paired checked@1 vs gptoss20b low: only inkling 565, only gptoss20b low 26
+inkling statuses: Counter({'evaluated': 1460, 'reference_fails': 266, 'deleted_repair': 23, 'setup_failed': 17, 'repair_site_not_found': 2}) | cases evaluated in one run only (vs qwen): 8
+
+Audit on a partial snapshot (1420 common cases): passing first answers that are blank/comment/pass only 2 of 762 (inkling); add a skip the reference lacks 0; drop an assertion the reference keeps 1.0% (qwen 8.8%, gpt-oss 12.8%); define a function where the reference has none 3; equal to the reference ignoring whitespace ~50-53% for all three; gap holds per repair year (2026: 51% vs 18% qwen) and over 146 repositories. Not checked: weakened assertions; training-data contamination cannot be excluded.
