@@ -100,6 +100,7 @@ def main():
     ap.add_argument("--context-variant", choices=["B", "C", "BC"], default=None,
                     help="context ablation (context_ablation.py): B = failure output, C = definitions of the changed symbols, BC = both")
     ap.add_argument("--context-file", default=None, help="context.json built by `context_ablation build` (required with --context-variant)")
+    ap.add_argument("--save-meta", action="store_true", help="candidate_meta.jsonl: why each candidate stopped, its length, whether it has a final answer; the raw text of empty ones")
     ap.add_argument("--dump-raw", type=int, default=0, help="save the raw output text of the first N cases to raw_samples.json (to check the output format)")
     args = ap.parse_args()
     if bool(args.context_variant) != bool(args.context_file):
@@ -152,6 +153,12 @@ def main():
             stats["cut_off"] += sum(c.finish_reason == "length" for c in out.outputs); stats["output_tokens"] += sum(len(c.token_ids) for c in out.outputs)
             if args.reindent and not args.java:
                 preds = [reindent(x, row["input"]) for x in preds]
+            if args.save_meta:
+                with open(out_file.parent / "candidate_meta.jsonl", "a") as mf:
+                    for k, (c, p_) in enumerate(zip(out.outputs, preds)):
+                        rec = {"ID": i, "k": k, "finish_reason": c.finish_reason, "stop_reason": str(c.stop_reason), "tokens": len(c.token_ids), "has_final": "<|content_text|>" in c.text, "empty": not p_.strip()}
+                        if rec["empty"]: rec["raw_head"], rec["raw_tail"] = c.text[:600], c.text[-1500:]
+                        mf.write(json.dumps(rec) + "\n")
             predictions.append({"ID": i, "target": row["output"], "preds": preds})
         prediction_files.save(predictions, out_file)
         print(f"saved {len(predictions)} cases; this run: {stats}", flush=True)
