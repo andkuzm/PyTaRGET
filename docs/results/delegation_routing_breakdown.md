@@ -118,3 +118,11 @@ Fixes after r11: `parse_surefire` keeps 8 lines / 1000 chars; `expected_actual` 
 | r11 (no rollback) | yes | 9742 (4856) | 21 (12) | 1.25M (675k) | 72k (65k) | 357k (164k) |
 | r12 (rollback) | yes | 4103 (4856) | 11 (12) | 602k (675k) | 63k (65k) | 134k (164k) |
 The delegate applied 31 units, but a round fixed only 68 -> 49 compile errors (new constructor of a final library class); the strong agent then had to undo the half-right edits. `tools/repair` now snapshots the test tree before each delegate round and rolls it back when the round fixed less than half of the compile errors / failing tests (`dtools/repair.py`). r12: the round was rolled back, the strong agent wrote one helper matcher and finished. Paid spend $0. The difference to solo (-16% output) is within what one solo run can vary; the rollback removes the loss, it does not create a gain on this repo.
+
+## S6 on the remaining repos, 2026-11-26 (1 run each; free particle-1, paid spend $0)
+| Repo | strict | out tok (solo) | calls (solo) | work (solo) | delegate round | notes |
+|---|---|---|---|---|---|---|
+| real_logicng_b | no* (573/573 pass) | 12567 (19838, n=1) | 19 (58) | 863k (3914k) | rolled back (63 -> 86 compile errors) | contributed nothing; two illegal-input tests became hollow (`expected=ClassCastException` from a cast in the test), not flagged by review; solo/reference have no methods of those names |
+| real_ta4j | yes | 724 (1312, 1233) | 4 (6) | 13k (42k, 44k) | accepted, review flagged nothing | |
+| shop | yes | 2565 (3224, n=2) | 7 (4) | 48k (37k) | 7 units applied; strong agent finished by hand | less output, MORE calls and work; no tools/review; two DiscountPolicyTest inputs changed so the 15% and 5% tiers are no longer directly asserted |
+\* same weak class (LiteralTest) as every run of this repo including solo.
