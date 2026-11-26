@@ -28,6 +28,7 @@ Solo mean in brackets (n/a: the solo transcripts of older runs are gone). Strong
 | rules_rename r30 | yes (56/56) | 438 (842) | 3 (5) | 138032 (n/a) | 27273 (n/a) | 8672 (19272) | ACCEPT | not called (no-model fixes only) |
 | rules_big r31 | yes (56/56) | 444 (1014) | 3 (5) | 138408 (n/a) | 27556 (n/a) | 9051 (30594) | ACCEPT | 1 agent run(s): 8 calls, 24 s, 64k in / 2.8k out |
 | real_tablesaw r32 | yes (750/755) | 463 (1065) | 3 (6) | 138130 (n/a) | 27482 (n/a) | 8764 (47222) | ACCEPT | 1 agent run(s): 14 calls, 36 s, 200k in / 2.0k out; audit flags 1 |
+| real_logicng_b r33 | NO LiteralTest (573/573) | 1782 (19838) | 12 (58) | 572149 (n/a) | 50301 (n/a) | 54685 (3913678) | ACCEPT | 1 agent run(s): 115 calls, 694 s, 11701k in / 43.3k out; discarded changes: 21; audit flags 2 | (after fix R2)
 <!--rows-->
 
 ## Regressions and fix attempts
@@ -44,5 +45,11 @@ Solo mean in brackets (n/a: the solo transcripts of older runs are gone). Strong
 - **Delegate failure:** the agent made 91 calls in 250 s (5.76M input tokens) and ended with ContextWindowExceededError (server limit 131072). It had changed 35 files; the round counted 84 compile errors before and 90 after, so `tools/repair` rolled it back and the strong agent repaired everything. The delegate contributed nothing; the saving over solo is NOT from delegation.
 - **Test quality (strong agent, same pattern as particle-1 run r11):** testIllegalAdd and testIllegalCC/AMO/EXO now force a negative literal by a cast and expect ClassCastException (they test a cast in the test, not the library); three SubformulaTest assertions flipped to false. tools/review did not flag this. The reference has no methods of these names.
 - **Caveat on the rollback rule:** javac stops after 100 errors and the count is not monotonic, so 84 -> 90 does not prove the round made no progress.
-- **Fix attempt:** (see below) server context 131072 -> 262144, rerun after the 5-hour window reset.
+- **Fix attempt:** server context 131072 -> 262144. **Rerun r33: worked.** The agent finished (115 calls, 694 s, 11.7M input tokens, no overflow), all 573 tests passed after its round, tools/repair printed ACCEPT; strong arm 1782 output tokens (r28: 11048; solo: 19838), 12 calls (24; 58). One run; the extra calls are mostly `tools/repair --wait` while the agent ran. The 21 "discarded changes" are files the test suite itself writes under tests/ (logs, .dot files).
+
+### R3. real_logicng_b (r33): the DELEGATE wrote hollow tests and the review missed them
+- **What regressed (test quality):** testIllegalAdd and testIllegalCC/AMO/EXO expected an IllegalArgumentException from the library; the agent replaced that by `assertFalse(<negative literal> instanceof Variable)`, a statement about Java types that tests nothing the library does. (Reference: no methods of these names. Earlier runs r11/r28 had the strong agent write the same kind of hollow test with `expected = ClassCastException`.) The strict scorer does not detect it.
+- **Why it passed (two confirmed bugs in tools/review):** (1) any failure-style check (here assertFalse) counted as keeping an expected exception; (2) a change of only the expected exception TYPE was treated as "unchanged" (the comparison looked at assertions and literals only).
+- **Fix R3:** new flag EXPECTED EXCEPTION LOST (old test expects an exception, new one none; or newly expects ClassCastException, which a cast in the test can raise); the expected exception type is part of the comparison. Replayed on stored workspaces: flags exactly the 4 hollow tests in r28 and r33, no new flags in 9 other runs.
+- **Limit of the fix:** it only DETECTS. The new library types make the old situation impossible to express, so there may be no faithful repair; the reference drops these tests, which our rules forbid.
 

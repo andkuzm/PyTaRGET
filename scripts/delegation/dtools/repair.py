@@ -10,7 +10,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
-FLAGS = ("ASSERTIONS DROPPED", "FAILURE CHECK LOST", "REMOVED")
+FLAGS = ("ASSERTIONS DROPPED", "FAILURE CHECK LOST", "REMOVED", "EXPECTED EXCEPTION LOST")
 
 
 def sh(args, ws):
@@ -28,7 +28,7 @@ def benign(ws, rv):
     blocks = re.split(r"\n(?=\S+\.java#)", rv); keep, n = [blocks[0]], 0
     for b in blocks[1:]:
         head, *body = b.split("\n"); minus = [l[3:].strip() for l in body if l.startswith("  -")]; plus = [l[3:].strip() for l in body if l.startswith("  +")]
-        ok = "[ASSERTIONS DROPPED]" in head and "FAILURE CHECK LOST" not in head and "REMOVED" not in head
+        ok = "[ASSERTIONS DROPPED]" in head and "FAILURE CHECK LOST" not in head and "REMOVED" not in head and "EXPECTED EXCEPTION LOST" not in head
         if ok:
             calls = [c for c in (re.match(r"assert(?:True|False)\((?:\w+\.)*(\w+)\(.*\)\);$", m) for m in minus) if c]
             ok = bool(calls) and all(re.search(r"\bvoid\s+" + re.escape(c.group(1)) + r"\s*\(", src) for c in calls) and len(minus) - len(plus) <= len(calls)

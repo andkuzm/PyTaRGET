@@ -3,6 +3,7 @@ by their MEANING (assertion kinds and literal values), so that pure renames are 
   ASSERTIONS DROPPED  - fewer assertion statements than before
   FAILURE CHECK LOST  - the old test expected a failure/false/exception (assertFalse, assertThrows, fail(...), expected=...) and the new one expects none
   REMOVED             - the old test has no counterpart any more
+  EXPECTED EXCEPTION LOST - the old test expected an exception (expected=, assertThrows, fail ...) and the new one expects no exception at all (an assertFalse does not replace it), or now expects a ClassCastException, which a cast in the test itself can raise
 Use it after the tests pass: it is a cheap way to see where a repair (yours or the delegate's) changed what a test checks. usage: tools/review [file ...]"""
 import difflib
 import re
@@ -15,6 +16,9 @@ from dtools import common  # noqa: E402
 
 ASSERT = re.compile(r"\b(assert\w*|fail|verify|expect\w*)\s*\(")
 FAILING = re.compile(r"\bassertFalse\b|\bassertThrows\b|\bfail\s*\(|\bexpected\s*=|\bassertNull\b|\bassertNotEquals\b")
+# the old test expects an EXCEPTION; an assertFalse / assertNull in the new one does not replace that (fix R3)
+THROWS = re.compile(r"\bexpected\s*=|\bassertThrows\b|\bexpectThrows\b|\bassertThatThrownBy\b|\bassertThatExceptionOfType\b|\bassertThatCode\b|\.expect\(\s*\w*(?:Exception|Error)\b|\bfail\s*\(")
+CAST = re.compile(r"(?:expected\s*=\s*|assertThrows\(\s*)ClassCastException\b")
 LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"|\b\d+(?:\.\d+)?[LlFfDd]?\b')
 
 
@@ -38,7 +42,7 @@ def assertion_lines(body):
 
 def meaning(body):
     kinds = sorted(m.group(1) for m in ASSERT.finditer(body)); lits = sorted(LITERAL.findall(body))
-    return kinds, lits
+    return kinds, lits, sorted(re.findall(r"expected\s*=\s*([\w.]+)", body))          # the expected exception is part of what a test checks
 
 
 def main(ws, only):
@@ -67,6 +71,8 @@ def main(ws, only):
             changed += 1; oa, na = assertion_lines(ob), assertion_lines(nb); flags = []
             if len(na) < len(oa): flags.append("ASSERTIONS DROPPED")
             if FAILING.search(ob) and not FAILING.search(nb): flags.append("FAILURE CHECK LOST")
+            if THROWS.search(ob) and not THROWS.search(nb): flags.append("EXPECTED EXCEPTION LOST")
+            elif CAST.search(nb) and not CAST.search(ob): flags.append("EXPECTED EXCEPTION LOST")       # an exception that a cast in the test itself can raise
             shown.append((rel, name + (f" -> {renamed_to}" if renamed_to else ""), flags, oa, na))
     print(f"review: {same} test methods changed only by renames (not shown), {changed} changed in meaning, {removed} removed; flagged first")
     shown.sort(key=lambda s: (not s[2], s[0]))
