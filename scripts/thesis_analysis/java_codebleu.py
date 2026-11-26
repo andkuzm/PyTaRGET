@@ -15,6 +15,7 @@ retok = lambda s: " ".join(re.findall(r"\w+|[^\w\s]", s))
 SRC = {"qwen3coder": (R / "local/qwen3coder", 300), "gpt-oss-20b": (R / "local/gptoss20b", 300),
        "ernie-5.5-flash": (H / "eval_openrouter/java273_baidu_ernie-5.5-flash-preview_free", 273),
        "particle-1": (H / "eval_openrouter/java273_particle-ai_particle-1_free", 273),
+       "inkling low": (H / "eval_inkling/java273_low", 273), "inkling medium": (H / "eval_inkling/java273_medium", 273),
        "nemotron-3-ultra": (H / "eval_openrouter/java273_nvidia_nemotron-3-ultra-550b-a55b_free", 273)}
 def score(targets, preds):
     preds = [p if p.strip() else "<empty>" for p in preds]

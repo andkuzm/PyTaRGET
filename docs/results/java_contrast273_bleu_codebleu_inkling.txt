@@ -1,0 +1,18 @@
+Java contrast273 with Inkling-2-Mini added - 2026-11-26, same script (java_codebleu.py, tarVenv), rank 1. CodeBLEU of the earlier models differs from java_contrast273_bleu_codebleu.txt by up to about 1.5 points between runs (BLEU is identical).
+
+qwen3coder             as is  BLEU solved  57.1 unsolved  56.3 weighted  56.7 | CodeBLEU solved  75.6 unsolved  61.7 weighted  68.7
+qwen3coder             retok  BLEU solved  75.5 unsolved  68.4 weighted  72.0 | CodeBLEU solved  85.8 unsolved  70.1 weighted  78.1
+gpt-oss-20b            as is  BLEU solved  23.9 unsolved  15.4 weighted  19.7 | CodeBLEU solved  56.1 unsolved  38.6 weighted  47.5
+gpt-oss-20b            retok  BLEU solved  65.1 unsolved  63.2 weighted  64.2 | CodeBLEU solved  80.4 unsolved  63.8 weighted  72.2
+ernie-5.5-flash        as is  BLEU solved  75.4 unsolved  51.5 weighted  63.6 | CodeBLEU solved  88.7 unsolved  56.2 weighted  72.6
+ernie-5.5-flash        retok  BLEU solved  77.2 unsolved  59.0 weighted  68.2 | CodeBLEU solved  89.9 unsolved  60.9 weighted  75.5
+particle-1             as is  BLEU solved  75.9 unsolved  61.2 weighted  68.7 | CodeBLEU solved  88.2 unsolved  69.4 weighted  78.9
+particle-1             retok  BLEU solved  82.3 unsolved  67.3 weighted  74.9 | CodeBLEU solved  91.5 unsolved  73.1 weighted  82.4
+inkling low            as is  BLEU solved  75.5 unsolved  62.6 weighted  69.1 | CodeBLEU solved  87.4 unsolved  67.6 weighted  77.6
+inkling low            retok  BLEU solved  79.3 unsolved  69.0 weighted  74.2 | CodeBLEU solved  88.7 unsolved  71.2 weighted  80.1
+inkling medium         as is  BLEU solved  73.7 unsolved  49.8 weighted  61.9 | CodeBLEU solved  85.5 unsolved  55.8 weighted  70.9
+inkling medium         retok  BLEU solved  78.5 unsolved  54.1 weighted  66.5 | CodeBLEU solved  87.8 unsolved  58.6 weighted  73.4
+nemotron-3-ultra       as is  BLEU solved  78.7 unsolved  56.4 weighted  67.7 | CodeBLEU solved  88.5 unsolved  64.7 weighted  76.8
+nemotron-3-ultra       retok  BLEU solved  79.6 unsolved  64.3 weighted  72.0 | CodeBLEU solved  90.2 unsolved  69.8 weighted  80.1
+CodeT5+ (published)    as is  BLEU solved  80.8 unsolved  59.5 weighted  70.3 | CodeBLEU solved  90.2 unsolved  59.6 weighted  75.1
+CodeT5+ (published)    retok  BLEU solved  84.1 unsolved  62.4 weighted  73.4 | CodeBLEU solved  91.6 unsolved  59.6 weighted  75.8
