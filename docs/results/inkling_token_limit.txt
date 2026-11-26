@@ -1,0 +1,24 @@
+Inkling-2-Mini output-limit test, 2026-11-26: 150 VALIDATION cases, 2 candidates each, only the output limit differs (slurm/token_limit_test.sbatch); text match ignoring whitespace, no test runs.
+Runs are not deterministic even with the same seed (only about half of the already-complete answers come out identical), so differences of a few matches are noise. 'retry' is ESTIMATED from the case's other sample, no retry was run.
+
+=== medium
+  12288: candidates 300 empty 49 (of which finished normally 3) | matches ref (ws-insens.) 77 = 25.7% of all, 30.7% of non-empty | mean tokens 4624
+  24576: candidates 300 empty 30 (of which finished normally 4) | matches ref (ws-insens.) 77 = 25.7% of all, 28.5% of non-empty | mean tokens 6176
+  32768: candidates 300 empty 28 (of which finished normally 4) | matches ref (ws-insens.) 83 = 27.7% of all, 30.5% of non-empty | mean tokens 6738
+ retry at 12k (estimate from the case's other sample): 19/49 non-empty, 1 match the reference; overall non-empty sample empty rate 16.3%
+ cases with 0 / 1 / 2 empty samples at 12k: 116 / 19 / 15
+ 24576: of the 49 empty at 12k, 28 now answered, 4 of those match (14.3%) | of 251 already complete at 12k: 124 identical text, matches 77 -> 73
+ 32768: of the 49 empty at 12k, 28 now answered, 4 of those match (14.3%) | of 251 already complete at 12k: 132 identical text, matches 77 -> 79
+ match rate by answer length at 12k (non-empty): 0-2k: 47% (n=110) | 2-4k: 24% (n=62) | 4-8k: 14% (n=57) | 8-13k: 9% (n=22)
+
+=== low
+  12288: candidates 300 empty 5 (of which finished normally 3) | matches ref (ws-insens.) 80 = 26.7% of all, 27.1% of non-empty | mean tokens 1995
+  24576: candidates 300 empty 6 (of which finished normally 5) | matches ref (ws-insens.) 79 = 26.3% of all, 26.9% of non-empty | mean tokens 2147
+  32768: candidates 300 empty 4 (of which finished normally 3) | matches ref (ws-insens.) 78 = 26.0% of all, 26.4% of non-empty | mean tokens 2158
+ retry at 12k (estimate from the case's other sample): 1/5 non-empty, 0 match the reference; overall non-empty sample empty rate 1.7%
+ cases with 0 / 1 / 2 empty samples at 12k: 147 / 1 / 2
+ 24576: of the 5 empty at 12k, 0 now answered, 0 of those match (0.0%) | of 295 already complete at 12k: 136 identical text, matches 80 -> 79
+ 32768: of the 5 empty at 12k, 3 now answered, 0 of those match (0.0%) | of 295 already complete at 12k: 137 identical text, matches 80 -> 78
+ match rate by answer length at 12k (non-empty): 0-2k: 37% (n=194) | 2-4k: 7% (n=68) | 4-8k: 7% (n=28) | 8-13k: 20% (n=5)
+
+Empty answers that finished normally are deliberate empty [REPAIR][/REPAIR] blocks (checked for the 3 at low/32768; two read at medium/12288).
