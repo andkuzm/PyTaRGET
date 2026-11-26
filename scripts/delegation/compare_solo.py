@@ -4,7 +4,7 @@ usage: compare_solo.py <run id> [...]"""
 import json, os, sys, statistics as st
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import routing_breakdown as rb
-FALLBACK = {"gson_a80": (804, 4, 22979), "gson_cbad": (1990, 6, 84716), "ledger_dev": (4194, 5.5, 39764)}   # solo_baseline.md: out, calls, work (pilot transcripts no longer on disk)
+FALLBACK = {"shop": (3224, 4, 36803), "gson_a80": (804, 4, 22979), "gson_cbad": (1990, 6, 84716), "ledger_dev": (4194, 5.5, 39764)}   # solo_baseline.md: out, calls, work (pilot transcripts no longer on disk)
 R = json.load(open(os.path.expanduser("~/delegation_exp/batch_results.json")))
 
 
