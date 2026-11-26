@@ -20,10 +20,10 @@ from data_processing import agent_workspace as aw
 HERE = Path(__file__).resolve().parent
 
 
-def run_case(i, row, entry, out_root, timeout, model, mini=None, step_limit=40):
+def run_case(i, row, entry, out_root, timeout, model, mini=None, step_limit=40, config="mini_local.yaml"):
     out = out_root / str(i)
     out.mkdir(parents=True, exist_ok=True)
-    shutil.copy(HERE / "mini_local.yaml", out / "mini_local.yaml")
+    shutil.copy(HERE / config, out / "mini_local.yaml")
     ws, venv = Path(entry["ws"]), str(Path(entry["python"]).parent.parent)
     real = os.path.realpath(entry["python"])                                   # the interpreter the case venv was made from (cluster software)
     pybase = "/gpfs/space/software" if real.startswith("/gpfs/space/software/") else str(Path(real).parent.parent)   # spack pythons need sibling libraries
@@ -68,6 +68,7 @@ def main():
     ap.add_argument("--timeout", type=int, default=1800, help="seconds per case")
     ap.add_argument("--model", default="hosted_vllm/qwen3-coder")
     ap.add_argument("--step-limit", type=int, default=40, help="model calls per case")
+    ap.add_argument("--config", default="mini_local.yaml", help="override file in scripts/agent (mini_inkling.yaml for Inkling)")
     args = ap.parse_args()
     rows = json.load(open(Path(args.split_dir) / "splits" / "test.json"))
     manifest = json.load(open(Path(args.root) / "manifest.json"))
@@ -76,7 +77,7 @@ def main():
     todo = todo[:args.limit]
     print(len(todo), "cases to run", flush=True)
     with ThreadPoolExecutor(args.workers) as pool:
-        list(pool.map(lambda item: run_case(item[0], rows[item[0]], item[1], out_root, args.timeout, args.model, step_limit=args.step_limit), todo))
+        list(pool.map(lambda item: run_case(item[0], rows[item[0]], item[1], out_root, args.timeout, args.model, step_limit=args.step_limit, config=args.config), todo))
 
 
 if __name__ == "__main__":

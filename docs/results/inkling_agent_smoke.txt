@@ -1,0 +1,15 @@
+Inkling-2-Mini (effort low) as an agent: mini-SWE-agent 2.4.6, offline network namespace, per-case mount sandbox, step limit 80, 128k context. SMOKE TEST, 6 cases (first of the seed-7 sample of the Python contrast subset, sibling-safe workspaces) - 2026-11-26
+Jobs: prep 4083834, agent 4083835 (about 3 min of one H200 including model load), scoring 4083919. Scripts: slurm/{prep_agent_inkling,run_agent_inkling,score_agent_inkling}.sbatch, scripts/agent/mini_inkling.yaml
+
+inkling_low_smoke {'cases': 6, 'evaluated': 6, 'statuses': {'evaluated': 6}, 'candidate_timeouts': 0, 'plausible@1': 83.33, 'plausible@k': 83.33, 'not_discriminating': 0, 'span_unparseable': 0, 'plausible@1_checked': 83.33, 'plausible@k_checked': 83.33, 'checked_cases': 6, 'plausible@1_discriminating': 83.33, 'plausible@k_discriminating': 83.33, 'discriminating_cases': 6}
+
+case  inkling  qwen-agent(80 calls, sibling-safe)
+4 inkling: ('evaluated', 'pass') | qwen agent: ('evaluated', 'pass')
+36 inkling: ('evaluated', 'pass') | qwen agent: ('evaluated', 'pass')
+40 inkling: ('evaluated', 'pass') | qwen agent: ('evaluated', 'pass')
+196 inkling: ('evaluated', 'pass') | qwen agent: ('skipped', 'function missing')
+258 inkling: ('evaluated', 'fail') | qwen agent: ('evaluated', 'fail')
+289 inkling: ('evaluated', 'pass') | qwen agent: ('evaluated', 'pass')
+
+Totals over the 6 cases: Inkling 55 model calls, 354,607 input and 8,701 output tokens; Qwen3-Coder agent 195 calls, 2,951,030 input and 31,304 output tokens. All 6 submitted, audit flags 0, no other tracked files changed; case 4 also edited the same test file OUTSIDE the target function (other expected strings).
+Too few cases to compare success rates.

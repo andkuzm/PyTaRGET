@@ -1,0 +1,16 @@
+# Overrides for mini-swe-agent (merged after the built-in mini.yaml: `-c mini.yaml -c mini_local.yaml`) for a local vLLM server with Inkling-2-Mini (tool calling via the inkling parsers; reasoning effort is set on the server).
+agent:
+  step_limit: 40          # one case: at most 40 model calls
+  cost_limit: 0.
+  mode: yolo
+environment:
+  timeout: 180            # one command
+model:
+  model_name: hosted_vllm/inkling
+  cost_tracking: ignore_errors
+  model_kwargs:
+    api_base: http://localhost:8000/v1
+    api_key: dummy
+    temperature: 0.7
+    max_tokens: 12288
+    drop_params: true
