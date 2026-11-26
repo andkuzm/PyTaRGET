@@ -15,8 +15,9 @@ manifest = json.load(open(H / "agent_java/manifest.json")); warm = json.load(ope
 ASSERT = re.compile(r"\bassert\w*|\bverify\w*\s*\(|\bfail\s*\(|\bexpect\w*|expected\s*=|\.should|\bthrown\b|\bisEqualTo\b")
 ids = [int(i) for i, e in manifest.items() if e["status"] == "ok" and warm.get(i) == "success"]
 
-def agent_columns(name, run_dir, ws_is_current=True):
+def agent_columns(name, run_dir, ws_is_current=True, manifest=None):
     """(strict, relaxed): {case: (valid, plain, checked)} for one agent run."""
+    manifest = manifest or globals()["manifest"]
     scored = json.load(open(H / f"eval_agent_plaus/{name}.json")); skipped = json.load(open(H / f"eval_agent_plaus/{name}.json.skipped.json"))
     relaxed_res = json.load(open(H / f"eval_agent_plaus/{name}_relaxed.json"))
     strict, relaxed = {}, {}
@@ -69,6 +70,21 @@ for tag, name, run_dir in (("40", "java_qwen3coder", "java_qwen3coder"), ("80", 
     if (H / f"eval_agent_plaus/{name}_relaxed.json").exists():
         s, r = agent_columns(name, run_dir, ws_is_current=(tag == "80"))
         cols[f"AGENT {tag} strict"], cols[f"AGENT {tag} relaxed"] = s, r
+# Inkling-2-Mini: the agent (80 calls, workspaces rebuilt in ~/agent_java_ink) and the single prompt (effort low)
+ink_manifest = json.load(open(H / "agent_java_ink/manifest.json")); ink_warm = json.load(open(H / "agent_java_ink/warm.json"))
+ink_ids = [int(i) for i, e in ink_manifest.items() if e["status"] == "ok" and ink_warm.get(i) == "success"]
+print(f"inkling agent cases {len(ink_ids)}; same ids as the Qwen agent preparation: {len(set(ink_ids) & set(ids))}")
+if (H / "eval_agent_plaus/java_inkling_low_80_relaxed.json").exists():
+    qids = ids; ids = [i for i in qids if i in set(ink_ids)]
+    s, r = agent_columns("java_inkling_low_80", "java_inkling_low_80", ws_is_current=True, manifest=ink_manifest)
+    cols["INK AGENT strict"], cols["INK AGENT relaxed"] = s, r
+cols["inkling low (1 prompt)"] = {}
+_u = json.load(open(H / "eval_inkling/java273_low/java_plausibility.json")); _p = prediction_files.load(H / "eval_inkling/java273_low/test_predictions.json")
+for q in _p:
+    pos = int(q["ID"]); i = int(m273[str(pos)]["index300"]); res = _u.get(str(pos), {}); c = q["preds"][0].strip()
+    if res.get("status") != "evaluated": continue
+    plain = res["verdicts"][0]["status"] == "success"
+    cols["inkling low (1 prompt)"][i] = (True, plain, plain and (span.get(str(i), {}).get("span_removed") != "success" or bool(ASSERT.search(c))))
 common = [i for i in ids if all(i in c and c[i][0] for c in cols.values())]
 clean = [i for i in common if manifest[str(i)]["other_test_lines_changed"] == 0]
 print(f"cases {len(ids)}; common to all columns {len(common)}; clean (no other test lines changed) {len(clean)}")
@@ -82,13 +98,14 @@ print(f"\n{'column':20s} {'solved':>7s} {'unsolved':>9s} {'weighted':>9s} {'tota
 for name, c in cols.items():
     o, s, u, w = rates(common, lambda i, c=c: c[i][2]); print(f"{name:20s} {s:7.1f} {u:9.1f} {w:9.1f} {sum(c[i][2] for i in common):4d}/{len(common)}")
 print("\nSplit by whether the repair changed other test lines (checked passes):")
-keys = [k for k in cols if k.startswith("AGENT")] + ["qwen3coder", "particle-1", "nemotron-3-ultra"]
+keys = [k for k in cols if k.startswith(("AGENT", "INK"))] + ["inkling low (1 prompt)", "qwen3coder", "particle-1", "nemotron-3-ultra"]
 for name, sel in (("clean (0 other lines)", clean), ("other tests repaired", [i for i in common if i not in clean])):
     print(f"  {name:22s} n={len(sel):3d} | " + " | ".join(f"{k} {sum(cols[k][i][2] for i in sel)}/{len(sel)}" for k in keys))
 def paired(a, b):
     return sum(1 for i in common if cols[a][i][2] and not cols[b][i][2]), sum(1 for i in common if cols[b][i][2] and not cols[a][i][2])
 print()
-for a, b in (("AGENT 80 relaxed", "particle-1 BC (context)"), ("AGENT 80 strict", "particle-1 BC (context)"), ("AGENT 80 relaxed", "qwen3coder BC (context)"), ("AGENT 80 strict", "qwen3coder BC (context)"),
+for a, b in (("INK AGENT strict", "inkling low (1 prompt)"), ("INK AGENT relaxed", "inkling low (1 prompt)"), ("INK AGENT strict", "AGENT 80 strict"), ("INK AGENT relaxed", "AGENT 80 relaxed"), ("INK AGENT strict", "particle-1"),
+             ("AGENT 80 relaxed", "particle-1 BC (context)"), ("AGENT 80 strict", "particle-1 BC (context)"), ("AGENT 80 relaxed", "qwen3coder BC (context)"), ("AGENT 80 strict", "qwen3coder BC (context)"),
              ("AGENT 40 strict", "particle-1"), ("AGENT 40 relaxed", "particle-1"), ("AGENT 80 strict", "particle-1"), ("AGENT 80 relaxed", "particle-1"),
              ("AGENT 80 strict", "AGENT 40 strict"), ("AGENT 80 relaxed", "AGENT 40 relaxed"), ("AGENT 80 relaxed", "qwen3coder")):
     if a in cols and b in cols:
