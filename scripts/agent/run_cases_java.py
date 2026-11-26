@@ -21,10 +21,10 @@ from data_processing.java_plausibility import MVN_SKIPS
 HERE = Path(__file__).resolve().parent
 
 
-def run_case(i, row, entry, root, out_root, timeout, model, mini=None, step_limit=40):
+def run_case(i, row, entry, root, out_root, timeout, model, mini=None, step_limit=40, config="mini_local.yaml"):
     out = out_root / str(i)
     out.mkdir(parents=True, exist_ok=True)
-    shutil.copy(HERE / "mini_local.yaml", out / "mini_local.yaml")
+    shutil.copy(HERE / config, out / "mini_local.yaml")
     ws, home, m2 = Path(entry["ws"]), str(Path.home()), str(root / "m2")
     homes = json.load(open(Path.home() / "tools/java/java_homes.json"))
     maven_args = " ".join(["-o", "-nsu", "--batch-mode", "-Dsurefire.failIfNoSpecifiedTests=false", "-DfailIfNoTests=false", "-Dmaven.test.skip=false",
@@ -71,6 +71,7 @@ def main():
     ap.add_argument("--timeout", type=int, default=2400, help="seconds per case")
     ap.add_argument("--model", default="hosted_vllm/qwen3-coder")
     ap.add_argument("--step-limit", type=int, default=40, help="model calls per case")
+    ap.add_argument("--config", default="mini_local.yaml", help="override file in scripts/agent (mini_inkling.yaml for Inkling)")
     args = ap.parse_args()
     rows = json.load(open(Path(args.split_dir) / "splits" / "test.json"))
     root, out_root = Path(args.root), Path(args.out)
@@ -80,7 +81,7 @@ def main():
             if e["status"] == "ok" and warm.get(i) == "success" and not (out_root / i / "result.json").exists()][:args.limit]
     print(len(todo), "cases to run", flush=True)
     with ThreadPoolExecutor(args.workers) as pool:
-        list(pool.map(lambda item: run_case(item[0], rows[item[0]], item[1], root, out_root, args.timeout, args.model, step_limit=args.step_limit), todo))
+        list(pool.map(lambda item: run_case(item[0], rows[item[0]], item[1], root, out_root, args.timeout, args.model, step_limit=args.step_limit, config=args.config), todo))
 
 
 if __name__ == "__main__":
