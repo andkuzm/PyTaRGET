@@ -1,0 +1,121 @@
+"""Agent delegate worker. Runs INSIDE the agent_server Slurm job, i.e. in a network namespace without internet, next to the vLLM server (slurm/agent_server.sbatch).
+tools/delegate (alias with "agent": true) puts a request file into <queue>/requests/<id>.json {"ws","java_home","maven_home","test_roots","mvn_extra"}; for each request:
+  1. a clean copy of the run workspace is made under <queue>/work/<id>/ws (without tools/, .delegation/, build output and git history) with ONE snapshot commit;
+  2. mini-SWE-agent runs on it inside the mount sandbox (scripts/agent/sandbox_inner.sh: no home, no datasets, no tokens, no reference repair; a private copy of the Maven cache);
+  3. <queue>/done/<id>.json reports usage and the changed files. Only files under the test roots are offered back; deletions and any other change are listed as ignored."""
+import json
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from data_processing import agent_workspace as aw  # noqa: E402
+from data_processing.java_plausibility import MVN_SKIPS  # noqa: E402
+
+HERE = Path(__file__).resolve().parent
+GIT = ["git", "-c", "user.name=a", "-c", "user.email=a@example.invalid"]
+TASK = """The production code of this Java (Maven) project was changed and the test suite no longer compiles or passes. SOURCE_CHANGES.diff in the project root shows the change.
+Task: repair the tests so that the whole test suite compiles and passes with the current production code.
+Run the tests (offline Maven is already configured) with:  {command}
+Rules:
+1. Change ONLY files under {roots}. Never change src/main, pom.xml or any other file: the production code is correct, only the tests are outdated. Changes outside the test folders are discarded.
+2. Do not weaken the tests: do not delete tests or assertions, do not loosen assertions, do not comment tests out, do not add @Disabled/@Ignore, assumptions or try/catch blocks that swallow failures.
+   When behaviour changed, update the expected values to the new behaviour; when an API changed, adapt the calls. Every check a test made before must still be made.
+3. Do not use git history, the network or package installation; everything you need is in this directory. Work only inside it.
+When the whole test suite passes, submit."""
+
+
+def sh(cmd, cwd):
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+
+
+def usage_of(traj):
+    tin = tout = 0
+    for m in traj.get("messages", []):
+        u = ((m.get("extra") or {}).get("response") or {}).get("usage") if isinstance(m.get("extra"), dict) else None
+        if u:
+            tin += u.get("prompt_tokens", 0) or 0
+            tout += u.get("completion_tokens", 0) or 0
+    return tin, tout
+
+
+def handle(req_file, queue, m2, step_limit, timeout):
+    rid = req_file.stem
+    req = json.loads(req_file.read_text())
+    base = queue / "work" / rid
+    shutil.rmtree(base, ignore_errors=True)
+    ws, out = base / "ws", base / "out"
+    out.mkdir(parents=True)
+    src = Path(req["ws"])
+    shutil.copytree(src, ws, symlinks=True, ignore=shutil.ignore_patterns(".git", ".delegation", "tools", "target"))
+    sh(["git", "init", "-q"], ws)
+    (ws / ".git" / "info" / "exclude").write_text("target/\n")
+    sh(["git", "add", "-A"], ws)
+    sh([*GIT, "commit", "-q", "-m", "current state"], ws)
+    roots = req.get("test_roots") or ["src/test/java"]
+    command = " ".join(["mvn", "test", "-q", *req.get("mvn_extra", [])])
+    shutil.copy(HERE / "mini_inkling.yaml", out / "mini_local.yaml")
+    home = str(Path.home())
+    maven_args = " ".join(["-o", "-nsu", "--batch-mode", "-Dsurefire.failIfNoSpecifiedTests=false", "-DfailIfNoTests=false", *MVN_SKIPS, f"-Dmaven.repo.local={m2}"])
+    env = {"HOME": home, "PATH": f"{req['java_home']}/bin:{req['maven_home']}/bin:{home}/venv_agent/bin:/usr/bin:/bin", "JAVA_HOME": req["java_home"],
+           "MAVEN_ARGS": maven_args, "MAVEN_OPTS": "-Xmx2g", "LANG": "C.UTF-8", "TERM": "dumb", "MSWEA_SILENT_STARTUP": "1", "MSWEA_CONFIGURED": "1",
+           "MSWEA_GLOBAL_CONFIG_DIR": str(out / "home" / "cfg")}
+    cmd = ["unshare", "-m", str(HERE / "sandbox_inner.sh"), str(ws), str(out), str(m2), "/gpfs/helios/software", "/gpfs/space/software", "--",
+           f"{home}/venv_agent/bin/mini", "-c", "mini.yaml", "-c", str(out / "mini_local.yaml"), "-c", f"agent.step_limit={step_limit}", "-c", "environment.timeout=600",
+           "-m", "hosted_vllm/inkling", "--agent-class", "default", "-y", "-l", "0", "-t", TASK.format(command=command, roots=", ".join(roots)), "-o", str(out / "traj.json")]
+    started = time.time()
+    proc = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=open(out / "stdout.txt", "w"), stderr=subprocess.STDOUT, start_new_session=True)
+    try:
+        proc.wait(timeout=timeout)
+        status = "finished"
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        status = "timeout"
+    result = {"status": status, "seconds": round(time.time() - started), "returncode": proc.returncode, "changed": [], "ignored": []}
+    try:
+        traj = json.load(open(out / "traj.json"))
+        cmds = aw.commands_from_trajectory(traj)
+        result.update({"api_calls": traj.get("info", {}).get("model_stats", {}).get("api_calls"), "exit_status": traj.get("info", {}).get("exit_status"),
+                       "audit": aw.audit_trajectory(cmds), "n_commands": len(cmds)})
+        result["tokens_in"], result["tokens_out"] = usage_of(traj)
+    except Exception as error:
+        result["trajectory_error"] = repr(error)[:200]
+    sh(["git", "add", "-A"], ws)
+    for line in sh(["git", "diff", "--cached", "--name-status", "--no-renames", "HEAD"], ws).stdout.splitlines():
+        kind, rel = line.split("\t", 1)
+        in_tests = any(rel.startswith(r.rstrip("/") + "/") for r in roots) and not (ws / rel).is_symlink()
+        (result["changed"] if in_tests and kind in ("A", "M") else result["ignored"]).append(rel if in_tests and kind in ("A", "M") else f"{kind} {rel}")
+    result["ws"] = str(ws)
+    tmp = queue / "done" / f"{rid}.tmp"
+    tmp.write_text(json.dumps(result))
+    tmp.rename(queue / "done" / f"{rid}.json")
+    print(rid, status, result.get("exit_status"), "calls", result.get("api_calls"), "changed", len(result["changed"]), "ignored", len(result["ignored"]), flush=True)
+
+
+def main():
+    queue, m2 = Path(sys.argv[1]), Path(sys.argv[2])
+    step_limit, timeout = int(os.environ.get("STEP_LIMIT", 150)), int(os.environ.get("REQUEST_TIMEOUT", 1800))
+    for d in ("requests", "done", "work"):
+        (queue / d).mkdir(parents=True, exist_ok=True)
+    stop = []
+    signal.signal(signal.SIGTERM, lambda *_: stop.append(1))
+    print("worker ready", flush=True)
+    while not stop:
+        (queue / "heartbeat").write_text(str(time.time()))
+        todo = sorted(f for f in (queue / "requests").glob("*.json") if not (queue / "done" / f.name).exists())
+        if todo:
+            try:
+                handle(todo[0], queue, m2, step_limit, timeout)
+            except Exception as error:
+                (queue / "done" / todo[0].name).write_text(json.dumps({"status": "worker_error", "detail": repr(error)[:500], "changed": [], "ignored": []}))
+                print(todo[0].stem, "worker error", repr(error)[:300], flush=True)
+        else:
+            time.sleep(3)
+
+
+if __name__ == "__main__":
+    main()

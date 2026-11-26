@@ -50,6 +50,7 @@ def new_run(a):
         cfg["default_delegate"] = a.delegate_model
         cfg["delegates"]["inkling"] = {"slug": "inkling", "base_url_file": "~/delegation_exp/local_delegate_endpoint.txt", "key_file": "~/.config/delegation/local_token", "max_tokens": 12288,
                                        "chat_template_kwargs": {"reasoning_effort": os.environ.get("INKLING_EFFORT", "low")}, "price_in": 0, "price_out": 0}
+        cfg["delegates"]["inkling-agent"] = {"agent": True, "queue": "~/delegation_exp/agent_queue", "price_in": 0, "price_out": 0}
         cfg["delegates"]["oracle"] = {"oracle": True, "ref_dir": str(EXP / "tasks" / a.task / "ref")}     # ideal-scenario experiment only (--delegate-model oracle)
         cfg["fallback"] = {"particle-free": "particle"}; cfg["paid_cap_usd"] = 1.00; cfg["paid_ledger"] = str(EXP / "delegate_paid_ledger.json")
     (ws / ".delegation/config.json").write_text(json.dumps(cfg, indent=1))
