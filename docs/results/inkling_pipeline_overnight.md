@@ -41,26 +41,26 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
 | gson_a80 | pipeline (Inkling agent) | 2/2 | 554 (549-558, n=2) | 3.0 (3.0-3.0, n=2) | 137.5k (137.5k-137.5k, n=2) | 37.1k (26.8k-47.4k, n=2) | 8126 (8125-8126, n=2) |
 | gson_cbad | solo | 0/1 | 2423 (n=1) | 8.0 (n=1) | 433.4k (n=1) | 40.0k (n=1) | 88.5k (n=1) |
 | gson_cbad | pipeline (Inkling agent) | 0/2 | 835 (756-914, n=2) | 4.0 (4.0-4.0, n=2) | 185.5k (185.5k-185.5k, n=2) | 27.7k (27.7k-27.7k, n=2) | 13.1k (13.1k-13.1k, n=2) |
-| ledger_dev | solo (earlier pilots) | n/a | 4194 | 5.5 | n/a | n/a | 39764 |
-| ledger_dev | pipeline (Inkling agent) | 1/1 | 1388 (n=1) | 5.0 (n=1) | 241.0k (n=1) | 50.8k (n=1) | 25.4k (n=1) |
-| real_cactoos | solo | 1/1 | 4856 (n=1) | 12.0 (n=1) | n/a | n/a | 164.2k (n=1) |
-| real_cactoos | pipeline (Inkling agent) | 1/1 | 1506 (n=1) | 8.0 (n=1) | 377.8k (n=1) | 28.9k (n=1) | 32.8k (n=1) |
+| ledger_dev | solo | 1/1 | 7856 (n=1) | 12.0 (n=1) | 686.9k (n=1) | 46.3k (n=1) | 169.6k (n=1) |
+| ledger_dev | pipeline (Inkling agent) | 2/2 | 1388 (1388-1389, n=2) | 4.5 (4.0-5.0, n=2) | 215.6k (190.2k-241.0k, n=2) | 40.2k (29.6k-50.8k, n=2) | 21.6k (17.7k-25.4k, n=2) |
+| real_cactoos | solo | 2/2 | 4115 (3374-4856, n=2) | 10.0 (8.0-12.0, n=2) | 436.0k (n=1) | 43.6k (n=1) | 127.7k (91.1k-164.2k, n=2) |
+| real_cactoos | pipeline (Inkling agent) | 2/2 | 1842 (1506-2179, n=2) | 10.0 (8.0-12.0, n=2) | 475.7k (377.8k-573.7k, n=2) | 29.4k (28.9k-29.8k, n=2) | 44.5k (32.8k-56.2k, n=2) |
 | real_logicng_b | solo | 0/1 | 19.8k (n=1) | 58.0 (n=1) | n/a | n/a | 3913.7k (n=1) |
 | real_logicng_b | pipeline (Inkling agent) | 0/1 | 6350 (n=1) | 20.0 (n=1) | 1126.0k (n=1) | 71.4k (n=1) | 263.5k (n=1) |
 | real_ta4j | solo | 3/3 | 1374 (1233-1577, n=3) | 6.0 (6.0-6.0, n=3) | 320.2k (n=1) | 43.1k (n=1) | 49.4k (42.4k-61.5k, n=3) |
 | real_ta4j | pipeline (Inkling agent) | 2/2 | 589 (585-593, n=2) | 3.0 (3.0-3.0, n=2) | 138.4k (138.4k-138.4k, n=2) | 27.8k (27.8k-27.8k, n=2) | 9065 (9053-9077, n=2) |
-| real_tablesaw | solo | 2/2 | 1065 (1056-1074, n=2) | 6.0 (6.0-6.0, n=2) | n/a | n/a | 47.2k (46.7k-47.8k, n=2) |
-| real_tablesaw | pipeline (Inkling agent) | 1/1 | 463 (n=1) | 3.0 (n=1) | 138.1k (n=1) | 27.5k (n=1) | 8764 (n=1) |
-| rules_big | solo | 2/2 | 1014 (980-1049, n=2) | 5.0 (5.0-5.0, n=2) | n/a | n/a | 30.6k (29.8k-31.4k, n=2) |
-| rules_big | pipeline (Inkling agent) | 1/1 | 444 (n=1) | 3.0 (n=1) | 138.4k (n=1) | 27.6k (n=1) | 9051 (n=1) |
+| real_tablesaw | solo | 3/3 | 1064 (1056-1074, n=3) | 5.7 (5.0-6.0, n=3) | 252.1k (n=1) | 34.9k (n=1) | 43.7k (36.5k-47.8k, n=3) |
+| real_tablesaw | pipeline (Inkling agent) | 2/2 | 446 (428-463, n=2) | 3.0 (3.0-3.0, n=2) | 138.1k (138.1k-138.1k, n=2) | 27.5k (27.5k-27.5k, n=2) | 8750 (8737-8764, n=2) |
+| rules_big | solo | 3/3 | 1096 (980-1259, n=3) | 5.0 (5.0-5.0, n=3) | 244.8k (n=1) | 32.2k (n=1) | 30.1k (29.3k-31.4k, n=3) |
+| rules_big | pipeline (Inkling agent) | 2/2 | 473 (444-502, n=2) | 3.0 (3.0-3.0, n=2) | 138.4k (138.4k-138.4k, n=2) | 27.6k (27.6k-27.6k, n=2) | 9052 (9051-9052, n=2) |
 | rules_exc | solo | 3/3 | 963 (829-1089, n=3) | 5.3 (5.0-6.0, n=3) | 241.2k (n=1) | 31.0k (n=1) | 26.0k (24.3k-28.0k, n=3) |
 | rules_exc | pipeline (Inkling agent) | 2/2 | 543 (541-545, n=2) | 3.0 (3.0-3.0, n=2) | 138.2k (138.2k-138.2k, n=2) | 27.4k (27.4k-27.4k, n=2) | 8833 (8833-8833, n=2) |
-| rules_logic | solo | 2/2 | 1126 (1118-1133, n=2) | 5.0 (5.0-5.0, n=2) | n/a | n/a | 26.8k (26.8k-26.8k, n=2) |
-| rules_logic | pipeline (Inkling agent) | 1/1 | 449 (n=1) | 3.0 (n=1) | 138.5k (n=1) | 48.2k (n=1) | 9118 (n=1) |
+| rules_logic | solo | 3/3 | 1249 (1118-1496, n=3) | 5.0 (5.0-5.0, n=3) | 242.8k (n=1) | 31.4k (n=1) | 27.0k (26.8k-27.3k, n=3) |
+| rules_logic | pipeline (Inkling agent) | 2/2 | 462 (449-474, n=2) | 3.0 (3.0-3.0, n=2) | 138.5k (138.5k-138.5k, n=2) | 37.9k (27.6k-48.2k, n=2) | 9118 (9118-9119, n=2) |
 | rules_rename | solo | 3/3 | 886 (783-974, n=3) | 5.0 (5.0-5.0, n=3) | 247.1k (n=1) | 34.1k (n=1) | 23.4k (19.0k-31.6k, n=3) |
 | rules_rename | pipeline (Inkling agent) | 2/2 | 463 (438-488, n=2) | 3.0 (3.0-3.0, n=2) | 138.0k (138.0k-138.0k, n=2) | 27.3k (27.3k-27.3k, n=2) | 8672 (8672-8673, n=2) |
-| shop | solo (earlier pilots) | n/a | 3224 | 4 | n/a | n/a | 36803 |
-| shop | pipeline (Inkling agent) | 1/1 | 1095 (n=1) | 4.0 (n=1) | 188.9k (n=1) | 30.1k (n=1) | 16.4k (n=1) |
+| shop | solo | 1/1 | 6893 (n=1) | 12.0 (n=1) | 719.7k (n=1) | 50.8k (n=1) | 202.4k (n=1) |
+| shop | pipeline (Inkling agent) | 2/2 | 826 (556-1095, n=2) | 3.5 (3.0-4.0, n=2) | 163.5k (138.1k-188.9k, n=2) | 28.8k (27.5k-30.1k, n=2) | 12.6k (8757-16.4k, n=2) |
 
 ## Regressions and fix attempts
 ### R1. shop (run r24, Inkling agent): a test was deleted and accepted
