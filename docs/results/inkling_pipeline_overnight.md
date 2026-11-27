@@ -1,5 +1,54 @@
 # Overnight run: repair pipeline (S6) with Inkling-2-Mini as delegate, Claude Sonnet 5.5 as strong model - started 2026-11-26
 
+## FINAL SUMMARY (2026-11-27)
+
+### Regressions and fix attempts (details at the end of this file)
+| id | what regressed | cause | attempted | outcome |
+|---|---|---|---|---|
+| R1 shop (r24) | strict fail: the delegate agent DELETED `MoneyTest#convertsToDouble`; accepted | shop workspaces had no tools/review | review installed in every run | reruns r25, r46 passed because the agent did not delete; in r59 it deleted again, the review flagged it and the strong agent restored it (the restored test calls no production method). Delegate deleted in 2 of 4 agent shop runs: DETECTION fixed, delegate behaviour not |
+| R2 logicng_b (r28) | delegate contributed nothing: context overflow after 91 calls, round rolled back | server context 131072 | 262144 | fixed: r33, r52, r65 finished (103-135 calls) with all tests passing |
+| R3 logicng_b (r33) | hollow tests (`assertFalse(x instanceof Variable)`) accepted | two review bugs (assertFalse counted as an expected exception; a change of exception type was invisible) | new flag EXPECTED EXCEPTION LOST | detection works (r34, r52, r65 ESCALATE); the RESULT is not reliably better: in r34 the strong agent asserted real behaviour, in r52 and r65 it wrote `expected = ClassCastException` raised by the test's own cast (review is not rerun after hand edits). All 3 SOLO runs and the single-prompt run ended with that same form. No faithful repair exists (the new types remove the behaviour; the reference drops the tests). NOT SOLVED |
+| D1 cactoos (r63), delay only | 30-minute delegate limit hit, 14 calls vs solo 8 | the agent ran `find /` twice (600 s each) | none (would change the delegate's instructions) | open decision; strict pass, output below solo |
+Not regressions but fixed or found on the way: new solo runs would have received the automation tools (fixed before any solo repeat); two scoring processes at once gave a false 541/573 (score one at a time); gson_cbad (4 classes) and logicng_b (LiteralTest) fail the strict score in EVERY arm including solo.
+
+### Results (per-repo means, summed over repos; strong-arm Claude Sonnet 5.5 tokens only)
+```
+pipe: over 12 repos (sum of per-repo means; solo = transcript/recorded runs of the same repos)
+  out       solo      41345  pipe      15214  saving of sums  63.2% | per-repo saving: median  57.7%, min  43.1%, max  77.8%
+  calls     solo        113  pipe         66  saving of sums  41.7% | per-repo saving: median  46.1%, min -25.9%, max  52.9%
+  total_in  solo    7242432  pipe    3282526  saving of sums  54.7% | per-repo saving: median  46.8%, min -35.5%, max  67.4%
+  fresh_in  solo     576236  pipe     429018  saving of sums  25.5% | per-repo saving: median  26.4%, min -31.9%, max  49.4%
+  work      solo    3428440  pipe     450937  saving of sums  86.8% | per-repo saving: median  76.2%, min  50.0%, max  89.7%
+  without logicng_b: out 63.5%, calls 37.1%, total_in 41.6%, fresh_in 19.6%, work 74.5%
+single: over 10 repos (sum of per-repo means; solo = transcript/recorded runs of the same repos)
+  out       solo      39269  single      25950  saving of sums  33.9% | per-repo saving: median  48.3%, min   9.6%, max  75.2%
+  calls     solo        102  single         69  saving of sums  32.5% | per-repo saving: median  40.0%, min  11.1%, max  50.0%
+  total_in  solo    6728810  single    4533848  saving of sums  32.6% | per-repo saving: median  42.8%, min  -2.8%, max  56.8%
+  fresh_in  solo     489287  single     404800  saving of sums  17.3% | per-repo saving: median  12.8%, min   1.9%, max  46.7%
+  work      solo    3375666  single    1558589  saving of sums  53.8% | per-repo saving: median  69.8%, min  37.7%, max  84.5%
+  without logicng_b: out 52.4%, calls 35.5%, total_in 39.0%, fresh_in 17.3%, work 67.9%
+single vs agent pipeline on the 10 repos with a single-prompt run:
+  out       agent      14185 single      25950
+  calls     agent         60 single         69
+  total_in  agent    3007008 single    4533848
+  fresh_in  agent     354323 single     404800
+  work      agent     434139 single    1558589
+runs counted: solo 32 agent 36 single 10
+solo strict passes 27 / 32 | passes excluding gson_cbad and logicng_b: 27 / 27
+pipe strict passes 30 / 36 | passes excluding gson_cbad and logicng_b: 30 / 30
+single strict passes 8 / 10 | passes excluding gson_cbad and logicng_b: 8 / 8
+```
+Reading: the agent pipeline used 63% fewer strong output tokens than solo (median repo 58%; every repo saved output, 43-78%), 87% less extra input processed, 55% less total input, but only 26% less FRESH (uncached, the expensive) input; calls were fewer on most repos, MORE on at least one (waiting for a slow delegate). The single prompt (1 run per repo, 10 repos) saved 34% of output and on the same repos used 83% more strong output than the agent pipeline; its round was rolled back on cactoos and logicng_b and the strong agent finished by hand on shop and ledger_dev.
+
+### Limits of these numbers
+- 12 repos that were ALL used while the tool was developed (several fixes were made on them): expect worse on unseen repos.
+- About 3 runs per arm per repo; solo varies a lot (ledger_dev solo runs from about 1.7k-4k in the pilots to 7.9k; shop one solo run 6.9k with a stuck command).
+- Solo input-token columns rest on 1-3 runs with transcripts. Means exclude runs superseded by a fix (shop r24 failed strict; logicng_b r28, r33).
+- Pipeline fixes R1/R3 changed the review during the night, so early and late pipeline runs are not byte-identical tool versions.
+- Quality is checked by the strict scorer and tools/review; after ACCEPT the strong agent does not read the changes. logicng_b shows both can miss weak tests.
+- gson_a80 and rules_rename never call a delegate: their saving is the no-model automation alone. No automation-without-delegate control was run.
+- Delegate GPU time is not in the table. No paid API spend (ledger unchanged).
+
 ## Rules agreed with the user
 At most 2 own Slurm jobs at once; agent delegate first (clear winner, docs/results/inkling_agent_full.md), single prompt second if limits allow; agent only inside an isolated no-network sandbox;
 on a regression: if there is a clear theory and clean fix, attempt it and rerun that repo, then go on; if not, go on; document each. Only clear bug fixes. 5-hour window cap 70 %, weekly caps per scripts/delegation/usage.py.
@@ -44,10 +93,13 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
 | gson_cbad | pipeline (Inkling single prompt) | 0/1 | 1085 (n=1) | 4.0 (n=1) | 185.6k (n=1) | 27.7k (n=1) | 13.1k (n=1) |
 | ledger_dev | solo | 2/2 | 5726 (3595-7856, n=2) | 8.5 (5.0-12.0, n=2) | 472.9k (258.8k-686.9k, n=2) | 53.0k (46.3k-59.8k, n=2) | 106.4k (43.3k-169.6k, n=2) |
 | ledger_dev | pipeline (Inkling agent) | 3/3 | 1358 (1298-1389, n=3) | 4.3 (4.0-5.0, n=3) | 208.0k (190.2k-241.0k, n=3) | 37.4k (29.6k-50.8k, n=3) | 21.2k (17.7k-25.4k, n=3) |
+| ledger_dev | pipeline (Inkling single prompt) | 1/1 | 1418 (n=1) | 5.0 (n=1) | 244.6k (n=1) | 52.0k (n=1) | 29.0k (n=1) |
 | real_cactoos | solo | 3/3 | 3768 (3074-4856, n=3) | 9.0 (7.0-12.0, n=3) | 399.6k (363.3k-436.0k, n=2) | 42.4k (41.1k-43.6k, n=2) | 105.6k (61.5k-164.2k, n=3) |
 | real_cactoos | pipeline (Inkling agent) | 3/3 | 2061 (1506-2499, n=3) | 11.3 (8.0-14.0, n=3) | 541.5k (377.8k-673.0k, n=3) | 29.7k (28.9k-30.3k, n=3) | 52.8k (32.8k-69.3k, n=3) |
+| real_cactoos | pipeline (Inkling single prompt) | 1/1 | 3197 (n=1) | 8.0 (n=1) | 410.7k (n=1) | 39.4k (n=1) | 65.8k (n=1) |
 | real_logicng_b | solo | 0/3 | 17.0k (13.2k-19.8k, n=3) | 41.7 (27.0-58.0, n=3) | 3659.2k (2700.2k-4618.1k, n=2) | 114.8k (105.2k-124.4k, n=2) | 2781.2k (1536.2k-3913.7k, n=3) |
 | real_logicng_b | pipeline (Inkling agent) | 0/3 | 6324 (5967-6654, n=3) | 21.0 (20.0-22.0, n=3) | 1191.5k (1126.0k-1266.8k, n=3) | 58.1k (51.1k-71.4k, n=3) | 285.9k (263.5k-318.1k, n=3) |
+| real_logicng_b | pipeline (Inkling single prompt) | 0/1 | 15.3k (n=1) | 30.0 (n=1) | 2661.2k (n=1) | 95.2k (n=1) | 1367.6k (n=1) |
 | real_ta4j | solo | 3/3 | 1374 (1233-1577, n=3) | 6.0 (6.0-6.0, n=3) | 320.2k (n=1) | 43.1k (n=1) | 49.4k (42.4k-61.5k, n=3) |
 | real_ta4j | pipeline (Inkling agent) | 3/3 | 584 (575-593, n=3) | 3.0 (3.0-3.0, n=3) | 138.4k (138.4k-138.4k, n=3) | 27.8k (27.8k-27.8k, n=3) | 9066 (9053-9077, n=3) |
 | real_ta4j | pipeline (Inkling single prompt) | 1/1 | 771 (n=1) | 3.0 (n=1) | 138.3k (n=1) | 27.7k (n=1) | 8972 (n=1) |
@@ -67,6 +119,7 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
 | rules_rename | pipeline (Inkling agent) | 3/3 | 478 (438-507, n=3) | 3.0 (3.0-3.0, n=3) | 138.0k (138.0k-138.0k, n=3) | 34.1k (27.3k-47.8k, n=3) | 8673 (8672-8673, n=3) |
 | shop | solo | 2/2 | 4754 (2615-6893, n=2) | 8.5 (5.0-12.0, n=2) | 488.0k (256.4k-719.7k, n=2) | 54.6k (50.8k-58.5k, n=2) | 121.6k (40.9k-202.4k, n=2) |
 | shop | pipeline (Inkling agent) | 3/3 | 1056 (556-1516, n=3) | 4.0 (3.0-5.0, n=3) | 188.9k (138.1k-239.6k, n=3) | 29.3k (27.5k-30.2k, n=3) | 16.4k (8757-24.0k, n=3) |
+| shop | pipeline (Inkling single prompt) | 1/1 | 1709 (n=1) | 6.0 (n=1) | 292.6k (n=1) | 52.2k (n=1) | 33.9k (n=1) |
 
 ## Regressions and fix attempts
 ### R1. shop (run r24, Inkling agent): a test was deleted and accepted
@@ -95,4 +148,5 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
 - **R1 follow-up (run shop r59):** the delegate DELETED `MoneyTest#convertsToDouble` again; with fix R1 the review flagged it (ESCALATE) and the strong agent RESTORED it (checking `cents() / 100.0` against 2.5; since `toDouble()` no longer exists the test no longer exercises a production conversion). This is the first observation that a flagged deletion gets repaired. 33/33, strict yes, 1516 output tokens. So the delegate's deleting behaviour occurred in 2 of 4 shop runs.
 - **Delay observation (cactoos r63, not a cost regression, NOT fixed):** the agent delegate hit its 30-minute request limit (50 calls) because it twice ran `find /` to locate a library jar; each ran into the 600 s per-command limit (the sandbox shows the cluster software tree, which is huge). Strict yes, 2499 output tokens (solo r64: 3224) but 14 strong-arm calls (solo 8), most of them `tools/repair --wait`; the copied-back changes were already complete. A fix (forbid searching outside the project in the agent task text, or a shorter command limit) would change the delegate's instructions, so it was left for the user to decide.
 - **Third logicng_b pair (r65):** pipeline 5967 output tokens / 22 calls vs solo 13212 / 27, both 573/573 (strict NO only LiteralTest). The delegate wrote the four weak tests a third time, review flagged them, the strong agent turned them into ClassCastException tests; **all three solo runs wrote that same form too.**
+- **Single-prompt delegate, last four runs:** ledger_dev r76 strict yes (1418 out), shop r77 yes (1709); both ESCALATE with failing tests, finished by hand. cactoos r78 yes (3197), round rolled back. logicng_b r79 (15343 out, 30 calls), round rolled back (73 -> 89 compile errors), same ClassCastException tests, strict NO only LiteralTest.
 
