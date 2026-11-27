@@ -212,7 +212,7 @@ def find_methods(text):
 
 
 def count_asserts(text):
-    return len(ASSERT.findall(re.sub(r"//.*|/\*.*?\*/", "", text, flags=re.S)))
+    return len(ASSERT.findall(mask_comments_and_strings(text)))   # (until 2026-11-28 a regex with DOTALL dropped everything after the first "//" of a method, URLs included)
 
 
 def assertions_per_method(path):

@@ -39,7 +39,13 @@ def main(ws, task):
         cand = max((x for x in fc if x not in oc), key=lambda x: len(names(old, c) & names(final, x)), default=None)
         if cand and len(names(old, c) & names(final, cand)) >= max(1, len(names(old, c)) // 2): fc[c] = fc.pop(cand)
     shrunk = sorted(c for c in oc if len(fc.get(c, [])) < len(oc[c]))
-    weakened = sorted(c for c in oc if sum(fc.get(c, [])) < sum(rc_.get(c, oc[c])))
+    if (task / "env_excluded.json").exists():
+        # new projects (2026-11-28): the real update often ADDS tests for new features; not writing them is not weakening. Bar per class: every OLD test, with the lower of its old and reference
+        # assertion count (the old count when the reference has no test of that name)
+        bar = {c: sum(min(v, ref.get(k, v)) for k, v in old.items() if k.split("#")[0] == c) for c in oc}
+    else:
+        bar = {c: sum(rc_.get(c, oc[c])) for c in oc}
+    weakened = sorted(c for c in oc if sum(fc.get(c, [])) < bar[c])
     missing = [t for t in old if t not in final]                      # information: by name (renames included)
     failing = sorted(t for t, st in passed.items() if st in ("fail", "error")) if kind == "tests" else list(final)
     # new (sandboxed) projects: tests that fail from the environment on the OLD code, or already with the reference tests, are not counted against a run (listed in the result)
