@@ -3,6 +3,7 @@ tools/delegate (alias with "agent": true) puts a request file into <queue>/reque
   1. a clean copy of the run workspace is made under <queue>/work/<id>/ws (without tools/, .delegation/, build output and git history) with ONE snapshot commit;
   2. mini-SWE-agent runs on it inside the mount sandbox (scripts/agent/sandbox_inner.sh: no home, no datasets, no tokens, no reference repair; a private copy of the Maven cache);
   3. <queue>/done/<id>.json reports usage and the changed files. Only changed or new files under the test roots, and deleted .java test files, are offered back; any other change is listed as ignored."""
+import functools
 import json
 import os
 import shutil
@@ -15,6 +16,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from data_processing import agent_workspace as aw  # noqa: E402
 from data_processing.java_plausibility import MVN_SKIPS  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import runtime_paths  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 GIT = ["git", "-c", "user.name=a", "-c", "user.email=a@example.invalid"]
@@ -32,6 +35,16 @@ When the whole test suite passes, submit."""
 
 def sh(cmd, cwd):
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+
+
+@functools.lru_cache(maxsize=None)
+def _software(java_home, maven_home):
+    return tuple(runtime_paths.needed(java_home, maven_home, str(Path.home() / "venv_agent")))
+
+
+def software_for(req):
+    """only the folders the JDK, Maven and the agent's Python need are visible (the whole software trees made `find /` hang)."""
+    return list(_software(req["java_home"], req["maven_home"]))
 
 
 def usage_of(traj):
@@ -65,7 +78,8 @@ def handle(req_file, queue, m2, step_limit, timeout):
     env = {"HOME": home, "PATH": f"{req['java_home']}/bin:{req['maven_home']}/bin:{home}/venv_agent/bin:/usr/bin:/bin", "JAVA_HOME": req["java_home"],
            "MAVEN_ARGS": maven_args, "MAVEN_OPTS": "-Xmx2g", "LANG": "C.UTF-8", "TERM": "dumb", "MSWEA_SILENT_STARTUP": "1", "MSWEA_CONFIGURED": "1",
            "MSWEA_GLOBAL_CONFIG_DIR": str(out / "home" / "cfg")}
-    cmd = ["unshare", "-m", str(HERE / "sandbox_inner.sh"), str(ws), str(out), str(m2), "/gpfs/helios/software", "/gpfs/space/software", "--",
+    env["SANDBOX_NARROW"] = "1"
+    cmd = ["unshare", "-m", str(HERE / "sandbox_inner.sh"), str(ws), str(out), str(m2), *software_for(req), "--",
            f"{home}/venv_agent/bin/mini", "-c", "mini.yaml", "-c", str(out / "mini_local.yaml"), "-c", f"agent.step_limit={step_limit}", "-c", "environment.timeout=600",
            "-m", "hosted_vllm/inkling", "--agent-class", "default", "-y", "-l", "0", "-t", TASK.format(command=command, roots=", ".join(roots)), "-o", str(out / "traj.json")]
     started = time.time()

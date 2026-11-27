@@ -5,7 +5,9 @@
 set -euo pipefail
 ws="$1"; out="$2"; shift 2
 extra=(); while [ "$1" != "--" ]; do extra+=("$1"); shift; done; shift
-real=$(readlink -f "$HOME/venv_agent/bin/python"); case "$real" in /gpfs/space/software/*) pybase=/gpfs/space/software;; *) pybase=$(dirname "$(dirname "$real")");; esac      # the interpreter of the venv (cluster software, not user data)
+real=$(readlink -f "$HOME/venv_agent/bin/python")                                    # the interpreter of the venv (cluster software, not user data)
+case "$real" in /gpfs/space/software/*) pybase=/gpfs/space/software;; *) pybase=$(dirname "$(dirname "$real")");; esac
+[ -n "${SANDBOX_NARROW:-}" ] && pybase=$(dirname "$(dirname "$real")")               # narrow mode (fix D1): only the install folder; the caller passes any further folder needed (runtime_paths.py)
 keep=("$ws" "$out" "$HOME/venv_agent" "$pybase" "${extra[@]}")
 tmp=$(mktemp -d)                                   # staging area outside the hidden trees
 for p in "${keep[@]}"; do mkdir -p "$tmp$p"; mount --rbind "$p" "$tmp$p"; done
