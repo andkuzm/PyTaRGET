@@ -32,6 +32,8 @@ def prompt_for(ws, arm, strategy, context, verify, handoff=None):
     if arm == "solo": parts.append(t("arm_solo.md"))
     elif strategy == "S7": parts += [t("strategy_S7.md"), t(f"verify_{verify}.md")]      # automation only: no delegate model is mentioned
     else: parts += [t("arm_delegate_intro.md"), t(f"strategy_{strategy}.md"), t(f"context_{context}.md"), t(f"verify_{verify}.md")]
+    if json.loads((Path(ws) / ".delegation/config.json").read_text()).get("jail"):
+        parts.append("Safety rule for this project: never run mvn, java, javac, jshell or any program or script from the project yourself. The only way to run project code is `tools/run_tests` (and the other tools/ commands), which run it in a sandbox without network.")
     return "\n\n".join(parts) + "\n"
 
 

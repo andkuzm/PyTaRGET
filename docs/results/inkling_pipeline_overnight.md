@@ -204,3 +204,12 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 - Review: no false removal. The only 2 flags are those two methods (SANDBOX-ONLY FAILURE EDITED), so tools/repair ends ESCALATE although the edits are compile-only: Claude would have to check two small methods (the flag fires on any code edit by design).
 - Sandbox: `find /` took 2 s and listed only this run's Maven copy (no other job's folders).
 - Against r81 (92 calls, 467 s, 5.16M in / 34.8k out) do NOT read the drop as the effect of the fixes: besides one run each, the Maven cache now also holds cactoos-matchers 0.23 (added for the old-code check), and the agent compared the old and new MatcherOf classes right away, information it did not have before.
+
+## New projects, overnight 2026-11-28
+
+### Before the first run: a sandbox escape, and sandboxed builds
+
+- **Found:** commands in the agent mount sandbox ran as root of the namespace that made the mounts. A test showed they could see the home folder through `/proc/<pid>/root` of an outer process, and by unmounting the tmpfs that hid /gpfs. Earlier statements that the agent could not see home or tokens were WRONG as a guarantee. This applied to all agent runs so far (delegate and dataset runs). A text scan of 514 saved trajectories (13082 commands) found no command using umount, nsenter, unshare, /proc/<pid>/root or the secret file paths; the scan cannot see actions hidden inside scripts. Network was off in those runs.
+- **Fix:** the sandbox now ends in a nested user + mount namespace (`exec unshare -U -r -m`). Re-test: other processes, unmounting, a copy of the root mount, a further namespace, outer process environment and writing to a read-only folder all blocked.
+- **New projects** build and test only in this sandbox (`dtools/jail.py`, `new_task.py`): clean environment, project folder + own Maven cache + JDK/Maven only; tools/, .delegation/, .git/ read-only; no network for tests. Libraries are downloaded in the sandbox with network and no tests run. Claude itself is not sandboxed; its prompt forbids running project code except through tools/run_tests (transcripts are checked).
+- **Selection:** established Java/Maven libraries not used before, newest commits first (preferring ones that add source files), where the old tests break on the new code. Old-code failures from the environment are excluded from scoring and shown to BOTH arms. 1 run per arm per project. Being recent lowers, but does not rule out, that the models saw the change.

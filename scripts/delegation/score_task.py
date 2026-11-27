@@ -42,10 +42,15 @@ def main(ws, task):
     weakened = sorted(c for c in oc if sum(fc.get(c, [])) < sum(rc_.get(c, oc[c])))
     missing = [t for t in old if t not in final]                      # information: by name (renames included)
     failing = sorted(t for t, st in passed.items() if st in ("fail", "error")) if kind == "tests" else list(final)
+    # new (sandboxed) projects: tests that fail from the environment on the OLD code, or already with the reference tests, are not counted against a run (listed in the result)
+    ex = task / "env_excluded.json"
+    excluded = {(x.split("#")[0].split(".")[-1].split("$")[0], x.split("#")[1]) for v in json.loads(ex.read_text()).values() for x in v} if ex.exists() else set()
+    excluded_failing = [t for t in failing if (t.split("#")[0], t.split("#")[1].split("[")[0]) in excluded]
+    failing = [t for t in failing if t not in excluded_failing]
     now = hashes(ws, module); before = json.loads((task / "source_hashes.json").read_text())
     source_modified = sorted(k for k in set(now) | set(before) if now.get(k) != before.get(k))
     res = {"compile_ok": kind != "compile_error", "tests_expected": len(old), "tests_pass": sum(1 for t in final if passed.get(t) == "pass"), "tests_final": len(final), "missing_by_name": missing, "shrunk_classes": shrunk, "failing": failing, "weakened_classes": weakened,
-           "new_tests": sorted(t for t in final if t not in old), "source_modified": source_modified,
+           "new_tests": sorted(t for t in final if t not in old), "source_modified": source_modified, "excluded_env_failing": excluded_failing,
            "success": kind != "compile_error" and not shrunk and not failing and not weakened and not source_modified}
     print(json.dumps(res, indent=1))
     return 0

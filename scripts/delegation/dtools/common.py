@@ -34,7 +34,11 @@ def mvn(ws, tests=None, offline=True, timeout=1500):
     for d in ws.rglob("surefire-reports"):
         shutil_rm(d)
     try:
-        p = subprocess.run(cmd, cwd=ws, env=env, capture_output=True, text=True, timeout=timeout)
+        if cfg.get("jail"):                                    # new, untrusted project: sandbox (dtools/jail.py); offline=False keeps the network, for filling the cache only
+            from dtools import jail
+            p = jail.run(ws, cfg, cmd, network=not offline, timeout=timeout)
+        else:
+            p = subprocess.run(cmd, cwd=ws, env=env, capture_output=True, text=True, timeout=timeout)
         rc, log = p.returncode, p.stdout + p.stderr
     except subprocess.TimeoutExpired as e:
         rc, log = 124, (e.stdout or b"").decode("utf-8", "ignore") if isinstance(e.stdout, bytes) else (e.stdout or "")

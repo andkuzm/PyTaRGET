@@ -16,7 +16,7 @@ cd "$HOME/PyTaRGET"
 export QUEUE="$HOME/delegation_exp/agent_queue" M2="/tmp/agent_m2_${USER}_${SLURM_JOB_ID}" EFFORT="${EFFORT:-low}" MODEL_LEN="${MODEL_LEN:-262144}"
 export HF_HUB_OFFLINE=1 PYTHONUNBUFFERED=1 TOKENIZERS_PARALLELISM=false PYTHONPATH="$HOME/PyTaRGET" PATH="$HOME/venv_inkling/bin:$PATH"
 mkdir -p "$QUEUE"; rm -f "$QUEUE/heartbeat"
-cp -r "$HOME/delegation_exp/m2" "$M2"                       # private copy: commands chosen by the model cannot alter the cache the scorer and the pipeline use
+cp -r "${M2_SRC:-$HOME/delegation_exp/m2}" "$M2"                       # private copy: commands chosen by the model cannot alter the cache the scorer and the pipeline use
 echo "=== start $(date) on $(hostname)"
 unshare -rn bash -c '
   ip link set lo up

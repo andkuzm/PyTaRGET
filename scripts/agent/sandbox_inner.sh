@@ -14,10 +14,13 @@ else tmp=$(mktemp -d); fi                          # staging area outside the hi
 for p in "${keep[@]}"; do mkdir -p "$tmp$p"; mount --rbind "$p" "$tmp$p"; done
 mount -t tmpfs tmpfs /gpfs                        # hide the whole shared file system (home, other users, datasets)
 if [ -n "${SANDBOX_NARROW:-}" ]; then              # the node's scratch folders can hold other jobs' and other users' files: give the sandbox empty private ones
-  for d in /tmp /var/tmp /dev/shm; do if [ -d "$d" ]; then mount -t tmpfs -o mode=1777 tmpfs "$d"; fi; done
+  for d in /tmp /var/tmp /dev/shm /run/user /run/munge; do if [ -d "$d" ]; then mount -t tmpfs -o mode=1777 tmpfs "$d"; fi; done
 fi
 for p in "${keep[@]}"; do mkdir -p "$p"; mount --rbind "$tmp$p" "$p"; done
 umount -l "$tmp" 2>/dev/null || true
 export HOME="$out/home"; mkdir -p "$HOME"          # the agent's home is in its output directory, not in the workspace
+for d in ${SANDBOX_RO:-}; do if [ -e "$d" ]; then mount --bind "$d" "$d"; mount -o remount,bind,ro "$d"; fi; done     # folders the commands may read but not change
 cd "$ws"
-exec "$@"
+# ESCAPE FIX (2026-11-28): up to here the process is root of the namespace that made the mounts, so it could unmount the hiding tmpfs, or read the real file system through /proc/<pid>/root of a
+# process outside. A nested user + mount namespace locks all mounts above and has no rights over processes of the outer namespace.
+exec unshare -U -r -m --propagation private "$@"
