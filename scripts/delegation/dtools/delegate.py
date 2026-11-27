@@ -191,12 +191,12 @@ def run_round(ws, cfg, args, rnd, strong):
         if args.dry_run: return None, "dry run: the agent delegate has no prompts to show"
         try: r = agent_client.run_agent(ws, cfg, args.model)
         except RuntimeError as e: raise DelegateUnavailable(str(e))
-        note = (f"agent: {r.get('exit_status') or r['status']} after {r.get('api_calls')} model calls, {r['seconds']} s; changed test files: {', '.join(Path(c).name for c in r['changed']) or 'none'}"
+        note = (f"agent: {r.get('exit_status') or r['status']} after {r.get('api_calls')} model calls, {r['seconds']} s; changed test files: {', '.join(Path(c).name for c in r['changed']) or 'none'}" + (f"; DELETED test files: {', '.join(Path(c).name for c in r['deleted'])}" if r.get("deleted") else "")
                 + (f"; IGNORED changes outside the test folders or deletions: {', '.join(r['ignored'][:5])}" if r["ignored"] else ""))
         (ws / ".delegation").mkdir(exist_ok=True)
         with open(ws / ".delegation" / "delegate_calls.jsonl", "a") as f:
             f.write(json.dumps({"round": rnd, "unit": "agent", "model": args.model, "tokens_in": r.get("tokens_in", 0), "tokens_out": r.get("tokens_out", 0), "cost": 0.0, "seconds": r["seconds"],
-                                "applied": bool(r["changed"]), "note": note, "context": "agent", "api_calls": r.get("api_calls"), "ignored": r["ignored"], "audit": len(r.get("audit", []))}) + "\n")
+                                "applied": bool(r["changed"] or r.get("deleted")), "deleted": r.get("deleted", []), "note": note, "context": "agent", "api_calls": r.get("api_calls"), "ignored": r["ignored"], "audit": len(r.get("audit", []))}) + "\n")
         return {"units": 1, "tin": r.get("tokens_in", 0), "tout": r.get("tokens_out", 0), "cost": 0.0, "notes": [note], "synced": synced, "routed": []}, ""
     units = context.units_from_state(ws, kind, data, cfg)
     routed = []

@@ -1,5 +1,5 @@
 """Client side of the agent delegate (alias with "agent": true): hands the run workspace to scripts/agent/delegate_worker.py (a Slurm job without network) through the queue folder,
-waits, and copies back ONLY the changed files under the test roots."""
+waits, and copies back ONLY the changed files under the test roots (and removes the test files the agent deleted)."""
 import json
 import shutil
 import time
@@ -30,6 +30,10 @@ def run_agent(ws, cfg, alias, timeout=2100):
     if r.get("status") == "worker_error":
         raise RuntimeError("agent worker error: " + r.get("detail", ""))
     roots = [(Path(ws).resolve() / x).resolve() for x in req["test_roots"]]
+    for rel in r.get("deleted", []):
+        dst = (Path(ws).resolve() / rel).resolve()
+        if rel.endswith(".java") and any(root in dst.parents for root in roots) and dst.is_file():
+            dst.unlink()
     for rel in r["changed"]:
         src, dst = Path(r["ws"]) / rel, (Path(ws).resolve() / rel).resolve()
         if src.is_symlink() or not any(root == dst or root in dst.parents for root in roots):

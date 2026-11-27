@@ -2,7 +2,7 @@
 tools/delegate (alias with "agent": true) puts a request file into <queue>/requests/<id>.json {"ws","java_home","maven_home","test_roots","mvn_extra"}; for each request:
   1. a clean copy of the run workspace is made under <queue>/work/<id>/ws (without tools/, .delegation/, build output and git history) with ONE snapshot commit;
   2. mini-SWE-agent runs on it inside the mount sandbox (scripts/agent/sandbox_inner.sh: no home, no datasets, no tokens, no reference repair; a private copy of the Maven cache);
-  3. <queue>/done/<id>.json reports usage and the changed files. Only files under the test roots are offered back; deletions and any other change are listed as ignored."""
+  3. <queue>/done/<id>.json reports usage and the changed files. Only changed or new files under the test roots, and deleted .java test files, are offered back; any other change is listed as ignored."""
 import json
 import os
 import shutil
@@ -23,8 +23,9 @@ Task: repair the tests so that the whole test suite compiles and passes with the
 Run the tests (offline Maven is already configured) with:  {command}
 Rules:
 1. Change ONLY files under {roots}. Never change src/main, pom.xml or any other file: the production code is correct, only the tests are outdated. Changes outside the test folders are discarded.
-2. Do not weaken the tests: do not delete tests or assertions, do not loosen assertions, do not comment tests out, do not add @Disabled/@Ignore, assumptions or try/catch blocks that swallow failures.
-   When behaviour changed, update the expected values to the new behaviour; when an API changed, adapt the calls. Every check a test made before must still be made.
+2. Do not weaken the tests: do not loosen assertions, do not comment tests out, do not add @Disabled/@Ignore, assumptions or try/catch blocks that swallow failures.
+   When behaviour changed, update the expected values to the new behaviour; when an API changed, adapt the calls.
+   Delete a test, or a single assertion, ONLY when what it checks no longer exists in the source code at all (the tested class, method or behaviour was removed); if any part of what it checks still exists, keep checking that part. When a check cannot be kept, delete it: never replace it with one that cannot fail or that only tests the test's own code (for example a Java type test, or a cast in the test that throws by itself).
 3. Do not use git history, the network or package installation; everything you need is in this directory. Work only inside it.
 When the whole test suite passes, submit."""
 
@@ -75,7 +76,7 @@ def handle(req_file, queue, m2, step_limit, timeout):
     except subprocess.TimeoutExpired:
         os.killpg(proc.pid, signal.SIGKILL)
         status = "timeout"
-    result = {"status": status, "seconds": round(time.time() - started), "returncode": proc.returncode, "changed": [], "ignored": []}
+    result = {"status": status, "seconds": round(time.time() - started), "returncode": proc.returncode, "changed": [], "deleted": [], "ignored": []}
     try:
         traj = json.load(open(out / "traj.json"))
         cmds = aw.commands_from_trajectory(traj)
@@ -88,7 +89,9 @@ def handle(req_file, queue, m2, step_limit, timeout):
     for line in sh(["git", "diff", "--cached", "--name-status", "--no-renames", "HEAD"], ws).stdout.splitlines():
         kind, rel = line.split("\t", 1)
         in_tests = any(rel.startswith(r.rstrip("/") + "/") for r in roots) and not (ws / rel).is_symlink()
-        (result["changed"] if in_tests and kind in ("A", "M") else result["ignored"]).append(rel if in_tests and kind in ("A", "M") else f"{kind} {rel}")
+        if in_tests and kind in ("A", "M"): result["changed"].append(rel)
+        elif in_tests and kind == "D" and rel.endswith(".java"): result["deleted"].append(rel)   # allowed when the tested code is gone; tools/review reports every method of the file
+        else: result["ignored"].append(f"{kind} {rel}")
     result["ws"] = str(ws)
     tmp = queue / "done" / f"{rid}.tmp"
     tmp.write_text(json.dumps(result))

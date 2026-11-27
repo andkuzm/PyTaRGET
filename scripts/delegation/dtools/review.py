@@ -40,6 +40,33 @@ def assertion_lines(body):
     return [" ".join(x) for x in out]
 
 
+DECL_METHOD = re.compile(r"^\s*(?:(?:public|protected|private|static|final|abstract|synchronized|default|native)\s+)*(?:<[^>]+>\s*)?[\w.\[\]<>?, ]+?\s+(\w+)\s*\(")
+DECL_TYPE = re.compile(r"\b(?:class|interface|enum|record)\s+([A-Z]\w*)")
+NOT_DECL = re.compile(r"^\s*(return|new|else|if|for|while|switch|throw|case|catch)\b")
+
+
+def declared(lines):
+    out = set()
+    for l in lines:
+        if l.lstrip().startswith(("//", "*", "/*")): continue
+        out.update(DECL_TYPE.findall(l))
+        m = None if NOT_DECL.match(l) else DECL_METHOD.match(l)
+        if m: out.add(m.group(1))
+    return out
+
+
+def removed_declarations(ws):
+    """names declared on removed lines of SOURCE_CHANGES.diff that are declared nowhere in the current src/main: a HINT that tested code may be gone (not proof: signatures can also change)."""
+    diff = ws / "SOURCE_CHANGES.diff"
+    if not diff.exists(): return set()
+    gone = declared(l[1:] for l in diff.read_text(errors="ignore").split("\n") if l.startswith("-") and not l.startswith("---"))
+    if not gone: return set()
+    now = set()
+    for f in ws.rglob("*.java"):
+        if "src/main" in str(f.relative_to(ws)): now |= declared(f.read_text(errors="ignore").split("\n"))
+    return gone - now
+
+
 def meaning(body):
     kinds = sorted(m.group(1) for m in ASSERT.finditer(body)); lits = sorted(LITERAL.findall(body))
     return kinds, lits, sorted(re.findall(r"expected\s*=\s*([\w.]+)", body))          # the expected exception is part of what a test checks
@@ -48,14 +75,14 @@ def meaning(body):
 def main(ws, only):
     ws = Path(ws); cfg = common.load_config(ws); root = cfg["test_roots"][0]
     old_files = {p: git(ws, "show", f"HEAD:{p}") for p in git(ws, "ls-tree", "-r", "--name-only", "HEAD", root).split("\n") if p.endswith(".java")}
-    same = changed = removed = 0; shown = []
+    same = changed = removed = 0; shown = []; bodies = {}
     for f in sorted((ws / root).rglob("*.java")):
         rel = str(f.relative_to(ws)); new_text = f.read_text(errors="ignore")
         if only and not any(o in rel for o in only): continue
         old_text = old_files.pop(rel, None)
         if old_text is None:                                           # renamed file: the old file with most method names in common
             nm = set(methods(new_text))
-            best = max(old_files, key=lambda p: len(nm & set(methods(old_files[p]))), default=None)
+            best = max((p for p in old_files if not (ws / p).exists()), key=lambda p: len(nm & set(methods(old_files[p]))), default=None)
             if best and len(nm & set(methods(old_files[best]))) >= 1: rel_old, old_text = best, old_files.pop(best)
             else: continue
         if old_text == new_text: continue
@@ -66,14 +93,21 @@ def main(ws, only):
                 score = lambda k: difflib.SequenceMatcher(None, ob, unmatched_new[k]).ratio() + (0.6 if bool(FAILING.search(ob)) == bool(FAILING.search(unmatched_new[k])) else 0)
                 cand = max(unmatched_new, key=score)
                 if difflib.SequenceMatcher(None, ob, unmatched_new[cand]).ratio() >= 0.5: nb = unmatched_new.pop(cand); renamed_to = cand
-            if nb is None: removed += 1; shown.append((rel, name, ["REMOVED"], assertion_lines(ob), [])); continue
+            if nb is None: removed += 1; bodies[(rel, name)] = ob; shown.append((rel, name, ["REMOVED"], assertion_lines(ob), [])); continue
             if meaning(ob) == meaning(nb): same += 1; continue
             changed += 1; oa, na = assertion_lines(ob), assertion_lines(nb); flags = []
             if len(na) < len(oa): flags.append("ASSERTIONS DROPPED")
             if FAILING.search(ob) and not FAILING.search(nb): flags.append("FAILURE CHECK LOST")
             if THROWS.search(ob) and not THROWS.search(nb): flags.append("EXPECTED EXCEPTION LOST")
             elif CAST.search(nb) and not CAST.search(ob): flags.append("EXPECTED EXCEPTION LOST")       # an exception that a cast in the test itself can raise
+            bodies[(rel, name + (f" -> {renamed_to}" if renamed_to else ""))] = ob
             shown.append((rel, name + (f" -> {renamed_to}" if renamed_to else ""), flags, oa, na))
+    for rel, old_text in sorted(old_files.items()):                    # test files that are gone altogether
+        if (ws / rel).exists() or (only and not any(o in rel for o in only)): continue
+        for name, ob in methods(old_text).items():
+            if not (ASSERT.search(ob) or re.search(r"@(Test|ParameterizedTest|RepeatedTest)\b", ob)): continue
+            removed += 1; bodies[(rel, name)] = ob; shown.append((rel, name, ["REMOVED"], assertion_lines(ob), []))
+    gone = removed_declarations(ws)
     print(f"review: {same} test methods changed only by renames (not shown), {changed} changed in meaning, {removed} removed; flagged first")
     shown.sort(key=lambda s: (not s[2], s[0]))
     flagged = [x for x in shown if x[2]]; plain = [x for x in shown if not x[2]]
@@ -81,6 +115,8 @@ def main(ws, only):
         print(f"\n{Path(rel).name}#{name}   [{'; '.join(flags)}]")
         for l in oa[:4]: print("  - " + l[:150])
         for l in na[:4]: print("  + " + l[:150])
+        used = sorted(g for g in gone if re.search(r"\b" + re.escape(g) + r"\b", bodies.get((rel, name), "")))
+        if used: print("  (hint only: names the old test used that are no longer declared in src/main, removed OR renamed: " + ", ".join(used[:6]) + ")")
     if plain: print(f"\nchanged in meaning but not flagged ({len(plain)}; expected values/behaviour updated, nothing dropped): " + ", ".join(f"{Path(r).stem}#{n}" for r, n, *_ in plain[:40]))
     return 0
 
