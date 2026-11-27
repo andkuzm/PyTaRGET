@@ -93,6 +93,8 @@ def pipeline(ws):
     if env: print("NOTE: already failing in the agent sandbox on the OLD code (environment, not the source change): " + ", ".join(sorted(f"{c}#{n}" for c, n in env)[:8]) + ". Do not rewrite these to make them pass.")
     if not passed(t) and not env_only: print("\nESCALATE: tests still fail (above). Repair these yourself" + ("." if not (ws / "tools" / "delegate").exists() else " or call tools/delegate --units <Class#method>.")); return
     rv = sh(["review.py"], ws).stdout if (ws / "tools" / "review").exists() else ""
+    if env_only and rv and not any(f in benign(ws, rv)[0] for f in FLAGS):
+        print("\nACCEPT: every other test passes (the only failures already happened on the old code in the sandbox, see the note) and the review flags nothing. Nothing left to do: send the final report."); return
     if env_only:
         print("\nESCALATE: the only failing tests are ones that already failed in the agent sandbox on the old code (see the note). Leave them as they are unless the source change requires an edit."
               + ("\nReview:\n" + rv[:4000] if rv else "")); return
