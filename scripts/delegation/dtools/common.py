@@ -13,6 +13,13 @@ def load_config(ws):
     return json.loads((Path(ws) / ".delegation" / "config.json").read_text())
 
 
+def env_failing(ws):
+    """{(simple outer class name, method)} of the tests that already failed in the agent sandbox on the old code (written by delegate.py); empty if unknown."""
+    f = Path(ws) / ".delegation" / "env_failing.json"
+    if not f.exists(): return set()
+    return {(x.split("#")[0].split(".")[-1].split("$")[0], x.split("#")[1]) for x in json.loads(f.read_text())}
+
+
 def mvn(ws, tests=None, offline=True, timeout=1500):
     """Run the tests of the workspace with Maven. Returns (returncode, log); the log is saved in .delegation/last_test.log."""
     ws = Path(ws); cfg = load_config(ws)
@@ -155,9 +162,22 @@ def brace_delta(text):
     return depth, ok
 
 
+def mask_comments_and_strings(text):
+    """the same text with the contents of comments and string/char literals blanked (same length, same line breaks), so a word inside them is never read as code."""
+    out, k = list(text), 0
+    while k < len(text):
+        k2 = _skip_literals(text, k)
+        if k2 == k: k += 1; continue
+        a, b = (k + 1, k2 - 1) if text[k] in "\"'" else (k, k2)            # keep the quotes
+        for j in range(a, min(b, len(text))):
+            if out[j] != "\n": out[j] = " "
+        k = k2
+    return "".join(out)
+
+
 def find_methods(text):
     """[(name, first_line, last_line)] (1-based, annotations included) of the test methods of a Java file."""
-    lines = text.split("\n")
+    lines = mask_comments_and_strings(text).split("\n")
     offsets, pos = [], 0
     for l in lines:
         offsets.append(pos); pos += len(l) + 1

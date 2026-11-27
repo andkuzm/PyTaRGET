@@ -3,6 +3,7 @@ by their MEANING (assertion kinds and literal values), so that pure renames are 
   ASSERTIONS DROPPED  - fewer assertion statements than before
   FAILURE CHECK LOST  - the old test expected a failure/false/exception (assertFalse, assertThrows, fail(...), expected=...) and the new one expects none
   REMOVED             - the old test has no counterpart any more
+  SANDBOX-ONLY FAILURE EDITED - the test already failed in the agent sandbox on the OLD code (environment) and its code was changed: only what compiling needs is acceptable
   EXPECTED EXCEPTION LOST - the old test expected an exception (expected=, assertThrows, fail ...) and the new one expects no exception at all (an assertFalse does not replace it), or now expects a ClassCastException, which a cast in the test itself can raise
 Use it after the tests pass: it is a cheap way to see where a repair (yours or the delegate's) changed what a test checks. usage: tools/review [file ...]"""
 import difflib
@@ -72,14 +73,26 @@ def meaning(body):
     return kinds, lits, sorted(re.findall(r"expected\s*=\s*([\w.]+)", body))          # the expected exception is part of what a test checks
 
 
+def code_only(body):
+    """the code of a method without comments and layout."""
+    out, k = [], 0
+    while k < len(body):
+        k2 = common._skip_literals(body, k)
+        if k2 == k: out.append(body[k]); k += 1; continue
+        if not body.startswith(("//", "/*"), k): out.append(body[k:k2])
+        k = k2
+    return re.sub(r"\s+", "", "".join(out))
+
+
 def main(ws, only):
     ws = Path(ws); cfg = common.load_config(ws); root = cfg["test_roots"][0]
     old_files = {p: git(ws, "show", f"HEAD:{p}") for p in git(ws, "ls-tree", "-r", "--name-only", "HEAD", root).split("\n") if p.endswith(".java")}
     same = changed = removed = 0; shown = []; bodies = {}
+    env = common.env_failing(ws); env_seen = set(); ENV = "SANDBOX-ONLY FAILURE EDITED"
     for f in sorted((ws / root).rglob("*.java")):
         rel = str(f.relative_to(ws)); new_text = f.read_text(errors="ignore")
         if only and not any(o in rel for o in only): continue
-        old_text = old_files.pop(rel, None)
+        old_text = old_files.pop(rel, None); rel_old = None
         if old_text is None:                                           # renamed file: the old file with most method names in common
             nm = set(methods(new_text))
             best = max((p for p in old_files if not (ws / p).exists()), key=lambda p: len(nm & set(methods(old_files[p]))), default=None)
@@ -93,9 +106,12 @@ def main(ws, only):
                 score = lambda k: difflib.SequenceMatcher(None, ob, unmatched_new[k]).ratio() + (0.6 if bool(FAILING.search(ob)) == bool(FAILING.search(unmatched_new[k])) else 0)
                 cand = max(unmatched_new, key=score)
                 if difflib.SequenceMatcher(None, ob, unmatched_new[cand]).ratio() >= 0.5: nb = unmatched_new.pop(cand); renamed_to = cand
-            if nb is None: removed += 1; bodies[(rel, name)] = ob; shown.append((rel, name, ["REMOVED"], assertion_lines(ob), [])); continue
-            if meaning(ob) == meaning(nb): same += 1; continue
-            changed += 1; oa, na = assertion_lines(ob), assertion_lines(nb); flags = []
+            key = (Path(rel_old if rel_old else rel).stem, name); is_env = key in env
+            if is_env: env_seen.add(key)
+            if nb is None: removed += 1; bodies[(rel, name)] = ob; shown.append((rel, name, ["REMOVED"] + ([ENV] if is_env else []), assertion_lines(ob), [])); continue
+            env_edit = is_env and code_only(ob) != code_only(nb)                # any edit of the code counts, also one that keeps all assertions
+            if meaning(ob) == meaning(nb) and not env_edit: same += 1; continue
+            changed += 1; oa, na = assertion_lines(ob), assertion_lines(nb); flags = [ENV] if env_edit else []
             if len(na) < len(oa): flags.append("ASSERTIONS DROPPED")
             if FAILING.search(ob) and not FAILING.search(nb): flags.append("FAILURE CHECK LOST")
             if THROWS.search(ob) and not THROWS.search(nb): flags.append("EXPECTED EXCEPTION LOST")
@@ -106,7 +122,13 @@ def main(ws, only):
         if (ws / rel).exists() or (only and not any(o in rel for o in only)): continue
         for name, ob in methods(old_text).items():
             if not (ASSERT.search(ob) or re.search(r"@(Test|ParameterizedTest|RepeatedTest)\b", ob)): continue
-            removed += 1; bodies[(rel, name)] = ob; shown.append((rel, name, ["REMOVED"], assertion_lines(ob), []))
+            key = (Path(rel).stem, name); env_seen.add(key)
+            removed += 1; bodies[(rel, name)] = ob; shown.append((rel, name, ["REMOVED"] + ([ENV] if key in env else []), assertion_lines(ob), []))
+    for cls, name in sorted(env - env_seen):                            # a failure without a test method of that name (class set-up): any change of the file counts
+        for f in (ws / root).rglob(cls + ".java"):
+            rel = str(f.relative_to(ws)); before = git(ws, "show", f"HEAD:{rel}")
+            if before and not any(n == name for n, *_ in common.find_methods(before)) and code_only(before) != code_only(f.read_text(errors="ignore")):
+                shown.append((rel, name or "(class)", [ENV], [], []))
     gone = removed_declarations(ws)
     print(f"review: {same} test methods changed only by renames (not shown), {changed} changed in meaning, {removed} removed; flagged first")
     shown.sort(key=lambda s: (not s[2], s[0]))

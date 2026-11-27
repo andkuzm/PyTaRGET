@@ -10,7 +10,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
-FLAGS = ("ASSERTIONS DROPPED", "FAILURE CHECK LOST", "REMOVED", "EXPECTED EXCEPTION LOST")
+FLAGS = ("ASSERTIONS DROPPED", "FAILURE CHECK LOST", "REMOVED", "EXPECTED EXCEPTION LOST", "SANDBOX-ONLY FAILURE EDITED")
 
 
 def sh(args, ws):
@@ -18,6 +18,13 @@ def sh(args, ws):
 
 
 def passed(out): return bool(re.search(r"TESTS: \d+ run, \d+ passed, 0 failed", out))
+
+
+def only_env(out, env):
+    """True when every failing test of this compact result is one that already failed in the agent sandbox on the old code: nothing left for the delegate. env = common.env_failing(ws)."""
+    m = re.search(r"TESTS: \d+ run, \d+ passed, (\d+) failed", out)
+    names = re.findall(r"^\s+FAIL (\S+?)#([^:\[( ]*)", out, flags=re.M)
+    return bool(env and m and 0 < int(m.group(1)) == len(names) and all((c.split("$")[0], n) in env for c, n in names))     # a cut list (more than shown) never counts
 
 
 def benign(ws, rv):
@@ -70,7 +77,7 @@ def pipeline(ws):
     if no_model and not passed(t):                                     # control arm "automation only": only the model-free message sync of delegate.py; no mention of a delegate in the output
         d = sh(["delegate.py"], ws); print("\n".join(l.strip() for l in d.stdout.splitlines() if "LITERAL SYNC" in l)); t = sh(["run_tests.py"], ws).stdout
     for rnd in ([] if no_model else range(1, 4)):
-        if passed(t): break
+        if passed(t) or only_env(t, common.env_failing(ws)): break
         print(f"== delegate round {rnd}"); before = failed(t); b0 = badness(t); snap = ws / ".delegation" / f"snap_round{rnd}"; snapshot(ws, snap); d = sh(["delegate.py"], ws); lines = d.stdout.strip().splitlines(); print("\n".join(lines[-12:]))
         if d.returncode and not d.stdout.strip(): print("delegate failed:", d.stderr[-300:]); break
         no_units = bool(re.search(r"\b0 unit\(s\)", d.stdout))
@@ -82,8 +89,13 @@ def pipeline(ws):
         if no_units or (not passed(t) and failed(t) >= before): print("== no progress this round (nothing left that the delegate can take): stopping the delegate rounds"); break
     else: t = sh(["run_tests.py"], ws).stdout
     print("== tests"); print(t.strip()[-1500:])
-    if not passed(t): print("\nESCALATE: tests still fail (above). Repair these yourself" + ("." if not (ws / "tools" / "delegate").exists() else " or call tools/delegate --units <Class#method>.")); return
+    env = common.env_failing(ws); env_only = only_env(t, env)
+    if env: print("NOTE: already failing in the agent sandbox on the OLD code (environment, not the source change): " + ", ".join(sorted(f"{c}#{n}" for c, n in env)[:8]) + ". Do not rewrite these to make them pass.")
+    if not passed(t) and not env_only: print("\nESCALATE: tests still fail (above). Repair these yourself" + ("." if not (ws / "tools" / "delegate").exists() else " or call tools/delegate --units <Class#method>.")); return
     rv = sh(["review.py"], ws).stdout if (ws / "tools" / "review").exists() else ""
+    if env_only:
+        print("\nESCALATE: the only failing tests are ones that already failed in the agent sandbox on the old code (see the note). Leave them as they are unless the source change requires an edit."
+              + ("\nReview:\n" + rv[:4000] if rv else "")); return
     flagged = [l for l in rv.splitlines() if any(f in l for f in FLAGS) and not l.lstrip().startswith("flags:")] if rv else []
     if not rv: print("\nACCEPT: all tests pass (no tools/review in this workspace, assertion check not done)."); return
     rv2, n = benign(ws, rv); note = f" ({n} flagged method(s) auto-accepted: only a dropped assertTrue/False(call()) whose method is now void)" if n else ""

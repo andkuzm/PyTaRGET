@@ -18,6 +18,9 @@ from data_processing import agent_workspace as aw  # noqa: E402
 from data_processing.java_plausibility import MVN_SKIPS  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import runtime_paths  # noqa: E402
+import baseline  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "delegation"))
+from dtools import common  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 GIT = ["git", "-c", "user.name=a", "-c", "user.email=a@example.invalid"]
@@ -30,7 +33,13 @@ Rules:
    When behaviour changed, update the expected values to the new behaviour; when an API changed, adapt the calls.
    Delete a test, or a single assertion, ONLY when what it checks no longer exists in the source code at all (the tested class, method or behaviour was removed); if any part of what it checks still exists, keep checking that part. A check that valid, compiling code can no longer trigger (for example because a parameter type now rules the bad input out, even if the throwing line is still in the source) also counts as gone; never use casts or raw types to force it. When a check cannot be kept, delete it: never replace it with one that cannot fail or that only tests the test's own code (for example a Java type test, or a cast in the test that throws by itself).
 3. Do not use git history, the network or package installation; everything you need is in this directory. Work only inside it.
-When the whole test suite passes, submit."""
+4. This environment has no network and some folders are not writable. Never rewrite a test to get around that (for example by replacing a remote server with a local fake, or by changing which paths the test uses): a test that fails only because of this environment stays as it is and keeps failing; say so when you submit.
+When the whole test suite passes (apart from tests that fail only because of this environment), submit."""
+ENV_NOTE = """
+
+These tests ALREADY FAIL in this environment on the OLD code, before the source change, so their failure is not caused by the change:
+{tests}
+Do not try to make them pass. Edit them only as far as the source change requires (for example so that they compile); never change what they do (addresses, paths, set-up) and do not delete or disable them because they fail. They may keep failing: submit when every OTHER test passes."""
 
 
 def sh(cmd, cwd):
@@ -57,6 +66,30 @@ def usage_of(traj):
     return tin, tout
 
 
+def env_baseline(src, base, req, env, m2, timeout=900):
+    """(sorted ids of the tests failing on the OLD code inside the sandbox, status text). Runs before the agent, in its own throw-away copy."""
+    ws, out = base / "baseline_ws", base / "baseline_out"
+    out.mkdir(parents=True)
+    shutil.copytree(src, ws, symlinks=True, ignore=shutil.ignore_patterns(".git", ".delegation", "tools", "target"))
+    ok, error = baseline.reverse_changes(ws)
+    if not ok:
+        return [], f"unavailable: the source change could not be reversed ({error})"
+    cmd = ["unshare", "-m", str(HERE / "sandbox_inner.sh"), str(ws), str(out), str(m2), *software_for(req), "--",
+           f"{req['maven_home']}/bin/mvn", "test", "-Dmaven.test.failure.ignore=true", *req.get("mvn_extra", [])]
+    with open(out / "mvn.log", "w") as log:
+        proc = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+            return [], f"unavailable: the old tests did not finish in {timeout} s"
+    results = common.parse_surefire(ws)
+    if proc.returncode or not results:
+        errors = [l for l in (out / "mvn.log").read_text(errors="ignore").splitlines() if l.startswith("[ERROR]")]
+        return [], f"unavailable: the old code did not build and run cleanly (exit {proc.returncode}; {' '.join(errors[:2])[:300]})"
+    return baseline.failing_ids(results), f"ok: {len(results)} tests run on the old code"
+
+
 def handle(req_file, queue, m2, step_limit, timeout):
     rid = req_file.stem
     req = json.loads(req_file.read_text())
@@ -79,9 +112,15 @@ def handle(req_file, queue, m2, step_limit, timeout):
            "MAVEN_ARGS": maven_args, "MAVEN_OPTS": "-Xmx2g", "LANG": "C.UTF-8", "TERM": "dumb", "MSWEA_SILENT_STARTUP": "1", "MSWEA_CONFIGURED": "1",
            "MSWEA_GLOBAL_CONFIG_DIR": str(out / "home" / "cfg")}
     env["SANDBOX_NARROW"] = "1"
+    try:
+        env_failing, env_status = env_baseline(src, base, req, env, m2)
+    except Exception as error:
+        env_failing, env_status = [], f"unavailable: {error!r}"[:300]
+    print(rid, "baseline", env_status, "| failing before the change:", len(env_failing), flush=True)
+    task = TASK.format(command=command, roots=", ".join(roots)) + (ENV_NOTE.format(tests="\n".join("  - " + x for x in env_failing[:30])) if env_failing else "")
     cmd = ["unshare", "-m", str(HERE / "sandbox_inner.sh"), str(ws), str(out), str(m2), *software_for(req), "--",
            f"{home}/venv_agent/bin/mini", "-c", "mini.yaml", "-c", str(out / "mini_local.yaml"), "-c", f"agent.step_limit={step_limit}", "-c", "environment.timeout=600",
-           "-m", "hosted_vllm/inkling", "--agent-class", "default", "-y", "-l", "0", "-t", TASK.format(command=command, roots=", ".join(roots)), "-o", str(out / "traj.json")]
+           "-m", "hosted_vllm/inkling", "--agent-class", "default", "-y", "-l", "0", "-t", task, "-o", str(out / "traj.json")]
     started = time.time()
     proc = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=open(out / "stdout.txt", "w"), stderr=subprocess.STDOUT, start_new_session=True)
     try:
@@ -90,7 +129,8 @@ def handle(req_file, queue, m2, step_limit, timeout):
     except subprocess.TimeoutExpired:
         os.killpg(proc.pid, signal.SIGKILL)
         status = "timeout"
-    result = {"status": status, "seconds": round(time.time() - started), "returncode": proc.returncode, "changed": [], "deleted": [], "ignored": []}
+    result = {"status": status, "seconds": round(time.time() - started), "returncode": proc.returncode, "changed": [], "deleted": [], "ignored": [],
+              "env_failing": env_failing, "baseline": env_status}
     try:
         traj = json.load(open(out / "traj.json"))
         cmds = aw.commands_from_trajectory(traj)
