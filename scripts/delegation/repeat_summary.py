@@ -26,6 +26,7 @@ def pick(task, arm):
         if not run.startswith(task + "__") or run in EXCLUDE or c.R[run].get("success") is None: continue
         if arm == "solo" and "__solo__" in run: out.append(run)
         if arm == "pipe" and "__deleg-S6" in run and S.get(run, {}).get("delegate_model") == "inkling-agent": out.append(run)
+        if arm == "single" and "__deleg-S6" in run and S.get(run, {}).get("delegate_model") == "inkling" and int(run.rsplit("__r", 1)[1]) >= 70: out.append(run)
     return out
 
 
@@ -39,8 +40,9 @@ def cell(runs, k):
 tasks = sorted({r.split("__")[0] for r in c.R if "__deleg-S6" in r and S.get(r, {}).get("delegate_model") == "inkling-agent"})
 print("| repo | arm | strict pass | output tok | calls | total input | fresh input | work |\n|---|---|---|---|---|---|---|---|")
 for t in tasks:
-    for arm, name in (("solo", "solo"), ("pipe", "pipeline (Inkling agent)")):
+    for arm, name in (("solo", "solo"), ("pipe", "pipeline (Inkling agent)"), ("single", "pipeline (Inkling single prompt)")):
         runs = pick(t, arm)
+        if arm == "single" and not runs: continue
         extra = c.FALLBACK.get(t) if arm == "solo" and not runs else None
         if extra:
             print(f"| {t} | solo (earlier pilots) | n/a | {extra[0]} | {extra[1]} | n/a | n/a | {extra[2]} |"); continue

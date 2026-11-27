@@ -41,6 +41,7 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
 | gson_a80 | pipeline (Inkling agent) | 3/3 | 551 (545-558, n=3) | 3.0 (3.0-3.0, n=3) | 137.5k (137.5k-137.5k, n=3) | 40.6k (26.8k-47.4k, n=3) | 8126 (8125-8126, n=3) |
 | gson_cbad | solo | 0/2 | 2298 (2173-2423, n=2) | 7.5 (7.0-8.0, n=2) | 408.0k (382.5k-433.4k, n=2) | 52.0k (40.0k-64.1k, n=2) | 84.7k (80.8k-88.5k, n=2) |
 | gson_cbad | pipeline (Inkling agent) | 0/3 | 853 (756-914, n=3) | 4.0 (4.0-4.0, n=3) | 185.5k (185.5k-185.5k, n=3) | 27.7k (27.7k-27.7k, n=3) | 13.1k (13.1k-13.1k, n=3) |
+| gson_cbad | pipeline (Inkling single prompt) | 0/1 | 1085 (n=1) | 4.0 (n=1) | 185.6k (n=1) | 27.7k (n=1) | 13.1k (n=1) |
 | ledger_dev | solo | 2/2 | 5726 (3595-7856, n=2) | 8.5 (5.0-12.0, n=2) | 472.9k (258.8k-686.9k, n=2) | 53.0k (46.3k-59.8k, n=2) | 106.4k (43.3k-169.6k, n=2) |
 | ledger_dev | pipeline (Inkling agent) | 3/3 | 1358 (1298-1389, n=3) | 4.3 (4.0-5.0, n=3) | 208.0k (190.2k-241.0k, n=3) | 37.4k (29.6k-50.8k, n=3) | 21.2k (17.7k-25.4k, n=3) |
 | real_cactoos | solo | 3/3 | 3768 (3074-4856, n=3) | 9.0 (7.0-12.0, n=3) | 399.6k (363.3k-436.0k, n=2) | 42.4k (41.1k-43.6k, n=2) | 105.6k (61.5k-164.2k, n=3) |
@@ -49,14 +50,19 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
 | real_logicng_b | pipeline (Inkling agent) | 0/3 | 6324 (5967-6654, n=3) | 21.0 (20.0-22.0, n=3) | 1191.5k (1126.0k-1266.8k, n=3) | 58.1k (51.1k-71.4k, n=3) | 285.9k (263.5k-318.1k, n=3) |
 | real_ta4j | solo | 3/3 | 1374 (1233-1577, n=3) | 6.0 (6.0-6.0, n=3) | 320.2k (n=1) | 43.1k (n=1) | 49.4k (42.4k-61.5k, n=3) |
 | real_ta4j | pipeline (Inkling agent) | 3/3 | 584 (575-593, n=3) | 3.0 (3.0-3.0, n=3) | 138.4k (138.4k-138.4k, n=3) | 27.8k (27.8k-27.8k, n=3) | 9066 (9053-9077, n=3) |
+| real_ta4j | pipeline (Inkling single prompt) | 1/1 | 771 (n=1) | 3.0 (n=1) | 138.3k (n=1) | 27.7k (n=1) | 8972 (n=1) |
 | real_tablesaw | solo | 3/3 | 1064 (1056-1074, n=3) | 5.7 (5.0-6.0, n=3) | 252.1k (n=1) | 34.9k (n=1) | 43.7k (36.5k-47.8k, n=3) |
 | real_tablesaw | pipeline (Inkling agent) | 3/3 | 448 (428-463, n=3) | 3.0 (3.0-3.0, n=3) | 138.1k (138.1k-138.1k, n=3) | 34.3k (27.5k-48.1k, n=3) | 8756 (8737-8768, n=3) |
+| real_tablesaw | pipeline (Inkling single prompt) | 1/1 | 701 (n=1) | 4.0 (n=1) | 185.5k (n=1) | 27.7k (n=1) | 13.0k (n=1) |
 | rules_big | solo | 3/3 | 1096 (980-1259, n=3) | 5.0 (5.0-5.0, n=3) | 244.8k (n=1) | 32.2k (n=1) | 30.1k (29.3k-31.4k, n=3) |
 | rules_big | pipeline (Inkling agent) | 3/3 | 469 (444-502, n=3) | 3.0 (3.0-3.0, n=3) | 138.4k (138.4k-138.4k, n=3) | 34.4k (27.6k-48.2k, n=3) | 9058 (9051-9071, n=3) |
+| rules_big | pipeline (Inkling single prompt) | 1/1 | 502 (n=1) | 3.0 (n=1) | 138.5k (n=1) | 27.7k (n=1) | 9186 (n=1) |
 | rules_exc | solo | 3/3 | 963 (829-1089, n=3) | 5.3 (5.0-6.0, n=3) | 241.2k (n=1) | 31.0k (n=1) | 26.0k (24.3k-28.0k, n=3) |
 | rules_exc | pipeline (Inkling agent) | 3/3 | 548 (541-559, n=3) | 3.0 (3.0-3.0, n=3) | 138.2k (138.2k-138.2k, n=3) | 34.3k (27.4k-48.0k, n=3) | 8833 (8833-8834, n=3) |
+| rules_exc | pipeline (Inkling single prompt) | 1/1 | 696 (n=1) | 3.0 (n=1) | 138.3k (n=1) | 27.5k (n=1) | 8901 (n=1) |
 | rules_logic | solo | 3/3 | 1249 (1118-1496, n=3) | 5.0 (5.0-5.0, n=3) | 242.8k (n=1) | 31.4k (n=1) | 27.0k (26.8k-27.3k, n=3) |
 | rules_logic | pipeline (Inkling agent) | 3/3 | 484 (449-528, n=3) | 3.0 (3.0-3.0, n=3) | 138.5k (138.5k-138.5k, n=3) | 41.4k (27.6k-48.2k, n=3) | 9119 (9118-9119, n=3) |
+| rules_logic | pipeline (Inkling single prompt) | 1/1 | 528 (n=1) | 3.0 (n=1) | 138.5k (n=1) | 27.7k (n=1) | 9138 (n=1) |
 | rules_rename | solo | 3/3 | 886 (783-974, n=3) | 5.0 (5.0-5.0, n=3) | 247.1k (n=1) | 34.1k (n=1) | 23.4k (19.0k-31.6k, n=3) |
 | rules_rename | pipeline (Inkling agent) | 3/3 | 478 (438-507, n=3) | 3.0 (3.0-3.0, n=3) | 138.0k (138.0k-138.0k, n=3) | 34.1k (27.3k-47.8k, n=3) | 8673 (8672-8673, n=3) |
 | shop | solo | 2/2 | 4754 (2615-6893, n=2) | 8.5 (5.0-12.0, n=2) | 488.0k (256.4k-719.7k, n=2) | 54.6k (50.8k-58.5k, n=2) | 121.6k (40.9k-202.4k, n=2) |
