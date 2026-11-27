@@ -12,7 +12,7 @@ hand = H / "delegation_exp/synth" / task / "handoff.txt"
 if task.startswith("ledger"): hand = H / "delegation_exp/ledger_handoff.txt"
 for arm in arms:
     cmd = LAUNCH + ["new-run", task, "solo" if arm == "solo" else "delegate", rep, "--cell", f"R-{task}-{arm}-{rep}"]
-    if arm != "solo": cmd += ["--strategy", arm, "--context", "auto", "--verify", "repair" if arm == "S6" else "review"]
+    if arm != "solo": cmd += ["--strategy", arm, "--context", "auto", "--verify", "repair" if arm in ("S6", "S7") else "review"]
     if arm != "solo" and os.environ.get("DELEGATE_MODEL"): cmd += ["--delegate-model", os.environ["DELEGATE_MODEL"]]
     if hand.exists(): cmd += ["--handoff", str(hand)]
     rid = subprocess.run(cmd, capture_output=True, text=True).stdout.split("\n")[0].strip()

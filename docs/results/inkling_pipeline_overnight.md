@@ -156,3 +156,21 @@ Solo runs of tonight get only tools/run_tests (as the original solo runs). 'earl
    Under this rule R1 (shop `convertsToDouble`, tests only the removed `toDouble()`) is an allowed deletion; the strict scorer is UNCHANGED and still counts it as a failure where the reference kept a rewritten test, so such cases have to be reported separately. By the same rule the logicng_b rejection tests (R3) could be deleted, as the reference does.
    Tooling: agent deletions of `.java` test files are now copied back (before: discarded); tools/review now reports the tests of deleted test files (before: NOT reported, a gap that also applied to the strong agent) and adds a hint naming declarations used by a flagged old test that are no longer declared in src/main (removed OR renamed; a hint only). Replay on 6 stored runs: same summaries and flag counts; a deleted file in a scratch copy is reported; the copy-back refuses src/main, pom.xml, non-.java and paths outside the workspace.
 2. **D1 fix (`find /`):** the agent sandbox now exposes only the install folders of the JDK, Maven and the agent's Python plus what their libraries and links need (scripts/agent/runtime_paths.py), not the two cluster software trees. Same command as in the stuck runs, same node: old sandbox still running when cut at 300 s, new one finished in 9 s and found the jar. Offline Maven, Java and Maven versions checked for JDK 8, 11 and 17 (no library or resolution errors; for JDK 11 also Python imports, mini, git). The earlier dataset agent runners keep the old mounts. Command time limit unchanged (600 s). NOT yet run with the real model.
+
+## Automation-only control (S7, 2026-11-27, one run, ledger_dev)
+
+Arm S7: the same `tools/repair`, with no delegate model. It does the renames, runs the tests and the review; Claude Sonnet repairs the rest itself. Run r80, made WITH the 2026-11-27 changes (deletion rule, review); the older arms below were run without them.
+
+| arm | strict pass | output tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| S7 automation only, as measured | 1/1 (53/53) | 6342 | 14 | 794.9k | 123.0k | 190.0k |
+| S7 without the stalled calls (estimate) | | ~3.8k-5.2k | 8 | ~449k | ~57k | ~103k |
+| solo (2 runs) | 2/2 | 3595-7856 | 5-12 | 258.8k-686.9k | 46.3k-59.8k | 43.3k-169.6k |
+| pipeline, Inkling agent (3 runs) | 3/3 | 1298-1389 | 4-5 | 190.2k-241.0k | 29.6k-50.8k | 17.7k-25.4k |
+| pipeline, Inkling single prompt (1 run) | 1/1 | 1418 | 5 | 244.6k | 52.0k | 29.0k |
+
+- Automation did 12 renames (63 occurrences). 11 compile errors in 3 files remained, from behaviour and signature changes, and Claude fixed them. Literal sync did not apply: it needs tests that run and fail.
+- The stall was Claude's own command (`cat > /dev/null && python3 ...` waited on input and was moved to the background). It cost 6 extra calls, one of them with the whole context uncached (58k), plus a script written twice. The estimate row only subtracts these calls; it is not a second run.
+- No test deleted. The review flags 3 methods; in each, the dropped assertion is `assertTrue` around a call that now returns `void`, and the other assertions remain.
+- Reading: on this repo, automation without a delegate showed no clear saving over solo, with or without the stall. The agent pipeline's saving here came from the delegate. This does not carry over to repos where the renames fix everything (rules_rename: the delegate was never called).
+- Limits: one run, one repo; solo has only 2 runs here and varies widely.

@@ -187,6 +187,8 @@ def run_round(ws, cfg, args, rnd, strong):
         if synced:
             rc, log = common.mvn(ws); kind, data = common.result_of(ws, rc, log)
             if kind == "tests" and all(r[2] in ("pass", "skipped") for r in data): return {"units": 0, "tin": 0, "tout": 0, "cost": 0.0, "notes": [], "synced": synced, "routed": []}, ""
+    if cfg["delegates"][args.model].get("none"):                   # NO delegate model (control arm "automation only"): the literal sync above is all that happens; what still fails is the strong agent's
+        return {"units": 0, "tin": 0, "tout": 0, "cost": 0.0, "notes": [], "synced": synced, "routed": []}, ""
     if cfg["delegates"][args.model].get("agent"):                  # AGENT delegate: one agent run over the whole workspace instead of one prompt per unit (no routing)
         if args.dry_run: return None, "dry run: the agent delegate has no prompts to show"
         try: r = agent_client.run_agent(ws, cfg, args.model)

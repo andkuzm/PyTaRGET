@@ -30,6 +30,7 @@ def prompt_for(ws, arm, strategy, context, verify, handoff=None):
     parts = [t("run_common.md").replace("{WS}", str(ws))]
     if handoff: parts.append(t("handoff.md").replace("{HANDOFF}", Path(handoff).read_text().strip()))
     if arm == "solo": parts.append(t("arm_solo.md"))
+    elif strategy == "S7": parts += [t("strategy_S7.md"), t(f"verify_{verify}.md")]      # automation only: no delegate model is mentioned
     else: parts += [t("arm_delegate_intro.md"), t(f"strategy_{strategy}.md"), t(f"context_{context}.md"), t(f"verify_{verify}.md")]
     return "\n\n".join(parts) + "\n"
 
@@ -53,6 +54,9 @@ def new_run(a):
         cfg["delegates"]["inkling"] = {"slug": "inkling", "base_url_file": "~/delegation_exp/local_delegate_endpoint.txt", "key_file": "~/.config/delegation/local_token", "max_tokens": 12288,
                                        "chat_template_kwargs": {"reasoning_effort": os.environ.get("INKLING_EFFORT", "low")}, "price_in": 0, "price_out": 0}
         cfg["delegates"]["inkling-agent"] = {"agent": True, "queue": "~/delegation_exp/agent_queue", "price_in": 0, "price_out": 0}
+        cfg["delegates"]["none"] = {"none": True}                      # strategy S7: automation only, no delegate model
+        if a.strategy == "S7":
+            cfg["default_delegate"] = "none"; (ws / "tools" / "delegate").unlink()
         cfg["delegates"]["oracle"] = {"oracle": True, "ref_dir": str(EXP / "tasks" / a.task / "ref")}     # ideal-scenario experiment only (--delegate-model oracle)
         cfg["fallback"] = {"particle-free": "particle"}; cfg["paid_cap_usd"] = 1.00; cfg["paid_ledger"] = str(EXP / "delegate_paid_ledger.json")
     (ws / ".delegation/config.json").write_text(json.dumps(cfg, indent=1))

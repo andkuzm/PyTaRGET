@@ -65,7 +65,11 @@ def pipeline(ws):
     print("== tools/start"); st = sh(["start.py"], ws); print(st.stdout.strip()[-1500:])
     t = st.stdout
     failed = lambda out: int((re.search(r"(\d+) failed", out) or [0, 10**6])[1]) if "TESTS:" in out else 10**6      # compile errors count as "all failing"
-    for rnd in range(1, 4):
+    from dtools import common
+    cfg = common.load_config(ws); no_model = bool(cfg.get("delegates", {}).get(cfg.get("default_delegate"), {}).get("none"))
+    if no_model and not passed(t):                                     # control arm "automation only": only the model-free message sync of delegate.py; no mention of a delegate in the output
+        d = sh(["delegate.py"], ws); print("\n".join(l.strip() for l in d.stdout.splitlines() if "LITERAL SYNC" in l)); t = sh(["run_tests.py"], ws).stdout
+    for rnd in ([] if no_model else range(1, 4)):
         if passed(t): break
         print(f"== delegate round {rnd}"); before = failed(t); b0 = badness(t); snap = ws / ".delegation" / f"snap_round{rnd}"; snapshot(ws, snap); d = sh(["delegate.py"], ws); lines = d.stdout.strip().splitlines(); print("\n".join(lines[-12:]))
         if d.returncode and not d.stdout.strip(): print("delegate failed:", d.stderr[-300:]); break
@@ -78,7 +82,7 @@ def pipeline(ws):
         if no_units or (not passed(t) and failed(t) >= before): print("== no progress this round (nothing left that the delegate can take): stopping the delegate rounds"); break
     else: t = sh(["run_tests.py"], ws).stdout
     print("== tests"); print(t.strip()[-1500:])
-    if not passed(t): print("\nESCALATE: tests still fail (above). Repair these yourself or call tools/delegate --units <Class#method>."); return
+    if not passed(t): print("\nESCALATE: tests still fail (above). Repair these yourself" + ("." if not (ws / "tools" / "delegate").exists() else " or call tools/delegate --units <Class#method>.")); return
     rv = sh(["review.py"], ws).stdout if (ws / "tools" / "review").exists() else ""
     flagged = [l for l in rv.splitlines() if any(f in l for f in FLAGS) and not l.lstrip().startswith("flags:")] if rv else []
     if not rv: print("\nACCEPT: all tests pass (no tools/review in this workspace, assertion check not done)."); return
