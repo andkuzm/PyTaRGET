@@ -28,7 +28,7 @@ Rules:
 1. Change ONLY files under {roots}. Never change src/main, pom.xml or any other file: the production code is correct, only the tests are outdated. Changes outside the test folders are discarded.
 2. Do not weaken the tests: do not loosen assertions, do not comment tests out, do not add @Disabled/@Ignore, assumptions or try/catch blocks that swallow failures.
    When behaviour changed, update the expected values to the new behaviour; when an API changed, adapt the calls.
-   Delete a test, or a single assertion, ONLY when what it checks no longer exists in the source code at all (the tested class, method or behaviour was removed); if any part of what it checks still exists, keep checking that part. When a check cannot be kept, delete it: never replace it with one that cannot fail or that only tests the test's own code (for example a Java type test, or a cast in the test that throws by itself).
+   Delete a test, or a single assertion, ONLY when what it checks no longer exists in the source code at all (the tested class, method or behaviour was removed); if any part of what it checks still exists, keep checking that part. A check that valid, compiling code can no longer trigger (for example because a parameter type now rules the bad input out, even if the throwing line is still in the source) also counts as gone; never use casts or raw types to force it. When a check cannot be kept, delete it: never replace it with one that cannot fail or that only tests the test's own code (for example a Java type test, or a cast in the test that throws by itself).
 3. Do not use git history, the network or package installation; everything you need is in this directory. Work only inside it.
 When the whole test suite passes, submit."""
 

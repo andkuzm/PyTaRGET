@@ -174,3 +174,7 @@ Arm S7: the same `tools/repair`, with no delegate model. It does the renames, ru
 - No test deleted. The review flags 3 methods; in each, the dropped assertion is `assertTrue` around a call that now returns `void`, and the other assertions remain.
 - Reading: on this repo, automation without a delegate showed no clear saving over solo, with or without the stall. The agent pipeline's saving here came from the delegate. This does not carry over to repos where the renames fix everything (rules_rename: the delegate was never called).
 - Limits: one run, one repo; solo has only 2 runs here and varies widely.
+
+## Ruling on R3 (user, 2026-11-27)
+
+A check that valid, compiling code can no longer trigger counts as gone, so deleting such a test is correct (logicng: testIllegalAdd, testIllegalCC, testIllegalAMO, testIllegalEXO; the reference drops them too). Casts or raw types must not be used to force it. For CC/AMO/EXO the runtime check was removed; for Add the throwing line is still in `addMapping` but `Variable` is final and always positive. The sentence was added to the solo/pipeline rules, the agent task and the final-check text. Not yet tested whether models now delete these tests (needs a logicng rerun). Stored results are unchanged.
