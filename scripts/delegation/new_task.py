@@ -25,7 +25,7 @@ task = prepare_task.EXP / "tasks" / tid
 prepare_task.real(tid, repo, a, b, module)
 ws = task / "ws"; cfg = common.load_config(ws)
 if java: cfg["java_home"] = json.load(open(H / "tools/java/java_homes.json"))[java]
-cfg.update({"jail": True, "m2": str(task / "m2"), "mvn_extra": [*cfg.get("mvn_extra", []), *MVN_SKIPS, "-Dsurefire.printSummary=false", "-Dtoolchain.skip=true"]})
+cfg.update({"jail": True, "m2": str(task / "m2"), "mvn_extra": [*cfg.get("mvn_extra", []), *MVN_SKIPS, "-Dsurefire.printSummary=false", "-Dtoolchain.skip=true", "-Dgitbuildhook.skip=true"]})
 for k in ("key_file", "delegates", "default_delegate"): cfg.pop(k, None)
 cfg["delegates"] = {}
 (ws / ".delegation/config.json").write_text(json.dumps(cfg, indent=1))
