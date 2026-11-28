@@ -205,6 +205,83 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 - Sandbox: `find /` took 2 s and listed only this run's Maven copy (no other job's folders).
 - Against r81 (92 calls, 467 s, 5.16M in / 34.8k out) do NOT read the drop as the effect of the fixes: besides one run each, the Maven cache now also holds cactoos-matchers 0.23 (added for the old-code check), and the agent compared the old and new MatcherOf classes right away, information it did not have before.
 
+## SUMMARY: new projects, night of 2026-11-28
+
+10 Java/Maven projects not used before (changes dated 2026-08-02 to 2026-11-25), Claude Sonnet alone against Claude + tools/repair with the Inkling agent. Purpose (user): robustness, fixing what breaks. Details, fixes and per-run rows are in the "New projects" section below.
+
+### Problems found, in order of importance
+| problem | effect | state |
+|---|---|---|
+| FALSE ACCEPT after a rollback (environment failures counted; old file times -> stale classes) | pipeline said done with nothing repaired; the scorer was fooled too | fixed, reproduced; 20 other affected/new runs rescored clean: unchanged |
+| Agent sandbox escape (all earlier agent runs affected) | commands could reach the home folder | fixed, re-tested; text scan of 514 old trajectories found no use |
+| Agent copy dropped every folder named `tools` | jackson-core's source was missing for the delegate | fixed; only that project affected |
+| Assertion counter ignored everything after the first `//` of a method | strict check wrong in class lists | fixed; 167 runs rechecked, no verdict in the overnight comparison changed (one early pilot loses its only flag) |
+| Strict check required tests the real update adds or deletes | correct repairs marked weak | fixed (new projects only) |
+| Renamed test files lost at task preparation | smaller task (cm front matter) | fixed for future tasks |
+| Environment-only failures ended in ESCALATE; class-level sandbox flag too broad; 1-3 flaky failures started new rounds | unneeded Claude work | fixed; the flaky fix did NOT help commonmark (fails alone too under load) |
+
+### Not solved
+- commonmark: a 3 s timeout test on a node with load ~100 (not our processes' load; cause not inspected): pipeline cost more than solo in both runs.
+- jsoup removal r1: the agent's old-code check took 12 min 20 s once (cause unknown; 6 s in the repeat, where the pipeline then saved output).
+- QUALITY GAP: the delegate sometimes REPLACES a check with a weaker one (jsoup-query CssTest#root; jackson-core same-instance check, both pipeline runs after the fix; jsoup-PI r6 comment position). Strict check and review count assertions and do not see it; after ACCEPT Claude does not look. "Strict yes" therefore does NOT mean as strong as solo's tests.
+
+### Results
+All new-project runs pass the strict check except the one invalid false-ACCEPT run (jsoup-PI pipeline r1). One or two runs per arm. The "latest" view is NOT evidence about unseen projects: the tool was changed after seeing these projects, and differences between runs also include ordinary variation.
+
+#### First valid attempt per project (tool as it was at that moment)
+
+| project | solo output | pipeline output | change | solo / pipeline run |
+|---|---|---|---|---|
+| jsoup-query | 8053 | 896 | -89% | r1 / r1 |
+| json-schema-validator | 6734 | 7215 | +7% | r1 / r1 |
+| jackson-core | 1938 | 2441 | +26% | r1 / r1 |
+| commons-jexl | 3280 | 943 | -71% | r1 / r1 |
+| jsoup removal | 7264 | 9056 | +25% | r1 / r1 |
+| commonmark | 5915 | 8630 | +46% | r1 / r1 |
+| jsoup processing instr. | 3842 | 3944 | +3% | r1 / r2 |
+| cm front matter | 1888 | 460 | -76% | r1 / r1 |
+| commons-numbers | 1615 | 651 | -60% | r1 / r1 |
+| jackson-databind | 1411 | 439 | -69% | r1 / r1 |
+
+| all 10 projects, summed | solo | pipeline | change |
+|---|---|---|---|
+| output tokens | 41940 | 34675 | -17% |
+| calls | 87 | 84 | -3% |
+| total input | 5500k | 4495k | -18% |
+| fresh (uncached) input | 751k | 441k | -41% |
+| work (extra input) | 1742k | 867k | -50% |
+
+Per project, output change: median -29%, range -89% to +46%; pipeline used more than solo on 5 of 10.
+
+#### Latest run per project (later tool version)
+
+| project | solo output | pipeline output | change | solo / pipeline run |
+|---|---|---|---|---|
+| jsoup-query | 6608 | 952 | -86% | r5 / r5 |
+| json-schema-validator | 7567 | 5450 | -28% | r5 / r5 |
+| jackson-core | 1704 | 859 | -50% | r5 / r5 |
+| commons-jexl | 4267 | 664 | -84% | r5 / r5 |
+| jsoup removal | 9858 | 6493 | -34% | r6 / r6 |
+| commonmark | 5915 | 8910 | +51% | r1 / r2 |
+| jsoup processing instr. | 4569 | 776 | -83% | r6 / r6 |
+| cm front matter | 1888 | 460 | -76% | r1 / r1 |
+| commons-numbers | 1144 | 660 | -42% | r6 / r6 |
+| jackson-databind | 1411 | 439 | -69% | r1 / r1 |
+
+| all 10 projects, summed | solo | pipeline | change |
+|---|---|---|---|
+| output tokens | 44931 | 25663 | -43% |
+| calls | 88 | 69 | -22% |
+| total input | 5496k | 3651k | -34% |
+| fresh (uncached) input | 583k | 367k | -37% |
+| work (extra input) | 1695k | 670k | -60% |
+
+Per project, output change: median -59%, range -86% to +51%; pipeline used more than solo on 1 of 10.
+
+Stored strict results: 37 of 37 new-project runs yes; not yes: []
+
+Safety: new projects were built and tested only in the sandbox; library downloads ran in the sandbox with network and no tests. One solo run reported writing a helper file one folder above the project (removed; checked). No paid API calls.
+
 ## New projects, overnight 2026-11-28
 
 ### Before the first run: a sandbox escape, and sandboxed builds
@@ -311,3 +388,13 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 | commons-jexl | 4267 | 664 | -84% | yes | ACCEPT |
 | jackson-core | 1704 | 859 | -50% | yes | ACCEPT; the delegate again replaced the same-instance check by weaker checks, unnoticed by scorer and review |
 | json-schema-validator | 7567 | 5450 | -28% | yes | ESCALATE; Claude restored still-valid checks the delegate had deleted |
+
+### Second set of repeats
+
+| project | solo output | pipeline output | change | note |
+|---|---|---|---|---|
+| jsoup processing instr. (r6) | 4569 | 776 | -83% | ACCEPT; delegate dropped the comment-position check (solo moved it to another input) |
+| commons-numbers (r6) | 1144 | 660 | -42% | ACCEPT |
+| jsoup removal (r6) | 9858 | 6493 | -34% | ESCALATE; old-code check 6 s (12 min 20 s in r1) |
+
+commonmark was not repeated again (same machine load; weekly Claude limit at 90% of 95%).
