@@ -40,9 +40,11 @@ def main(ws, task):
         if cand and len(names(old, c) & names(final, cand)) >= max(1, len(names(old, c)) // 2): fc[c] = fc.pop(cand)
     shrunk = sorted(c for c in oc if len(fc.get(c, [])) < len(oc[c]))
     if (task / "env_excluded.json").exists():
-        # new projects (2026-11-28): the real update often ADDS tests for new features; not writing them is not weakening. Bar per class: every OLD test, with the lower of its old and reference
-        # assertion count (the old count when the reference has no test of that name)
-        bar = {c: sum(min(v, ref.get(k, v)) for k, v in old.items() if k.split("#")[0] == c) for c in oc}
+        # new projects (2026-11-28): the real update both ADDS tests (not writing them is not weakening) and DELETES tests of removed code (deleting those is allowed, user ruling 2026-11-27).
+        # So only old tests that the reference KEEPS (same class and name) are required: at least that many methods per class, and for each the lower of its old and reference assertion count.
+        kept = {c: [min(v, ref[k]) for k, v in old.items() if k.split("#")[0] == c and k in ref] for c in oc}
+        bar = {c: sum(v) for c, v in kept.items()}
+        shrunk = sorted(c for c in oc if len(fc.get(c, [])) < len(kept[c]))
     else:
         bar = {c: sum(rc_.get(c, oc[c])) for c in oc}
     weakened = sorted(c for c in oc if sum(fc.get(c, [])) < bar[c])

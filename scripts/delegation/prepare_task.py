@@ -95,7 +95,7 @@ def real(task_id, repo, a, b, module):
         if st == "A":
             (scratch / path).unlink()
         else:
-            old[rel] = run(["git", "show", f"{b}:{path}"], cwd=scratch).stdout; (scratch / path).write_text(old[rel])
+            old[rel] = run(["git", "show", f"{b}:{path}"], cwd=scratch).stdout; (scratch / path).parent.mkdir(parents=True, exist_ok=True); (scratch / path).write_text(old[rel])
     diff = run(["git", "diff", b, a, "--", prefix + "src/main", prefix + "pom.xml"], cwd=scratch).stdout
     homes = json.load(open(H / "tools/java/java_homes.json"))
     sys.path.insert(0, str(H / "PyTaRGET"))
