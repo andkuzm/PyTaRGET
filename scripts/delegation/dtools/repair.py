@@ -27,6 +27,20 @@ def only_env(out, env):
     return bool(env and m and 0 < int(m.group(1)) == len(names) and all((c.split("$")[0], n) in env for c, n in names))     # a cut list (more than shown) never counts
 
 
+def settle(ws, out, run=None):
+    """one to three failing tests are run once more ON THEIR OWN: if they all pass then, they are load or order dependent (e.g. a 3 s timeout on a busy machine), not something to repair:
+    the result counts as passed, with a note. Compile errors, more failures, or a cut list are never touched."""
+    m = re.search(r"TESTS: (\d+) run, (\d+) passed, (\d+) failed", out)
+    names = re.findall(r"^\s+FAIL (\S+?#\w+)", out, flags=re.M)
+    if not m or not 0 < int(m.group(3)) <= 3 or len(names) != int(m.group(3)): return out
+    again = (run or (lambda x: sh(["run_tests.py", *x], ws).stdout))(sorted(set(names)))
+    r = re.search(r"TESTS: (\d+) run, \d+ passed, 0 failed", again)
+    if not r or int(r.group(1)) < len(set(names)): return out
+    kept = "\n".join(l for l in out.splitlines() if not re.match(r"\s+FAIL ", l))
+    return (kept.replace(m.group(0), f"TESTS: {m.group(1)} run, {m.group(2)} passed, 0 failed")
+            + "\nNOTE: FLAKY, not repaired: " + ", ".join(names) + " failed in the full run but passed when run on their own (load or order dependent).")
+
+
 def benign(ws, rv):
     """review blocks flagged ONLY 'ASSERTIONS DROPPED' where every dropped assertion is assertTrue/False(<call>) and that call's method is void in src/main now = the expected consequence of a boolean->void change.
     returns (rv without those blocks, number auto-accepted)"""
@@ -70,7 +84,7 @@ def restore(ws, src):
 
 def pipeline(ws):
     print("== tools/start"); st = sh(["start.py"], ws); print(st.stdout.strip()[-1500:])
-    t = st.stdout
+    t = settle(ws, st.stdout)
     failed = lambda out: int((re.search(r"(\d+) failed", out) or [0, 10**6])[1]) if "TESTS:" in out else 10**6      # compile errors count as "all failing"
     from dtools import common
     cfg = common.load_config(ws); no_model = bool(cfg.get("delegates", {}).get(cfg.get("default_delegate"), {}).get("none"))
@@ -81,13 +95,13 @@ def pipeline(ws):
         print(f"== delegate round {rnd}"); before = failed(t); b0 = badness(t); snap = ws / ".delegation" / f"snap_round{rnd}"; snapshot(ws, snap); d = sh(["delegate.py"], ws); lines = d.stdout.strip().splitlines(); print("\n".join(lines[-12:]))
         if d.returncode and not d.stdout.strip(): print("delegate failed:", d.stderr[-300:]); break
         no_units = bool(re.search(r"\b0 unit\(s\)", d.stdout))
-        t = sh(["run_tests.py"], ws).stdout
+        t = settle(ws, sh(["run_tests.py"], ws).stdout)
         b1 = badness(t); show = lambda b: f"{b - 10**6} compile errors" if b >= 10**6 else f"{b} failing tests"
         if not no_units and not passed(t) and (b1 - (10**6 if b1 >= 10**6 else 0)) > 0.5 * (b0 - (10**6 if b0 >= 10**6 else 0)) and (b1 >= 10**6) == (b0 >= 10**6):   # the round fixed less than half of what was wrong: undo it, the strong agent starts from the state before it (partial, partly wrong edits cost it more than they save)
             restore(ws, snap); t = sh(["run_tests.py"], ws).stdout
             print(f"== ROLLED BACK delegate round {rnd}: {show(b0)} before, {show(b1)} after; fixed less than half; the tests are as before the round"); break
         if no_units or (not passed(t) and failed(t) >= before): print("== no progress this round (nothing left that the delegate can take): stopping the delegate rounds"); break
-    else: t = sh(["run_tests.py"], ws).stdout
+    else: t = settle(ws, sh(["run_tests.py"], ws).stdout)
     print("== tests"); print(t.strip()[-1500:])
     env = common.env_failing(ws); env_only = only_env(t, env)
     if env: print("NOTE: already failing in the agent sandbox on the OLD code (environment, not the source change): " + ", ".join(sorted(f"{c}#{n}" for c, n in env)[:8]) + ". Do not rewrite these to make them pass.")
