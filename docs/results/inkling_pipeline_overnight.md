@@ -218,3 +218,19 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 
 1. **Tests added by the real update counted as weakening.** jsoup-query's reference adds tests for new features; classes a solver did not even edit (RegexTest) were marked weakened. For NEW projects the bar per class is now: every OLD test, with the lower of its old and reference assertion count. Earlier projects keep the old bar.
 2. **Older bug in the assertion counter (all projects):** its comment-removing regex (DOTALL) dropped everything after the first `//` of a method, URLs included. Now comments and strings are masked properly. Recheck of 167 saved runs (static, no tests rerun): the weakened list differs in 12: gson_a80 S1 r6 (early pilot) loses its only flag; 11 gson_cbad runs gain 2 classes and were already strict NO. No verdict in the overnight comparison changes.
+
+### Project runs (1 run per arm unless stated; strong model Claude Sonnet; strict pass with the corrected scorer)
+
+- **jsoup-query** (jhy/jsoup 4f7d383833, 2026-10-21; 6 new source files; old tests: 15 compile errors in 1 file; 7 environment failures excluded). Solo and pipeline both strict yes, 2145/2152, 7 env. Solo r1 was first scored NO by the old scorer rule (fix 1). Pipeline ended ESCALATE only because of the env failures although the review flagged nothing -> fixed (ACCEPT now; commit 58852b5); Claude did not inspect the edits. Quality note: in CssTest#root the delegate moved a check to a new detached-tree example instead of asserting the new behaviour of the original query; scorer and review did not notice; solo asserted the new behaviour.
+- **json-schema-validator** (networknt 947702fafe, 2026-10-23; 10423 old tests pass, 0 env; old tests: 13 compile errors). Solo strict yes after fix of the new-project rule (first NO: it required checks from 3 CountTokensTest tests that the real update also deletes). Solo deleted those 3; InternalPackageIT (not run by mvn test) lost the checks on the removed class.
+  - Pipeline r1: strict yes but NO output saving (7215 vs 6734). The delegate deleted two range-limit tests whose expected exception is no longer raised (changed behaviour) -> review flagged, Claude restored them.
+  - Fix: one sentence in the agent task (commit 5ef1a17). Rerun r2: delegate updated those two; it still deleted the whole CountTokensTest file including one test that should stay (review flagged, Claude restored). 4251 output (-37% vs solo). One run: not proof the sentence caused the whole difference.
+- **JSqlParser** 3befd9d44b: skipped. First: pom needs a Maven toolchain (-Dtoolchain.skip added); then the old tests did not finish within 15 min.
+
+| project, arm | strict | output tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| jsoup-query solo | yes | 8053 | 16 | 1259k | 194k | 568k |
+| jsoup-query pipeline | yes | 896 | 4 | 188k | 50k | 15.5k |
+| json-schema solo | yes | 6734 | 10 | 650k | 91k | 218k |
+| json-schema pipeline r1 (before the rule fix) | yes | 7215 | 10 | 621k | 65k | 189k |
+| json-schema pipeline r2 (after) | yes | 4251 | 10 | 588k | 54k | 156k |
