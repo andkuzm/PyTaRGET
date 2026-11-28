@@ -85,7 +85,7 @@ def real(task_id, repo, a, b, module):
     assert run(["git", "clone", "-q", "--filter=blob:none", f"https://github.com/{repo}.git", str(scratch)]).returncode == 0, "clone failed"
     assert run(["git", "checkout", "-q", a], cwd=scratch).returncode == 0, "checkout failed"
     prefix = (module.rstrip("/") + "/") if module not in ("", ".") else ""
-    names = run(["git", "diff", "--name-status", b, a], cwd=scratch).stdout.splitlines()
+    names = run(["git", "diff", "--name-status", "--no-renames", b, a], cwd=scratch).stdout.splitlines()      # a renamed test file = old one deleted + new one added (until 2026-11-28 renames left an EMPTY new file and lost the old test)
     ref, old = {}, {}
     for line in names:
         st, path = line.split("\t")[0][0], line.split("\t")[-1]
