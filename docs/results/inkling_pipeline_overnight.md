@@ -258,3 +258,15 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 |---|---|---|---|---|---|---|
 | jsoup-removal solo | yes | 7264 | 10 | 685k | 66k | 253k |
 | jsoup-removal pipeline | yes | 9056 | 19 | 1109k | 62k | 288k |
+
+- **commonmark** (d636048629, 2026-10-28; module commonmark, Java 17; 47 compile errors in 1 file; PathologicalTest#nestedImages excluded: it also fails with the reference tests). All three runs strict yes. **REGRESSION, NOT SOLVED:** pipeline 8630 / rerun 8910 vs solo 5915 output (+46% / +51%), 17 / 20 vs 10 calls.
+  - Condition: the shared login node had load ~100-103 on 8 cores for the whole period (no leftover processes of ours; cause outside our jobs, not inspected). nestedImages has a 3 s timeout and fails or passes depending on load (solo saw it too).
+  - r1: the tool took it as a real failure, started a second delegate round (841 s, no change), rolled it back, ESCALATE.
+  - Fix 0bf1e87: 1-3 failing tests are rerun alone and counted as flaky if they pass (unit-checked). r2: only one delegate round, but the test did not count as flaky (final state "tests still fail"), so Claude was still sent to handle it. No clean fix for a 3 s limit on such a node.
+  - Both pipeline runs: the delegate deleted tests that call the now-private prev() (testPrev, testPrevAcrossLines in r2) although they can be rewritten through the public findPrev; review flagged it, Claude restored them. Solo rewrote them directly. This restoring is the other part of the extra cost.
+
+| project, arm | strict | output tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| commonmark solo | yes | 5915 | 10 | 647k | 80k | 215k |
+| commonmark pipeline r1 | yes | 8630 | 17 | 874k | 49k | 140k |
+| commonmark pipeline r2 (flaky rerun fix) | yes | 8910 | 20 | 1071k | 54k | 208k |
