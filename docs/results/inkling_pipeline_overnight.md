@@ -285,3 +285,13 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 | jsoup-PI solo | yes | 3842 | 8 | 511k | 58k | 166k |
 | jsoup-PI pipeline r1 (false ACCEPT bug) | NO (4 failing) | - | - | - | - | - |
 | jsoup-PI pipeline r2 (fixed) | yes | 3944 | 10 | 546k | 67k | 114k |
+
+- **commonmark front matter** (2b264befeb, 2026-08-02; 1 compile error). Both strict yes. The pipeline needed NO delegate call (one automatic rename): 460 vs 1888 output (-76%). Caveat: the real update also renames two test files; a prepare_task bug lost the old tests under renamed files and left empty files, so this task is smaller than the real update (both arms got the same files). Fixed (2ed73bd). Only this task and the unused jackson_xjb were affected.
+- **commons-numbers gamma** (be86bfa962, 2026-10-21; 2 runtime failures). Both strict yes; pipeline ACCEPT; 651 vs 1615 output (-60%). The edits agree except one line where the pipeline's check is stricter (equals +infinity instead of isInfinite).
+
+| project, arm | strict | output tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| cm front matter solo | yes | 1888 | 7 | 393k | 45k | 90k |
+| cm front matter pipeline | yes | 460 | 3 | 139k | 27k | 9k |
+| commons-numbers solo | yes | 1615 | 6 | 296k | 54k | 36k |
+| commons-numbers pipeline | yes | 651 | 4 | 187k | 28k | 14k |
