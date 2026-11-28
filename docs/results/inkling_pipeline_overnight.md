@@ -248,3 +248,13 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 | jackson-core pipeline r2 (fixed) | yes | 831 | 5 | 235k | 28k | 19k |
 | commons-jexl solo | yes | 3280 | 6 | 331k | 46k | 72k |
 | commons-jexl pipeline | yes | 943 | 5 | 235k | 28k | 19k |
+
+- **jsoup removal of deprecated API** (jhy 6c9af18406, 2026-09-07; 27 compile errors in 6 files; 7 env). Both strict yes. **REGRESSION:** pipeline 9056 vs solo 7264 output (+25%), 19 vs 10 calls, total input +62%, work +14%, fresh -6%. One run each.
+  - How: (a) the agent job's old-code check took 12 min 20 s (the same suite's tests take ~2 s in total there; preparing this task on the login session was quick) -> 6 `tools/repair --wait` calls. CAUSE NOT FOUND (the time is inside Maven, outside test cases), no fix. (b) The update removes API, so the review lists many REMOVED tests (11-15) that Claude checks one by one; none of the removed tests is kept by the real update (both arms). (c) False flag: a test class that cannot start on the old code (ConnectTest) flagged ANY edit of the file, here a needed removal.
+  - Fix for (c) only: for such classes only changes outside the test methods (set-up) are flagged; checked on this workspace (flag gone). Not rerun: (c) is a small part of the cost and (a) has no fix.
+  - Claude (solo) reported one rule slip: wrote a helper script one folder above the project and removed it (checked: nothing left).
+
+| project, arm | strict | output tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| jsoup-removal solo | yes | 7264 | 10 | 685k | 66k | 253k |
+| jsoup-removal pipeline | yes | 9056 | 19 | 1109k | 62k | 288k |

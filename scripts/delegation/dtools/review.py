@@ -84,6 +84,12 @@ def code_only(body):
     return re.sub(r"\s+", "", "".join(out))
 
 
+def setup_code(text):
+    """the code of a test file outside its test methods, without imports, comments and layout: fields, set-up and tear-down."""
+    lines = text.split("\n"); inside = {i for _, a, b in common.find_methods(text) for i in range(a - 1, b)}
+    return code_only("\n".join(l for i, l in enumerate(lines) if i not in inside and not l.startswith("import ")))
+
+
 def main(ws, only):
     ws = Path(ws); cfg = common.load_config(ws); root = cfg["test_roots"][0]
     old_files = {p: git(ws, "show", f"HEAD:{p}") for p in git(ws, "ls-tree", "-r", "--name-only", "HEAD", root).split("\n") if p.endswith(".java")}
@@ -127,7 +133,7 @@ def main(ws, only):
     for cls, name in sorted(env - env_seen):                            # a failure without a test method of that name (class set-up): any change of the file counts
         for f in (ws / root).rglob(cls + ".java"):
             rel = str(f.relative_to(ws)); before = git(ws, "show", f"HEAD:{rel}")
-            if before and not any(n == name for n, *_ in common.find_methods(before)) and code_only(before) != code_only(f.read_text(errors="ignore")):
+            if before and not any(n == name for n, *_ in common.find_methods(before)) and setup_code(before) != setup_code(f.read_text(errors="ignore")):          # a class that cannot start: only its set-up counts, not compile fixes inside tests
                 shown.append((rel, name or "(class)", [ENV], [], []))
     gone = removed_declarations(ws)
     print(f"review: {same} test methods changed only by renames (not shown), {changed} changed in meaning, {removed} removed; flagged first")
