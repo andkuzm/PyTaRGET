@@ -270,3 +270,10 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 | commonmark solo | yes | 5915 | 10 | 647k | 80k | 215k |
 | commonmark pipeline r1 | yes | 8630 | 17 | 874k | 49k | 140k |
 | commonmark pipeline r2 (flaky rerun fix) | yes | 8910 | 20 | 1071k | 54k | 208k |
+
+### CRITICAL BUG found 2026-11-28 06:00: a FALSE ACCEPT after a rollback
+
+- **jsoup-PI pipeline r1** (jhy 6d8d487efc, 2026-09-21; 4 real runtime failures + 7 environment): tools/repair printed ACCEPT and the stored score said success, but the workspace held NO test change. A clean build shows the 4 failures. This run is INVALID (a failure).
+- Two causes: (1) the rollback rule counted the 7 environment failures: 11 -> 7 failures looked like "fixed less than half", although the delegate had fixed all 4 real ones; (2) restore kept the old file times, so Maven did not recompile and the following test run (and the scorer, which reused target/) ran the rolled-back classes. (That the cause is stale classes is shown by the reproduction: with the fix the restored workspace again gives 11 failures.)
+- Fix: environment failures do not count in the rollback rule; restore writes new file times and removes compiled tests; the scorer removes build output before building. Reproduced on a copy: 11 -> 7 with the delegate edit (no rollback now) -> restore gives 11 again.
+- Impact check: clean-build rescoring of all 7 other runs that ever had a rollback and of all new-project runs (20 runs): every verdict is unchanged. In those 7 rolled-back runs the test output the tool showed right AFTER the rollback may also have been stale; final results are what the clean rescoring shows.

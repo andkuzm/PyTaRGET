@@ -79,7 +79,9 @@ def restore(ws, src):
     from dtools import common
     cfg = common.load_config(ws)
     for r in cfg.get("test_roots", ["src/test/java"]):
-        if (src / r).exists(): shutil.rmtree(ws / r); shutil.copytree(src / r, ws / r)
+        # copyfile = NEW modification times. Until 2026-11-28 the old times were kept, Maven did not recompile the restored files and the next run tested the ROLLED-BACK code (false ACCEPT).
+        if (src / r).exists(): shutil.rmtree(ws / r); shutil.copytree(src / r, ws / r, copy_function=shutil.copyfile)
+    common.drop_build_output(ws, only_tests=True)
 
 
 def pipeline(ws):
@@ -96,8 +98,12 @@ def pipeline(ws):
         if d.returncode and not d.stdout.strip(): print("delegate failed:", d.stderr[-300:]); break
         no_units = bool(re.search(r"\b0 unit\(s\)", d.stdout))
         t = settle(ws, sh(["run_tests.py"], ws).stdout)
-        b1 = badness(t); show = lambda b: f"{b - 10**6} compile errors" if b >= 10**6 else f"{b} failing tests"
-        if not no_units and not passed(t) and (b1 - (10**6 if b1 >= 10**6 else 0)) > 0.5 * (b0 - (10**6 if b0 >= 10**6 else 0)) and (b1 >= 10**6) == (b0 >= 10**6):   # the round fixed less than half of what was wrong: undo it, the strong agent starts from the state before it (partial, partly wrong edits cost it more than they save)
+        b1 = badness(t)
+        n_env = len(common.env_failing(ws))                  # failures that already happened on the old code cannot be fixed by a round: they do not count for or against it
+        if b0 < 10**6: b0 = max(b0 - n_env, 0)
+        if b1 < 10**6: b1 = max(b1 - n_env, 0)
+        show = lambda b: f"{b - 10**6} compile errors" if b >= 10**6 else f"{b} failing tests"
+        if not no_units and not passed(t) and not only_env(t, common.env_failing(ws)) and (b1 - (10**6 if b1 >= 10**6 else 0)) > 0.5 * (b0 - (10**6 if b0 >= 10**6 else 0)) and (b1 >= 10**6) == (b0 >= 10**6):   # the round fixed less than half of what was wrong: undo it, the strong agent starts from the state before it (partial, partly wrong edits cost it more than they save)
             restore(ws, snap); t = sh(["run_tests.py"], ws).stdout
             print(f"== ROLLED BACK delegate round {rnd}: {show(b0)} before, {show(b1)} after; fixed less than half; the tests are as before the round"); break
         if no_units or (not passed(t) and failed(t) >= before): print("== no progress this round (nothing left that the delegate can take): stopping the delegate rounds"); break

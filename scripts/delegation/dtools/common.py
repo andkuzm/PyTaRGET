@@ -20,6 +20,13 @@ def env_failing(ws):
     return {(x.split("#")[0].split(".")[-1].split("$")[0], x.split("#")[1]) for x in json.loads(f.read_text())}
 
 
+def drop_build_output(ws, only_tests=False):
+    """remove Maven's build folders (a `target` next to a pom.xml; with only_tests just the compiled tests), so nothing compiled from an earlier version of a file can be run."""
+    for pom in Path(ws).rglob("pom.xml"):
+        for d in ([pom.parent / "target" / "test-classes", pom.parent / "target" / "generated-test-sources"] if only_tests else [pom.parent / "target"]):
+            if d.is_dir(): shutil_rm(d)
+
+
 def mvn(ws, tests=None, offline=True, timeout=1500):
     """Run the tests of the workspace with Maven. Returns (returncode, log); the log is saved in .delegation/last_test.log."""
     ws = Path(ws); cfg = load_config(ws)

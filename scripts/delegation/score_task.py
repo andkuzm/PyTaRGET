@@ -21,6 +21,7 @@ def methods_of(root):
 def main(ws, task):
     ws, task = Path(ws), Path(task)
     cfg = common.load_config(ws); module = cfg["module"] if cfg["module"] != "." else ""
+    common.drop_build_output(ws)                      # always score a clean build (see repair.restore: stale classes once made a rolled-back workspace look repaired)
     rc, log = common.mvn(ws, timeout=2400)
     kind, data = common.result_of(ws, rc, log)
     old = methods_of(task / "old_tests"); ref = methods_of(task / "ref")
