@@ -277,3 +277,11 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 - Two causes: (1) the rollback rule counted the 7 environment failures: 11 -> 7 failures looked like "fixed less than half", although the delegate had fixed all 4 real ones; (2) restore kept the old file times, so Maven did not recompile and the following test run (and the scorer, which reused target/) ran the rolled-back classes. (That the cause is stale classes is shown by the reproduction: with the fix the restored workspace again gives 11 failures.)
 - Fix: environment failures do not count in the rollback rule; restore writes new file times and removes compiled tests; the scorer removes build output before building. Reproduced on a copy: 11 -> 7 with the delegate edit (no rollback now) -> restore gives 11 again.
 - Impact check: clean-build rescoring of all 7 other runs that ever had a rollback and of all new-project runs (20 runs): every verdict is unchanged. In those 7 rolled-back runs the test output the tool showed right AFTER the rollback may also have been stale; final results are what the clean rescoring shows.
+
+- **jsoup-PI**, after the fix (r2): both strict yes; NO saving: pipeline 3944 vs solo 3842 output (+3%), 10 vs 8 calls, total input +7%, fresh +16%, work -31%. The delegate dropped the comment lookup and range check in one test; review flagged it and Claude checked it (a correct escalation, no tool change).
+
+| project, arm | strict | output tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| jsoup-PI solo | yes | 3842 | 8 | 511k | 58k | 166k |
+| jsoup-PI pipeline r1 (false ACCEPT bug) | NO (4 failing) | - | - | - | - | - |
+| jsoup-PI pipeline r2 (fixed) | yes | 3944 | 10 | 546k | 67k | 114k |
