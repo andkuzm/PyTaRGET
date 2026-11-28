@@ -234,3 +234,17 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 | json-schema solo | yes | 6734 | 10 | 650k | 91k | 218k |
 | json-schema pipeline r1 (before the rule fix) | yes | 7215 | 10 | 621k | 65k | 189k |
 | json-schema pipeline r2 (after) | yes | 4251 | 10 | 588k | 54k | 156k |
+
+- **jackson-core** (FasterXML 1e97e589b3, 2026-11-25, the newest; 1 runtime failure; 0 env). Solo strict yes.
+  - Pipeline r1: **tool bug.** The agent copy left out every folder named `tools` (meant: our top-level tools/), and jackson's Java package is `tools.jackson`: 459 Java files were missing. The delegate could not build, removed lines from the test module-info.java and submitted; 2008 tests failed on the real copy -> round ROLLED BACK; the old-code check had reported "unavailable". Claude fixed the test by hand: strict yes, 2441 output (+26% vs solo).
+  - Fix 9b7d7bc (leave out only project-level folders and build output next to a pom.xml). Checked on 9 tasks: only jackson was affected (earlier results are not).
+  - Rerun r2: old-code check ok, ACCEPT, 831 output (-57%). Quality: the delegate's version checks LESS than solo's (it no longer checks that deserializing returns the same shared instance and compares descriptions with the binary unknown()); scorer and review do not notice.
+- **commons-jexl** (apache 0091d579c0, 2026-11-11; 3 runtime failures; 0 env). Both strict yes; pipeline ACCEPT on first try; its edits in all 3 files are almost the same as solo's. 943 vs 3280 output (-71%).
+
+| project, arm | strict | output tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| jackson-core solo | yes | 1938 | 7 | 377k | 62k | 75k |
+| jackson-core pipeline r1 (with the copy bug) | yes | 2441 | 9 | 457k | 37k | 68k |
+| jackson-core pipeline r2 (fixed) | yes | 831 | 5 | 235k | 28k | 19k |
+| commons-jexl solo | yes | 3280 | 6 | 331k | 46k | 72k |
+| commons-jexl pipeline | yes | 943 | 5 | 235k | 28k | 19k |
