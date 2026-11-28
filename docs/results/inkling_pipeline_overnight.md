@@ -302,3 +302,12 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 |---|---|---|---|---|---|---|
 | jackson-databind solo | yes | 1411 | 7 | 352k | 55k | 50k |
 | jackson-databind pipeline | yes | 439 | 3 | 139k | 27k | 9k |
+
+### Repeats (run 2 per arm, tool version after the morning fixes)
+
+| project | solo output | pipeline output | change | strict (both) | note |
+|---|---|---|---|---|---|
+| jsoup-query | 6608 | 952 | -86% | yes | ACCEPT |
+| commons-jexl | 4267 | 664 | -84% | yes | ACCEPT |
+| jackson-core | 1704 | 859 | -50% | yes | ACCEPT; the delegate again replaced the same-instance check by weaker checks, unnoticed by scorer and review |
+| json-schema-validator | 7567 | 5450 | -28% | yes | ESCALATE; Claude restored still-valid checks the delegate had deleted |
