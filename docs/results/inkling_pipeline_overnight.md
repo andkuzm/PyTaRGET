@@ -295,3 +295,10 @@ Job 4097258 (17 min, completed). `tools/repair` run directly with the Inkling ag
 | cm front matter pipeline | yes | 460 | 3 | 139k | 27k | 9k |
 | commons-numbers solo | yes | 1615 | 6 | 296k | 54k | 36k |
 | commons-numbers pipeline | yes | 651 | 4 | 187k | 28k | 14k |
+
+- **jackson-databind** (d1361bb3c3, 2026-11-25; 3 compile errors in 1 file; 7941 tests). Both strict yes; pipeline needed no delegate call (automatic rename): 439 vs 1411 output (-69%).
+
+| project, arm | strict | output tok | calls | total input | fresh input | work |
+|---|---|---|---|---|---|---|
+| jackson-databind solo | yes | 1411 | 7 | 352k | 55k | 50k |
+| jackson-databind pipeline | yes | 439 | 3 | 139k | 27k | 9k |
