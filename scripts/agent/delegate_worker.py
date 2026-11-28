@@ -42,6 +42,17 @@ These tests ALREADY FAIL in this environment on the OLD code, before the source 
 Do not try to make them pass. Edit them only as far as the source change requires (for example so that they compile); never change what they do (addresses, paths, set-up) and do not delete or disable them because they fail. They may keep failing: submit when every OTHER test passes."""
 
 
+def copy_filter(root):
+    """what the agent's copy leaves out: the PROJECT-LEVEL .git, .delegation and tools/ (ours), and build output (a `target` next to a pom.xml). Never by name deeper down:
+    until 2026-11-28 every folder called "tools" or "target" was dropped, which removed the whole source of a project whose Java package is tools.* (jackson-core)."""
+    root = Path(root).resolve()
+
+    def ignore(folder, names):
+        here = Path(folder).resolve()
+        return [n for n in names if (here == root and n in (".git", ".delegation", "tools")) or (n == "target" and (here / "pom.xml").exists())]
+    return ignore
+
+
 def sh(cmd, cwd):
     return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
 
@@ -70,7 +81,7 @@ def env_baseline(src, base, req, env, m2, timeout=900):
     """(sorted ids of the tests failing on the OLD code inside the sandbox, status text). Runs before the agent, in its own throw-away copy."""
     ws, out = base / "baseline_ws", base / "baseline_out"
     out.mkdir(parents=True)
-    shutil.copytree(src, ws, symlinks=True, ignore=shutil.ignore_patterns(".git", ".delegation", "tools", "target"))
+    shutil.copytree(src, ws, symlinks=True, ignore=copy_filter(src))
     ok, error = baseline.reverse_changes(ws)
     if not ok:
         return [], f"unavailable: the source change could not be reversed ({error})"
@@ -98,9 +109,9 @@ def handle(req_file, queue, m2, step_limit, timeout):
     ws, out = base / "ws", base / "out"
     out.mkdir(parents=True)
     src = Path(req["ws"])
-    shutil.copytree(src, ws, symlinks=True, ignore=shutil.ignore_patterns(".git", ".delegation", "tools", "target"))
+    shutil.copytree(src, ws, symlinks=True, ignore=copy_filter(src))
     sh(["git", "init", "-q"], ws)
-    (ws / ".git" / "info" / "exclude").write_text("target/\n")
+    (ws / ".git" / "info" / "exclude").write_text("/target/\n")
     sh(["git", "add", "-A"], ws)
     sh([*GIT, "commit", "-q", "-m", "current state"], ws)
     roots = req.get("test_roots") or ["src/test/java"]

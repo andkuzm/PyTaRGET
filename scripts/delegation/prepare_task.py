@@ -102,7 +102,7 @@ def real(task_id, repo, a, b, module):
     from data_processing.java_plausibility import detect_java_versions, pick_java_home
     pom = scratch / "pom.xml"
     jv, _ = pick_java_home(homes, detect_java_versions(pom.read_text(errors="ignore")) if pom.exists() else [])
-    ws = task / "ws"; shutil.copytree(scratch, ws, ignore=shutil.ignore_patterns(".git", "target")); shutil.rmtree(scratch)
+    ws = task / "ws"; shutil.copytree(scratch, ws, ignore=lambda d, names: [n for n in names if n == ".git" or (n == "target" and (Path(d) / "pom.xml").exists())]); shutil.rmtree(scratch)
     ref_in_ws = {prefix + k: v for k, v in ref.items()}; old_in_ws = {prefix + k: v for k, v in old.items()}
     cfg = finalize(task, ws, ref_in_ws, old_in_ws, diff, module or ".", jv, prefix + "src/test/java")
     meta = {"id": task_id, "kind": "real", "repo": repo, "aCommit": a, "bCommit": b, "module": module, "java": jv, "changed_test_files": len(ref), "diff_chars": len(diff)}
